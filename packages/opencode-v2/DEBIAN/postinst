@@ -2,10 +2,10 @@
 set -euo pipefail
 
 PREFIX=${PREFIX:-/data/data/com.termux/files/usr}
-VERSION="2.1.4"
-TARFILE="cli-linux-arm64-${VERSION}.tgz"
-DOWNLOAD_URL="https://registry.npmjs.org/@opencode/cli-linux-arm64/-/${TARFILE}"
-SHA256="e9acb4e23a9ac432139693aa166455a6add8946533394cbe083459a48e788861"
+VERSION="2.2.0"
+TARFILE="opencode-linux-arm64.tar.gz"
+DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${VERSION}/${TARFILE}"
+SHA256="1f1ce0fc07b9245a815ffa9d652dbb80e6b0f07e5bf74ea87d2b1c0339fbac52"
 SHARE_DIR="$PREFIX/share/opencode-v2"
 BIN_DIR="$PREFIX/bin"
 LOADER="$PREFIX/glibc/lib/ld-linux-aarch64.so.1"
@@ -25,19 +25,20 @@ die() {
 STAGE=$(mktemp -d "$TMPDIR/opencode-v2.XXXXXX")
 trap 'rm -rf "$STAGE"' EXIT
 
-echo "Downloading OpenCode 2 ${VERSION}..."
+echo "Downloading OpenCode 2 ${VERSION} from GitHub releases..."
 curl -fL --retry 3 --max-time 600 -o "$STAGE/$TARFILE" "$DOWNLOAD_URL"
 printf '%s  %s\n' "$SHA256" "$STAGE/$TARFILE" | sha256sum -c - >/dev/null ||
     die "checksum mismatch"
 tar -xzf "$STAGE/$TARFILE" -C "$STAGE"
-[ -f "$STAGE/package/bin/opencode" ] ||
+[ -f "$STAGE/opencode" ] ||
     die "OpenCode 2 binary not found in archive"
 
 rm -rf "$SHARE_DIR"
 mkdir -p "$SHARE_DIR" "$BIN_DIR"
-patchelf --set-interpreter "$LOADER" "$STAGE/package/bin/opencode"
-mv "$STAGE/package/bin/opencode" "$SHARE_DIR/opencode.real"
+patchelf --set-interpreter "$LOADER" "$STAGE/opencode"
+mv "$STAGE/opencode" "$SHARE_DIR/opencode.real"
 chmod 755 "$SHARE_DIR/opencode.real"
+
 
 cat > "$STAGE/opencode-v2.c" <<'C_EOF'
 #include <stdlib.h>

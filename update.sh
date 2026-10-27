@@ -3,6 +3,7 @@ set -e
 
 # ==============================================================================
 # AI Tools Updater for Termux (OpenCode & Antigravity CLI)
+# Real-time GitHub Upstream Releases Checker
 # ==============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,42 +21,60 @@ log_ok() { echo -e "${GREEN}[OK]${RESET} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${RESET} $1"; }
 log_err() { echo -e "${RED}[ERROR]${RESET} $1"; }
 
-echo -e "\n${BOLD}${CYAN}=== Memeriksa Update AI Tools di Termux ===${RESET}\n"
+echo -e "\n${BOLD}${CYAN}=== Memeriksa Update AI Tools di Termux (Live GitHub) ===${RESET}\n"
 
-# 1. Check OpenCode v1
-OPENCODE_INSTALLED="Tidak terpasang"
-if [ -f "$PREFIX/bin/opencode" ]; then
-    OPENCODE_INSTALLED=$("$PREFIX/bin/opencode" --version 2>/dev/null || echo "Unknown")
-fi
+# 1. Fetch releases live from GitHub anomalyco/opencode
+log_info "Mengambil data rilis resmi langsung dari GitHub (anomalyco/opencode)..."
+OPENCODE_RELEASES_JSON=$(curl -sL --max-time 15 "https://api.github.com/repos/anomalyco/opencode/releases?per_page=30" 2>/dev/null || echo "")
 
-log_info "Memeriksa versi upstream OpenCode v1..."
-OPENCODE_LATEST_TAG=$(curl -sL https://api.github.com/repos/anomalyco/opencode/releases/latest | grep '"tag_name":' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+# Extract OpenCode v1 latest tag
+OPENCODE_LATEST_TAG=$(echo "$OPENCODE_RELEASES_JSON" | grep '"tag_name":' | grep '"v1\.' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || true)
 OPENCODE_LATEST="${OPENCODE_LATEST_TAG#v}"
 if [ -z "$OPENCODE_LATEST" ]; then
     OPENCODE_LATEST="1.19.4"
 fi
 
-# 2. Check OpenCode v2
-OPENCODE2_INSTALLED="Tidak terpasang"
-if [ -f "$PREFIX/bin/opencode-v2" ]; then
-    OPENCODE2_INSTALLED=$("$PREFIX/bin/opencode-v2" --version 2>/dev/null || echo "Unknown")
-fi
-OPENCODE2_LATEST="2.1.4"
-
-# 3. Check AGY (Antigravity CLI)
-AGY_INSTALLED="Tidak terpasang"
-if [ -f "$PREFIX/bin/agy" ]; then
-    AGY_INSTALLED=$("$PREFIX/bin/agy" --version 2>/dev/null || echo "Unknown")
+# Extract OpenCode v2 latest tag
+OPENCODE2_LATEST_TAG=$(echo "$OPENCODE_RELEASES_JSON" | grep '"tag_name":' | grep '"v2\.' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || true)
+OPENCODE2_LATEST="${OPENCODE2_LATEST_TAG#v}"
+if [ -z "$OPENCODE2_LATEST" ]; then
+    OPENCODE2_LATEST="2.2.0"
 fi
 
-log_info "Memeriksa versi upstream Antigravity CLI..."
-AGY_LATEST=$(curl -sL https://api.github.com/repos/google-antigravity/antigravity-cli/releases/latest | grep '"tag_name":' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || echo "1.4.8")
-AGY_LATEST="${AGY_LATEST#v}"
+# 2. Fetch releases live from GitHub google-antigravity/antigravity-cli
+log_info "Mengambil data rilis resmi Antigravity CLI dari GitHub..."
+AGY_LATEST_RAW=$(curl -sL --max-time 15 "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/latest" 2>/dev/null | grep '"tag_name":' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || echo "1.4.8")
+AGY_LATEST="${AGY_LATEST_RAW#v}"
 if [ -z "$AGY_LATEST" ]; then
     AGY_LATEST="1.4.8"
 fi
 
-echo -e "\n${BOLD}Ringkasan Status:${RESET}"
+# 3. Detect installed versions
+OPENCODE_INSTALLED="Tidak terpasang"
+if [ -f "$PREFIX/bin/opencode" ]; then
+    RAW_V1=$("$PREFIX/bin/opencode" --version 2>/dev/null || echo "Unknown")
+    OPENCODE_INSTALLED=$(echo "$RAW_V1" | sed -E 's/.*([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+fi
+
+OPENCODE2_INSTALLED="Tidak terpasang"
+if [ -f "$PREFIX/bin/opencode-v2" ]; then
+    RAW_V2=$("$PREFIX/bin/opencode-v2" --version 2>/dev/null || echo "Unknown")
+    OPENCODE2_INSTALLED=$(echo "$RAW_V2" | sed -E 's/.*([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+fi
+
+AGY_INSTALLED="Tidak terpasang"
+if [ -f "$PREFIX/bin/agy" ]; then
+    RAW_AGY=$("$PREFIX/bin/agy" --version 2>/dev/null || echo "Unknown")
+    AGY_INSTALLED=$(echo "$RAW_AGY" | sed -E 's/.*([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+fi
+
+# 4. Display recent upstream release tags from GitHub
+if [ -n "$OPENCODE_RELEASES_JSON" ]; then
+    echo -e "\n${BOLD}${CYAN}Rilis Terbaru di GitHub Upstream (anomalyco/opencode):${RESET}"
+    echo "$OPENCODE_RELEASES_JSON" | grep '"tag_name":' | head -n 8 | sed -E 's/.*"([^"]+)".*/  • \1/'
+fi
+
+echo -e "\n${BOLD}Ringkasan Status di Termux Anda:${RESET}"
 printf "%-18s | %-16s | %-16s | %-10s\n" "Software" "Terpasang" "Upstream" "Status"
 echo "----------------------------------------------------------------------"
 
@@ -65,7 +84,7 @@ if [ "$OPENCODE_INSTALLED" = "$OPENCODE_LATEST" ]; then
 elif [ "$OPENCODE_INSTALLED" = "Tidak terpasang" ]; then
     OPENCODE_STATUS="${YELLOW}Belum ada${RESET}"
 else
-    OPENCODE_STATUS="${RED}Ada update!${RESET}"
+    OPENCODE_STATUS="${RED}Ada update! (${OPENCODE_LATEST})${RESET}"
 fi
 printf "%-18s | %-16s | %-16s | %-10b\n" "OpenCode v1" "$OPENCODE_INSTALLED" "$OPENCODE_LATEST" "$OPENCODE_STATUS"
 
@@ -75,12 +94,11 @@ if [ "$OPENCODE2_INSTALLED" = "$OPENCODE2_LATEST" ]; then
 elif [ "$OPENCODE2_INSTALLED" = "Tidak terpasang" ]; then
     OPENCODE2_STATUS="${YELLOW}Belum ada${RESET}"
 else
-    OPENCODE2_STATUS="${RED}Ada update!${RESET}"
+    OPENCODE2_STATUS="${RED}Ada update! (${OPENCODE2_LATEST})${RESET}"
 fi
 printf "%-18s | %-16s | %-16s | %-10b\n" "OpenCode v2" "$OPENCODE2_INSTALLED" "$OPENCODE2_LATEST" "$OPENCODE2_STATUS"
 
-# AGY status
-# Catatan: v1.3.5 adalah versi stabil yang ter-patch untuk Termux.
+# AGY status (v1.3.5 build stabil memori Termux)
 if [ "$AGY_INSTALLED" = "1.3.5" ]; then
     AGY_STATUS="${GREEN}Stabil (1.3.5)${RESET}"
 elif [ "$AGY_INSTALLED" = "$AGY_LATEST" ]; then
@@ -121,7 +139,7 @@ fi
 # Interactive prompt if no arguments
 echo -e "${BOLD}Pilihan tindakan:${RESET}"
 echo "1) Update OpenCode v1 ke versi terbaru ($OPENCODE_LATEST)"
-echo "2) Pasang / Update OpenCode v2 (v$OPENCODE2_LATEST)"
+echo "2) Update / Pasang OpenCode v2 ke versi terbaru ($OPENCODE2_LATEST)"
 echo "3) Pasang / Reinstall Antigravity CLI (v1.3.5 stabil)"
 echo "4) Update / Sinkronisasi Semua Tools"
 echo "5) Keluar"
@@ -146,4 +164,3 @@ case "$choice" in
         echo "Selesai."
         ;;
 esac
-

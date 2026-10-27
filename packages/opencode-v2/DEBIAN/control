@@ -1,5 +1,5 @@
 Package: opencode-v2
-Version: 2.1.4
+Version: 2.2.0
 Architecture: all
 Maintainer: Alienkrishn [Anon4You]
 Depends: glibc, clang, curl, tar, patchelf
@@ -9,4 +9,5 @@ Homepage: https://opencode.ai/
 Description: AI‑powered coding assistant (v2, glibc version)
  OpenCode 2 provides real‑time code completions, agentic coding,
  and AI assistance. This package uses the Linux arm64 glibc binary
- from npm and runs inside Termux’s glibc environment.
+ from GitHub releases and runs inside Termux’s glibc environment.
+

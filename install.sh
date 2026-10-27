@@ -41,7 +41,7 @@ echo -e "${RESET}"
 show_menu() {
     echo -e "${BOLD}Pilih opsi:${RESET}"
     echo -e "  ${GREEN}1)${RESET} Install / Update OpenCode v1 (Latest v1.19.4)"
-    echo -e "  ${GREEN}2)${RESET} Install / Update OpenCode v2 (v2.1.4 glibc + patchelf)"
+    echo -e "  ${GREEN}2)${RESET} Install / Update OpenCode v2 (Latest upstream v2.2.0)"
     echo -e "  ${GREEN}3)${RESET} Install / Update Antigravity CLI (agy v1.3.5 stabil)"
     echo -e "  ${GREEN}4)${RESET} Install / Update Semua Tools"
     echo -e "  ${GREEN}5)${RESET} Cek Status & Versi Terpasang"

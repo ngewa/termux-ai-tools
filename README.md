@@ -14,7 +14,7 @@ curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.
 
 Perintah di atas akan menampilkan menu interaktif lengkap:
 1. **Install / Update OpenCode v1** (versi upstream `v1.19.4`)
-2. **Install / Update OpenCode v2** (`v2.1.4` glibc + patchelf)
+2. **Install / Update OpenCode v2** (versi upstream `v2.2.0` glibc + patchelf)
 3. **Install / Update Antigravity CLI** (`agy v1.3.5` build stabil dengan memory patch)
 4. **Install / Update Semua Tools**
 5. **Cek Status & Versi Terpasang**
@@ -60,13 +60,21 @@ Atau jika repo sudah di-clone secara lokal:
 
 Contoh tampilan output:
 ```text
+Rilis Terbaru di GitHub Upstream (anomalyco/opencode):
+  • v2.2.0
+  • v1.19.4
+  • v1.19.3
+  • v1.19.2
+
+Ringkasan Status di Termux Anda:
 Software           | Terpasang        | Upstream         | Status    
 ----------------------------------------------------------------------
 OpenCode v1        | 1.19.4           | 1.19.4           | Up-to-date
-OpenCode v2        | 2.1.4            | 2.1.4            | Up-to-date
+OpenCode v2        | 2.2.0            | 2.2.0            | Up-to-date
 Antigravity CLI    | 1.3.5            | 1.4.8            | Stabil (1.3.5)
 ----------------------------------------------------------------------
 ```
+
 
 ---
 
@@ -124,7 +132,7 @@ Hapus biner wrapper dan file library dari sistem:
 Repositori ini menyertakan struktur paket DEBIAN (`control`, `postinst`, `preinst`, `postrm`) yang kompatibel dengan APT / DPKG Termux:
 
 - `packages/opencode/DEBIAN/` (Target versi: `1.19.4`)
-- `packages/opencode-v2/DEBIAN/` (Target versi: `2.1.4`, dari termuxvoid commit `aec17b8`)
+- `packages/opencode-v2/DEBIAN/` (Target versi: `2.2.0`)
 - `packages/antigravity-cli/DEBIAN/` (Target versi: `1.3.5`)
 
 ### Cara Build Paket .deb Sendiri:
@@ -135,7 +143,7 @@ bash build-deb.sh
 ```
 File `.deb` hasil kompilasi akan tersimpan di folder `dist/`:
 - `dist/opencode_1.19.4_all.deb`
-- `dist/opencode-v2_2.1.4_all.deb`
+- `dist/opencode-v2_2.2.0_all.deb`
 - `dist/antigravity-cli_1.3.5_all.deb`
 
 Untuk menginstall paket hasil build:

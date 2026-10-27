@@ -46,8 +46,8 @@ fi
 # 2. Determine version to install
 TARGET_VERSION="$1"
 if [ -z "$TARGET_VERSION" ]; then
-    log_info "Mencari versi terbaru OpenCode dari GitHub..."
-    LATEST_TAG=$(curl -sL https://api.github.com/repos/anomalyco/opencode/releases/latest | grep '"tag_name":' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+    log_info "Mencari versi terbaru OpenCode v1 dari GitHub releases..."
+    LATEST_TAG=$(curl -sL https://api.github.com/repos/anomalyco/opencode/releases?per_page=30 | grep '"tag_name":' | grep '"v1\.' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
     TARGET_VERSION="${LATEST_TAG#v}"
     if [ -z "$TARGET_VERSION" ]; then
         log_warn "Gagal mendeteksi via API GitHub, menggunakan default v1.19.4"

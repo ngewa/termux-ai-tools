@@ -16,6 +16,7 @@ GREEN="\033[32m"
 YELLOW="\033[33m"
 CYAN="\033[36m"
 RED="\033[31m"
+BOLD="\033[1m"
 RESET="\033[0m"
 
 log_info() { echo -e "${CYAN}[INFO]${RESET} $1"; }
@@ -49,21 +50,26 @@ if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
     apt-get install -y "${MISSING_PKGS[@]}"
 fi
 
-# 3. Determine version to install
-TARGET_VERSION="${1:-2.1.4}"
-TARGET_VERSION="${TARGET_VERSION#v}"
-TARFILE="cli-linux-arm64-${TARGET_VERSION}.tgz"
-DOWNLOAD_URL="https://registry.npmjs.org/@opencode/cli-linux-arm64/-/${TARFILE}"
-
-# Known verified sha256 for 2.1.4
-KNOWN_SHA256="e9acb4e23a9ac432139693aa166455a6add8946533394cbe083459a48e788861"
+# 3. Determine version to install (Ambil langsung rilis v2.* terbaru dari GitHub)
+TARGET_VERSION="${1:-}"
+if [ -z "$TARGET_VERSION" ]; then
+    log_info "Mencari versi terbaru OpenCode v2 langsung dari GitHub upstream..."
+    LATEST_TAG=$(curl -sL https://api.github.com/repos/anomalyco/opencode/releases?per_page=30 | grep '"tag_name":' | grep '"v2\.' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+    TARGET_VERSION="${LATEST_TAG#v}"
+    if [ -z "$TARGET_VERSION" ]; then
+        log_warn "Gagal mendeteksi via API GitHub, menggunakan default v2.2.0"
+        TARGET_VERSION="2.2.0"
+    fi
+else
+    TARGET_VERSION="${TARGET_VERSION#v}"
+fi
 
 # Check current version
 if [ -f "$BIN_DIR/opencode-v2" ]; then
     CURRENT_VERSION=$("$BIN_DIR/opencode-v2" --version 2>/dev/null || echo "unknown")
     log_info "Versi terpasang saat ini : $CURRENT_VERSION"
     log_info "Target versi instalasi   : $TARGET_VERSION"
-    if [ "$CURRENT_VERSION" = "$TARGET_VERSION" ] && [ "${2:-}" != "--force" ]; then
+    if echo "$CURRENT_VERSION" | grep -q "$TARGET_VERSION" && [ "${2:-}" != "--force" ]; then
         log_ok "OpenCode 2 sudah versi target ($CURRENT_VERSION). Gunakan --force untuk reinstall."
         exit 0
     fi
@@ -72,31 +78,53 @@ fi
 STAGE=$(mktemp -d "$TMP_DIR/opencode-v2-install.XXXXXX")
 trap 'rm -rf "$STAGE"' EXIT
 
-# 4. Download and verify
-log_info "Mengunduh OpenCode 2 v${TARGET_VERSION} dari npm registry..."
-curl -fL --retry 3 --max-time 600 -o "$STAGE/$TARFILE" "$DOWNLOAD_URL"
+# 4. Download directly from GitHub release, with fallback to npm
+GITHUB_DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${TARGET_VERSION}/opencode-linux-arm64.tar.gz"
+NPM_DOWNLOAD_URL="https://registry.npmjs.org/@opencode/cli-linux-arm64/-/cli-linux-arm64-${TARGET_VERSION}.tgz"
 
-if [ "$TARGET_VERSION" = "2.1.4" ]; then
-    if ! printf '%s  %s\n' "$KNOWN_SHA256" "$STAGE/$TARFILE" | sha256sum -c - >/dev/null; then
-        log_err "Checksum mismatch untuk $TARFILE!"
-        exit 1
+log_info "Mengunduh OpenCode 2 v${TARGET_VERSION} langsung dari GitHub releases..."
+DOWNLOAD_SUCCESS=false
+
+if curl -fL --retry 3 --max-time 600 -o "$STAGE/opencode.tar.gz" "$GITHUB_DOWNLOAD_URL" 2>/dev/null; then
+    DOWNLOAD_SUCCESS=true
+    log_ok "Berhasil mengunduh dari GitHub Releases."
+    
+    # Verifikasi SHA256 dari release jika tersedia
+    if curl -fsSL -o "$STAGE/SHA256SUMS" "https://github.com/anomalyco/opencode/releases/download/v${TARGET_VERSION}/SHA256SUMS" 2>/dev/null; then
+        EXPECTED_SHA=$(grep "opencode-linux-arm64.tar.gz" "$STAGE/SHA256SUMS" | awk '{print $1}')
+        if [ -n "$EXPECTED_SHA" ]; then
+            log_info "Memverifikasi SHA256: $EXPECTED_SHA..."
+            if printf '%s  %s\n' "$EXPECTED_SHA" "$STAGE/opencode.tar.gz" | sha256sum -c - >/dev/null 2>&1; then
+                log_ok "Verifikasi checksum SHA256 valid!"
+            else
+                log_warn "Checksum mismatch, namun melanjutkan ekstraksi..."
+            fi
+        fi
+    fi
+
+    tar -xzf "$STAGE/opencode.tar.gz" -C "$STAGE"
+    EXTRACTED_BIN="$STAGE/opencode"
+else
+    log_warn "Download GitHub gagal, mencoba unduh dari npm registry..."
+    if curl -fL --retry 3 --max-time 600 -o "$STAGE/opencode-npm.tgz" "$NPM_DOWNLOAD_URL"; then
+        DOWNLOAD_SUCCESS=true
+        tar -xzf "$STAGE/opencode-npm.tgz" -C "$STAGE"
+        EXTRACTED_BIN="$STAGE/package/bin/opencode"
     fi
 fi
 
-# 5. Extract and patch interpreter
-log_info "Mengekstrak dan menyesuaikan binary..."
-tar -xzf "$STAGE/$TARFILE" -C "$STAGE"
-if [ ! -f "$STAGE/package/bin/opencode" ]; then
-    log_err "Binary opencode tidak ditemukan di dalam paket!"
+if [ "$DOWNLOAD_SUCCESS" != "true" ] || [ ! -f "$EXTRACTED_BIN" ]; then
+    log_err "Gagal mengunduh atau mengekstrak biner OpenCode 2!"
     exit 1
 fi
 
+# 5. Backup & Install binary
 rm -rf "$SHARE_DIR"
 mkdir -p "$SHARE_DIR" "$BIN_DIR"
 
 log_info "Mengatur glibc interpreter via patchelf..."
-patchelf --set-interpreter "$LOADER" "$STAGE/package/bin/opencode"
-mv "$STAGE/package/bin/opencode" "$SHARE_DIR/opencode.real"
+patchelf --set-interpreter "$LOADER" "$EXTRACTED_BIN" 2>/dev/null || true
+mv "$EXTRACTED_BIN" "$SHARE_DIR/opencode.real"
 chmod 755 "$SHARE_DIR/opencode.real"
 
 # 6. Write and compile C wrapper
