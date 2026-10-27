@@ -1,6 +1,6 @@
 # Termux AI Tools 🚀
 
-Kumpulan skrip instalasi, auto-updater, dan paket DEBIAN (.deb) untuk menjalankan **OpenCode v1**, **OpenCode v2**, dan **Antigravity CLI (agy)** di lingkungan **Termux (Android)** menggunakan runtime **glibc**.
+Kumpulan skrip instalasi, auto-updater, backup/restore pengaturan, dan paket DEBIAN (.deb) untuk menjalankan **OpenCode v1**, **OpenCode v2**, dan **Antigravity CLI (agy)** di lingkungan **Termux (Android)** menggunakan runtime **glibc**.
 
 ---
 
@@ -12,13 +12,16 @@ Jalankan perintah ini di terminal Termux Anda:
 curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash
 ```
 
-Perintah di atas akan menampilkan menu interaktif:
+Perintah di atas akan menampilkan menu interaktif lengkap:
 1. **Install / Update OpenCode v1** (versi upstream `v1.19.4`)
 2. **Install / Update OpenCode v2** (`v2.1.4` glibc + patchelf)
 3. **Install / Update Antigravity CLI** (`agy v1.3.5` build stabil dengan memory patch)
 4. **Install / Update Semua Tools**
 5. **Cek Status & Versi Terpasang**
-6. **Keluar**
+6. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
+7. **Restore Pengaturan dari File Backup**
+8. **Uninstall Tools (Hapus biner / data)**
+9. **Keluar**
 
 ---
 
@@ -63,6 +66,55 @@ OpenCode v1        | 1.19.4           | 1.19.4           | Up-to-date
 OpenCode v2        | 2.1.4            | 2.1.4            | Up-to-date
 Antigravity CLI    | 1.3.5            | 1.4.8            | Stabil (1.3.5)
 ----------------------------------------------------------------------
+```
+
+---
+
+## 💾 Export & Restore Pengaturan (Backup Settings)
+
+Simpan token OAuth, API keys, konfigurasi model, dan custom skills/plugins Anda sebelum ganti HP atau membersihkan Termux:
+
+### 1. Export (Backup) Pengaturan
+```bash
+# Jalankan langsung dari web:
+curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- export
+
+# Atau secara lokal:
+./backup.sh export
+```
+File backup (misal `termux-ai-backup-YYYYMMDD_HHMMSS.tar.gz`) akan dibuat di folder saat ini dan secara otomatis disalinkan ke direktori internal `/sdcard/Download/` agar aman jika Termux di-reinstall.
+
+Yang diamankan:
+- `OpenCode`: `~/.config/opencode/`, `~/opencode.jsonc`, dan riwayat sesi.
+- `Antigravity CLI`: `~/.gemini/settings.json`, token OAuth login (`antigravity-oauth-token`), custom skills, hooks, dan plugin data.
+
+### 2. Restore Pengaturan dari Backup
+```bash
+# Jalankan menu restore:
+./backup.sh restore
+
+# Atau sebutkan nama file backup secara langsung:
+./backup.sh restore /sdcard/Download/termux-ai-backup-20261027_103000.tar.gz
+```
+
+---
+
+## 🗑️ Uninstall Tools
+
+Hapus biner wrapper dan file library dari sistem:
+
+```bash
+# Jalankan menu uninstaller:
+./uninstall.sh
+
+# Atau hapus tool tertentu:
+./uninstall.sh opencode      # Hapus OpenCode v1
+./uninstall.sh opencode-v2   # Hapus OpenCode v2
+./uninstall.sh agy           # Hapus Antigravity CLI
+./uninstall.sh all           # Hapus semua tools
+
+# Tambahkan flag --purge jika ingin membersihkan folder konfigurasi/data user juga:
+./uninstall.sh all --purge
 ```
 
 ---

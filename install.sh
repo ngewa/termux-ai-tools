@@ -39,15 +39,18 @@ echo "=================================================="
 echo -e "${RESET}"
 
 show_menu() {
-    echo -e "${BOLD}Pilih opsi instalasi/update:${RESET}"
+    echo -e "${BOLD}Pilih opsi:${RESET}"
     echo -e "  ${GREEN}1)${RESET} Install / Update OpenCode v1 (Latest v1.19.4)"
     echo -e "  ${GREEN}2)${RESET} Install / Update OpenCode v2 (v2.1.4 glibc + patchelf)"
     echo -e "  ${GREEN}3)${RESET} Install / Update Antigravity CLI (agy v1.3.5 stabil)"
     echo -e "  ${GREEN}4)${RESET} Install / Update Semua Tools"
     echo -e "  ${GREEN}5)${RESET} Cek Status & Versi Terpasang"
-    echo -e "  ${GREEN}6)${RESET} Keluar"
+    echo -e "  ${CYAN}6)${RESET} Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)"
+    echo -e "  ${CYAN}7)${RESET} Restore Pengaturan dari File Backup"
+    echo -e "  ${RED}8)${RESET} Uninstall Tools (Hapus biner / data)"
+    echo -e "  ${YELLOW}9)${RESET} Keluar"
     echo ""
-    read -r -p "Pilihan Anda [1-6]: " opt
+    read -r -p "Pilihan Anda [1-9]: " opt
     case "$opt" in
         1)
             local s
@@ -79,6 +82,21 @@ show_menu() {
             bash "$s"
             ;;
         6)
+            local s
+            s=$(get_script "bin/export-config.sh")
+            bash "$s"
+            ;;
+        7)
+            local s
+            s=$(get_script "bin/restore-config.sh")
+            bash "$s"
+            ;;
+        8)
+            local s
+            s=$(get_script "bin/uninstall.sh")
+            bash "$s"
+            ;;
+        9)
             echo "Keluar."
             exit 0
             ;;
@@ -114,8 +132,24 @@ case "$1" in
         s=$(get_script "update.sh")
         bash "$s"
         ;;
+    export|backup|--export)
+        s=$(get_script "bin/export-config.sh")
+        shift
+        bash "$s" "$@"
+        ;;
+    restore|--restore)
+        s=$(get_script "bin/restore-config.sh")
+        shift
+        bash "$s" "$@"
+        ;;
+    uninstall|--uninstall)
+        s=$(get_script "bin/uninstall.sh")
+        shift
+        bash "$s" "$@"
+        ;;
     *)
         show_menu
         ;;
 esac
+
 
