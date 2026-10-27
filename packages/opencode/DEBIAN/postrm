@@ -1,0 +1,8 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -e
+
+rm -rf "$PREFIX/share/opencode"
+rm -f "$PREFIX/bin/opencode"
+
+echo "OpenCode has been successfully removed."
+exit 0

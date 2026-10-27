@@ -1,0 +1,12 @@
+Package: opencode
+Version: 1.19.4
+Architecture: all
+Maintainer: eL (ngewa)
+Depends: glibc, clang, python, curl, tar
+Section: ai
+Priority: optional
+Homepage: https://opencode.ai/
+Description: AI‑powered coding assistant (glibc version for Termux)
+ OpenCode provides real‑time code completions and AI assistance.
+ This package uses the glibc build and includes a wrapper to run
+ inside Termux’s glibc environment.

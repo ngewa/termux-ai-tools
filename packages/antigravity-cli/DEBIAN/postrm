@@ -1,0 +1,8 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -e
+
+rm -rf "$PREFIX/share/antigravity-cli"
+rm -f "$PREFIX/bin/agy"
+
+echo "Antigravity CLI has been successfully removed."
+exit 0

@@ -1,0 +1,6 @@
+dist/
+*.deb
+*.bak
+*.tar.gz
+*.o
+.DS_Store

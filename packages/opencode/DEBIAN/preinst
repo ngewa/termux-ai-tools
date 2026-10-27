@@ -1,0 +1,8 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -e
+
+# Cleanup any broken state
+rm -f "$PREFIX/bin/opencode" 2>/dev/null || true
+rm -rf "$PREFIX/share/opencode" 2>/dev/null || true
+
+exit 0
