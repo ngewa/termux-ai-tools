@@ -23,6 +23,10 @@ log_info "Building opencode .deb package..."
 dpkg-deb -b "$SCRIPT_DIR/packages/opencode" "$OUTPUT_DIR/opencode_1.19.4_all.deb"
 log_ok "Built: $OUTPUT_DIR/opencode_1.19.4_all.deb"
 
+log_info "Building opencode-v2 .deb package..."
+dpkg-deb -b "$SCRIPT_DIR/packages/opencode-v2" "$OUTPUT_DIR/opencode-v2_2.1.4_all.deb"
+log_ok "Built: $OUTPUT_DIR/opencode-v2_2.1.4_all.deb"
+
 log_info "Building antigravity-cli .deb package..."
 dpkg-deb -b "$SCRIPT_DIR/packages/antigravity-cli" "$OUTPUT_DIR/antigravity-cli_1.3.5_all.deb"
 log_ok "Built: $OUTPUT_DIR/antigravity-cli_1.3.5_all.deb"

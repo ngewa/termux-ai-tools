@@ -34,19 +34,20 @@ get_script() {
 echo -e "${BOLD}${CYAN}"
 echo "=================================================="
 echo "      Termux AI Tools Installer & Updater        "
-echo "      OpenCode & Antigravity CLI (agy)           "
+echo "  OpenCode v1, OpenCode v2 & Antigravity (agy)   "
 echo "=================================================="
 echo -e "${RESET}"
 
 show_menu() {
     echo -e "${BOLD}Pilih opsi instalasi/update:${RESET}"
-    echo -e "  ${GREEN}1)${RESET} Install / Update OpenCode (Latest upstream v1.19.4)"
-    echo -e "  ${GREEN}2)${RESET} Install / Update Antigravity CLI (agy v1.3.5 stabil)"
-    echo -e "  ${GREEN}3)${RESET} Install / Update Keduanya (OpenCode + AGY)"
-    echo -e "  ${GREEN}4)${RESET} Cek Status & Versi Terpasang"
-    echo -e "  ${GREEN}5)${RESET} Keluar"
+    echo -e "  ${GREEN}1)${RESET} Install / Update OpenCode v1 (Latest v1.19.4)"
+    echo -e "  ${GREEN}2)${RESET} Install / Update OpenCode v2 (v2.1.4 glibc + patchelf)"
+    echo -e "  ${GREEN}3)${RESET} Install / Update Antigravity CLI (agy v1.3.5 stabil)"
+    echo -e "  ${GREEN}4)${RESET} Install / Update Semua Tools"
+    echo -e "  ${GREEN}5)${RESET} Cek Status & Versi Terpasang"
+    echo -e "  ${GREEN}6)${RESET} Keluar"
     echo ""
-    read -r -p "Pilihan Anda [1-5]: " opt
+    read -r -p "Pilihan Anda [1-6]: " opt
     case "$opt" in
         1)
             local s
@@ -55,22 +56,29 @@ show_menu() {
             ;;
         2)
             local s
-            s=$(get_script "bin/install-agy.sh")
+            s=$(get_script "bin/install-opencode-v2.sh")
             bash "$s"
             ;;
         3)
-            local s1 s2
-            s1=$(get_script "bin/install-opencode.sh")
-            s2=$(get_script "bin/install-agy.sh")
-            bash "$s1"
-            bash "$s2"
+            local s
+            s=$(get_script "bin/install-agy.sh")
+            bash "$s"
             ;;
         4)
+            local s1 s2 s3
+            s1=$(get_script "bin/install-opencode.sh")
+            s2=$(get_script "bin/install-opencode-v2.sh")
+            s3=$(get_script "bin/install-agy.sh")
+            bash "$s1"
+            bash "$s2"
+            bash "$s3"
+            ;;
+        5)
             local s
             s=$(get_script "update.sh")
             bash "$s"
             ;;
-        5)
+        6)
             echo "Keluar."
             exit 0
             ;;
@@ -82,8 +90,12 @@ show_menu() {
 
 # Process command-line flags
 case "$1" in
-    opencode|--opencode)
+    opencode|--opencode|v1|--v1)
         s=$(get_script "bin/install-opencode.sh")
+        bash "$s" "$2"
+        ;;
+    opencode-v2|--opencode-v2|v2|--v2)
+        s=$(get_script "bin/install-opencode-v2.sh")
         bash "$s" "$2"
         ;;
     agy|--agy)
@@ -92,9 +104,11 @@ case "$1" in
         ;;
     all|--all)
         s1=$(get_script "bin/install-opencode.sh")
-        s2=$(get_script "bin/install-agy.sh")
+        s2=$(get_script "bin/install-opencode-v2.sh")
+        s3=$(get_script "bin/install-agy.sh")
         bash "$s1"
         bash "$s2"
+        bash "$s3"
         ;;
     check|update|--check)
         s=$(get_script "update.sh")
@@ -104,3 +118,4 @@ case "$1" in
         show_menu
         ;;
 esac
+
