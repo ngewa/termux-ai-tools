@@ -7,7 +7,7 @@ set -e
 #   - OpenCode Sessions (opencode.db, message, part, session, session_v2)
 #   - Antigravity CLI Conversations (conversation_summaries.db, conversations/)
 #   - Storage Cleanup & SQLite VACUUM (reclaim GBs of storage)
-#   - Export Sessions to Human-Readable Markdown (.md)
+#   - Rich Human-Readable Markdown Exporter (.md)
 # ==============================================================================
 
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
@@ -80,18 +80,27 @@ def format_timestamp(ts):
     if not ts:
         return "-"
     try:
-        # Check if milliseconds or seconds
         if isinstance(ts, (int, float)):
             if ts > 1e11:
                 ts = ts / 1000.0
             return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
         elif isinstance(ts, str):
-            # Parse ISO string
             ts_clean = ts.split(".")[0].replace("T", " ")
             return ts_clean[:16]
     except Exception:
         pass
     return str(ts)[:16]
+
+def clean_model_name(model_str):
+    if not model_str:
+        return "-"
+    if model_str.startswith("{"):
+        try:
+            m = json.loads(model_str)
+            return m.get("id") or m.get("modelID") or model_str[:20]
+        except Exception:
+            pass
+    return model_str.split("/")[-1]
 
 # ------------------------------------------------------------------------------
 # Action: STATUS
@@ -160,7 +169,8 @@ def action_status():
     print("\033[1m\033[36m----------------------------------------------------------------------\033[0m")
     print(f"📁 \033[1mTotal Penggunaan Storage AI   :\033[0m \033[31m{format_size(total_ai_storage)}\033[0m")
     print(f"✨ \033[1mPotensi Pembebasan Ruang Disk :\033[0m \033[32m~{format_size(cleanable_temp + reclaimable_vacuum)}\033[0m")
-    print(f"   (Pembersihan Log/Cache: {format_size(cleanable_temp)} + SQLite VACUUM: {format_size(reclaimable_vacuum)})")
+    if cleanable_temp > 0 or reclaimable_vacuum > 0:
+        print(f"   (Pembersihan Log/Cache: {format_size(cleanable_temp)} + SQLite VACUUM: {format_size(reclaimable_vacuum)})")
     print("\033[1m\033[36m======================================================================\033[0m")
 
 # ------------------------------------------------------------------------------
@@ -192,7 +202,7 @@ def action_list(limit=15, filter_tool="all"):
                 title_clean = (title or "(Tanpa Judul)").replace("\n", " ").strip()
                 if len(title_clean) > 28:
                     title_clean = title_clean[:25] + "..."
-                model_clean = (model or "-").split("/")[-1][:18]
+                model_clean = clean_model_name(model)[:18]
                 date_str = format_timestamp(tu)
                 print(f"\033[32m{'OpenCode':<9}\033[0m {sid:<26} {date_str:<17} {count:<6} {model_clean:<20} {title_clean:<20}")
                 rows_shown += 1
@@ -258,7 +268,7 @@ def action_search(keyword):
                 title_clean = (title or "(Tanpa Judul)").replace("\n", " ").strip()
                 if len(title_clean) > 28:
                     title_clean = title_clean[:25] + "..."
-                model_clean = (model or "-").split("/")[-1][:18]
+                model_clean = clean_model_name(model)[:18]
                 date_str = format_timestamp(tu)
                 print(f"\033[32m{'OpenCode':<9}\033[0m {sid:<26} {date_str:<17} {count:<6} {model_clean:<20} {title_clean:<20}")
                 found += 1
@@ -312,7 +322,7 @@ def action_info(session_id):
                 print(f"\033[1mDetail Sesi OpenCode: {sid}\033[0m")
                 print("\033[1m\033[36m==================================================\033[0m")
                 print(f"Judul         : {title or '(Tanpa Judul)'}")
-                print(f"Model         : {model or 'Default'}")
+                print(f"Model         : {clean_model_name(model)}")
                 print(f"Direktori Proyek: {d or '-'}")
                 print(f"Dibuat Pada   : {format_timestamp(tc)}")
                 print(f"Terakhir Aktif: {format_timestamp(tu)}")
@@ -351,12 +361,12 @@ def action_info(session_id):
     print(f"Sesi dengan ID '{session_id}' tidak ditemukan.")
 
 # ------------------------------------------------------------------------------
-# Action: EXPORT TO MARKDOWN
+# Action: EXPORT TO RICH MARKDOWN (Turn-Based & 100% Complete)
 # ------------------------------------------------------------------------------
 def action_export(session_id, copy_sdcard=True):
     os.makedirs(EXPORT_DIR, exist_ok=True)
     
-    # 1. Try OpenCode Export
+    # 1. OpenCode Session Export
     if os.path.exists(OPENCODE_DB):
         try:
             con = sqlite3.connect(OPENCODE_DB)
@@ -371,9 +381,9 @@ def action_export(session_id, copy_sdcard=True):
                 lines = [
                     f"# 📝 Catatan Sesi Percakapan: {title or '(Tanpa Judul)'}",
                     "",
-                    f"- **Tool**: OpenCode",
+                    f"- **Platform**: OpenCode",
                     f"- **ID Sesi**: `{sid}`",
-                    f"- **Model**: `{model or 'default'}`",
+                    f"- **Model**: `{clean_model_name(model)}`",
                     f"- **Direktori Proyek**: `{directory or '-'}`",
                     f"- **Waktu Sesi**: {format_timestamp(tc)} s/d {format_timestamp(tu)}",
                     f"- **Penggunaan Token**: Input: {tin or 0:,} | Output: {tout or 0:,}",
@@ -382,40 +392,112 @@ def action_export(session_id, copy_sdcard=True):
                     ""
                 ]
 
-                # Fetch messages in order
                 msgs = cur.execute("SELECT id, data, time_created FROM message WHERE session_id=? ORDER BY time_created ASC", (sid,)).fetchall()
+
+                turns = []
+                current_turn = None
+
                 for m_id, m_data_raw, m_tc in msgs:
                     m_data = json.loads(m_data_raw) if m_data_raw else {}
                     role = m_data.get("role", "unknown")
-                    time_str = format_timestamp(m_tc)
-
-                    if role == "user":
-                        lines.append(f"### 👤 User ({time_str})\n")
-                    else:
-                        lines.append(f"### 🤖 Assistant ({time_str})\n")
-
-                    # Fetch parts
                     parts = cur.execute("SELECT data FROM part WHERE message_id=? ORDER BY id ASC", (m_id,)).fetchall()
-                    for (p_raw,) in parts:
-                        p = json.loads(p_raw) if p_raw else {}
-                        ptype = p.get("type")
-                        if ptype == "text" and p.get("text"):
-                            lines.append(p["text"] + "\n")
-                        elif ptype == "tool-use":
-                            tname = p.get("name", "tool")
-                            lines.append(f"> ⚙️ **Pemanggilan Tool:** `{tname}`\n")
-                        elif ptype == "tool-result":
-                            res_text = str(p.get("output", ""))[:300]
-                            if res_text:
-                                lines.append(f"```text\n{res_text}\n```\n")
+                    parsed_parts = [json.loads(p[0]) for p in parts if p[0]]
+                    
+                    if role == "user":
+                        current_turn = {"role": "user", "time": m_tc, "content": [], "attachments": []}
+                        for p in parsed_parts:
+                            ptype = p.get("type")
+                            if ptype == "text":
+                                txt = p.get("text", "").strip()
+                                if p.get("synthetic"):
+                                    current_turn["attachments"].append(txt)
+                                else:
+                                    current_turn["content"].append(txt)
+                            elif ptype == "file":
+                                fn = p.get("filename") or p.get("url", "file")
+                                current_turn["attachments"].append(f"File: {fn}")
+                        if current_turn["content"] or current_turn["attachments"]:
+                            turns.append(current_turn)
+                        current_turn = None
+                    elif role == "assistant":
+                        if not current_turn or current_turn["role"] != "assistant":
+                            current_turn = {"role": "assistant", "time": m_tc, "content": [], "tools": [], "reasoning": []}
+                            turns.append(current_turn)
+                        
+                        for p in parsed_parts:
+                            ptype = p.get("type")
+                            if ptype == "text":
+                                txt = p.get("text", "").strip()
+                                if txt:
+                                    current_turn["content"].append(txt)
+                            elif ptype == "reasoning":
+                                r = p.get("text", "").strip()
+                                if r:
+                                    current_turn["reasoning"].append(r)
+                            elif ptype == "tool":
+                                tname = p.get("tool", "tool")
+                                inp = p.get("state", {}).get("input", {})
+                                out = p.get("state", {}).get("output", "")
+                                current_turn["tools"].append({"tool": tname, "input": inp, "output": out})
 
-                    lines.append("\n---\n")
+                # Render all turns
+                for t in turns:
+                    time_str = format_timestamp(t["time"])
+                    if t["role"] == "user":
+                        lines.append(f"### 👤 Pengguna ({time_str})\n")
+                        for c in t["content"]:
+                            lines.append(c + "\n")
+                        if t["attachments"]:
+                            lines.append("<details>\n<summary>📎 <b>Lampiran File / Konteks Otomatis</b> (klik untuk membuka)</summary>\n")
+                            for att in t["attachments"]:
+                                lines.append(f"```text\n{att[:400]}...\n```\n")
+                            lines.append("</details>\n")
+                        lines.append("\n---\n")
+                    else:
+                        has_content = bool(t["content"])
+                        has_tools = bool(t["tools"])
+                        has_reasoning = bool(t["reasoning"])
+                        
+                        if not (has_content or has_tools or has_reasoning):
+                            continue
+                            
+                        lines.append(f"### 🤖 Asisten AI ({time_str})\n")
+                        
+                        # Tools accordion
+                        if has_tools:
+                            lines.append(f"<details>\n<summary>⚙️ <b>Langkah Eksekusi Alat ({len(t['tools'])} langkah)</b> (klik untuk membuka detail perintah & hasil)</summary>\n")
+                            for i, tool_call in enumerate(t["tools"]):
+                                tname = tool_call.get("tool", "tool")
+                                inp_cmd = tool_call.get("input", {}).get("command") or str(tool_call.get("input", ""))
+                                out_txt = str(tool_call.get("output", ""))
+                                lines.append(f"#### Langkah {i+1}: `{tname}`\n")
+                                if inp_cmd:
+                                    lines.append(f"**Perintah:**\n```bash\n{inp_cmd[:600]}\n```\n")
+                                if out_txt:
+                                    lines.append(f"**Hasil:**\n```text\n{out_txt[:600]}\n```\n")
+                            lines.append("</details>\n\n")
+                            
+                        # Reasoning accordion
+                        if has_reasoning:
+                            lines.append(f"<details>\n<summary>💭 <b>Alur Penalaran Model (Reasoning)</b> (klik untuk membuka)</summary>\n")
+                            for r in t["reasoning"]:
+                                lines.append(f"> {r}\n>\n")
+                            lines.append("</details>\n\n")
+                            
+                        # Main text content
+                        if has_content:
+                            for c in t["content"]:
+                                lines.append(c + "\n\n")
+                        elif has_tools:
+                            lines.append(f"*Asisten menyelesaikan {len(t['tools'])} langkah eksekusi alat tanpa teks ringkasan tambahan.*\n\n")
+                            
+                        lines.append("---\n")
 
                 with open(out_path, "w", encoding="utf-8") as f:
                     f.write("\n".join(lines))
                 con.close()
 
-                print(f"\033[32m[OK]\033[0m Sesi berhasil diekspor ke: \033[1m{out_path}\033[0m")
+                print(f"\033[32m[OK]\033[0m Sesi berhasil diekspor secara lengkap ke: \033[1m{out_path}\033[0m ({len(lines)} baris)")
                 
                 # Copy to /sdcard/Download if possible
                 if copy_sdcard:
@@ -425,12 +507,53 @@ def action_export(session_id, copy_sdcard=True):
                             sd_dest = os.path.join(sd_dir, filename)
                             shutil.copy2(out_path, sd_dest)
                             print(f"\033[32m[OK]\033[0m Disalin ke memori HP: \033[1m{sd_dest}\033[0m")
-                        except Exception as e:
+                        except Exception:
                             pass
                 return
             con.close()
         except Exception as e:
             print(f"Error exporting OpenCode session: {e}")
+
+    # 2. Antigravity Session Export (from transcript.jsonl)
+    agy_transcript = os.path.join(AGY_DIR, "brain", session_id, ".system_generated", "logs", "transcript.jsonl")
+    if os.path.exists(agy_transcript):
+        try:
+            out_path = os.path.join(EXPORT_DIR, f"agy_{session_id[:10]}.md")
+            lines = [
+                f"# 📝 Catatan Sesi Antigravity CLI",
+                f"- **Platform**: Antigravity CLI (AGY)",
+                f"- **Conversation ID**: `{session_id}`",
+                "",
+                "---",
+                ""
+            ]
+            with open(agy_transcript, "r", encoding="utf-8") as tf:
+                for line in tf:
+                    if not line.strip():
+                        continue
+                    step = json.loads(line)
+                    stype = step.get("type")
+                    content = step.get("content", "")
+                    created_at = step.get("created_at", "")[:16]
+                    if stype == "USER_INPUT":
+                        lines.append(f"### 👤 Pengguna ({created_at})\n\n{content}\n\n---\n")
+                    elif stype == "PLANNER_RESPONSE":
+                        lines.append(f"### 🤖 Asisten AI ({created_at})\n\n")
+                        thinking = step.get("thinking")
+                        if thinking:
+                            lines.append(f"<details>\n<summary>💭 <b>Alur Berpikir (Thinking)</b></summary>\n\n> {thinking}\n</details>\n\n")
+                        if content:
+                            lines.append(f"{content}\n\n")
+                        lines.append("---\n")
+            with open(out_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+            print(f"\033[32m[OK]\033[0m Sesi AGY berhasil diekspor ke: \033[1m{out_path}\033[0m")
+            if copy_sdcard and os.path.exists("/sdcard/Download"):
+                shutil.copy2(out_path, f"/sdcard/Download/agy_{session_id[:10]}.md")
+                print(f"\033[32m[OK]\033[0m Disalin ke memori HP: /sdcard/Download/agy_{session_id[:10]}.md")
+            return
+        except Exception as e:
+            print(f"Error exporting AGY session: {e}")
 
     print(f"Sesi dengan ID '{session_id}' tidak ditemukan untuk diekspor.")
 
@@ -517,7 +640,6 @@ def action_prune(days=None, keep_latest=None, prune_empty=False):
     to_delete_ids = []
 
     if prune_empty:
-        # Sesi dengan 0 pesan
         q = "SELECT s.id FROM session s WHERE (SELECT count(*) FROM message m WHERE m.session_id = s.id) = 0"
         to_delete_ids.extend([r[0] for r in cur.execute(q).fetchall()])
 
@@ -530,7 +652,6 @@ def action_prune(days=None, keep_latest=None, prune_empty=False):
         q = "SELECT id FROM session ORDER BY time_updated DESC LIMIT -1 OFFSET ?"
         to_delete_ids.extend([r[0] for r in cur.execute(q, (keep_latest,)).fetchall()])
 
-    # Deduplicate
     to_delete_ids = list(set(to_delete_ids))
 
     if not to_delete_ids:
@@ -540,7 +661,6 @@ def action_prune(days=None, keep_latest=None, prune_empty=False):
 
     print(f"\033[33m[PERINGATAN]\033[0m {len(to_delete_ids)} sesi akan dihapus secara permanen.")
     
-    # Execute deletion
     for sid in to_delete_ids:
         cur.execute("DELETE FROM part WHERE session_id=?", (sid,))
         cur.execute("DELETE FROM message WHERE session_id=?", (sid,))
@@ -552,7 +672,6 @@ def action_prune(days=None, keep_latest=None, prune_empty=False):
     con.close()
     print(f"\033[32m[OK]\033[0m {len(to_delete_ids)} sesi berhasil dihapus dari database.")
     
-    # Auto run vacuum after prune
     action_vacuum()
 
 # ------------------------------------------------------------------------------
@@ -696,7 +815,6 @@ interactive_menu() {
                 ;;
             6)
                 echo ""
-                # Check if opencode is actively running
                 if pgrep -f "opencode" >/dev/null 2>&1; then
                     log_warn "OpenCode terdeteksi sedang berjalan di latar belakang."
                     read -r -p "Lanjutkan VACUUM sekarang? (Disarankan hentikan service dulu) (y/N): " run_vac
@@ -745,7 +863,7 @@ interactive_menu() {
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
             0)
-                echo "Selesai."
+                echo "Keluar dari wizard."
                 break
                 ;;
             *)
