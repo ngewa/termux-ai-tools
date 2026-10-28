@@ -1,0 +1,107 @@
+name: Build & Release DEB Packages
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Publish a GitHub Release?'
+        required: true
+        type: boolean
+        default: false
+      release_tag:
+        description: 'Release Tag (misal: v2.2.0, jika kosong menggunakan timestamp)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build .deb Packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set permissions
+        run: |
+          chmod 755 packages/*/DEBIAN
+          chmod 755 packages/*/DEBIAN/*
+          chmod +x *.sh bin/*.sh
+
+      - name: Build Debian packages
+        run: |
+          bash build-deb.sh
+
+      - name: Generate SHA256 Checksums
+        run: |
+          cd dist
+          sha256sum *.deb > SHA256SUMS.txt
+          echo "Generated Checksums:"
+          cat SHA256SUMS.txt
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: termux-ai-packages
+          path: |
+            dist/*.deb
+            dist/SHA256SUMS.txt
+          retention-days: 30
+
+      - name: Determine Release Tag
+        id: release_info
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.create_release == true)
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          elif [ -n "${{ inputs.release_tag }}" ]; then
+            TAG="${{ inputs.release_tag }}"
+          else
+            TAG="v$(date +'%Y.%m.%d-%H%M')"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release & Upload Assets
+        uses: softprops/action-gh-release@v2
+        if: steps.release_info.outputs.tag != ''
+        with:
+          tag_name: ${{ steps.release_info.outputs.tag }}
+          name: Release ${{ steps.release_info.outputs.tag }}
+          files: |
+            dist/*.deb
+            dist/SHA256SUMS.txt
+          body: |
+            ## Termux AI Tools Release ${{ steps.release_info.outputs.tag }} 🚀
+
+            Paket Debian (.deb) resmi untuk Termux (Android ARM64 / aarch64):
+            - **OpenCode v1**: `opencode_1.19.4_all.deb`
+            - **OpenCode v2**: `opencode-v2_2.2.0_all.deb`
+            - **Antigravity CLI**: `antigravity-cli_1.3.5_all.deb`
+
+            ### Cara Instalasi di Termux:
+            Unduh file `.deb` yang diinginkan, lalu instal:
+            ```bash
+            # Contoh install OpenCode v2:
+            dpkg -i opencode-v2_2.2.0_all.deb
+
+            # Contoh install Antigravity CLI:
+            dpkg -i antigravity-cli_1.3.5_all.deb
+            ```
+
+            ### Verifikasi Keaslian (Checksum):
+            Cocokkan berkas menggunakan berkas `SHA256SUMS.txt` yang dilampirkan.
+          draft: false
+          prerelease: false
+          generate_release_notes: true

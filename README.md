@@ -203,9 +203,28 @@ File `.deb` hasil kompilasi akan tersimpan di folder `dist/`:
 Untuk menginstall paket hasil build:
 ```bash
 dpkg -i dist/opencode_1.19.4_all.deb
-dpkg -i dist/opencode-v2_2.1.4_all.deb
+dpkg -i dist/opencode-v2_2.2.0_all.deb
 dpkg -i dist/antigravity-cli_1.3.5_all.deb
 ```
+
+---
+
+## 🤖 GitHub Actions CI/CD & Auto-Release
+
+Repositori ini dilengkapi alur kerja otomatisasi **GitHub Actions** (`.github/workflows/build-deb.yml`):
+
+1. **Auto-Build Setiap Push**:
+   - Memvalidasi dan membangun semua paket `.deb` secara otomatis di lingkungan cloud Ubuntu Linux.
+   - Mengunggah berkas `.deb` dan `SHA256SUMS.txt` sebagai build artifacts (disimpan selama 30 hari).
+2. **Auto-Release ke GitHub Releases**:
+   - Setiap kali tag versi baru di-push (misal `git tag v2.2.0 && git push origin v2.2.0`), GitHub Actions akan otomatis membuat entri **GitHub Release** baru.
+   - Seluruh file `.deb` dan checksum akan dilampirkan langsung pada rilis tersebut sehingga pengguna dapat mengunduhnya secara langsung tanpa perlu build lokal.
+3. **Trigger Rilis Manual (Workflow Dispatch)**:
+   - Anda dapat memicu pembuatan rilis secara instan langsung dari terminal menggunakan GitHub CLI:
+     ```bash
+     gh workflow run build-deb.yml -f create_release=true -f release_tag=v2.2.0
+     ```
+
 
 ---
 
