@@ -122,6 +122,14 @@ case "$1" in
             exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/plugin.sh | bash -s -- "$@"
         fi
         ;;
+    mem|memory)
+        shift
+        if [ -f "$TOOLS_DIR/memory.sh" ]; then
+            exec bash "$TOOLS_DIR/memory.sh" "$@"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/memory.sh | bash -s -- "$@"
+        fi
+        ;;
     help|--help|-h)
         echo -e "${BOLD}${CYAN}AI Quick Launcher Usage:${RESET}"
         echo "  ai                  Buka menu interaktif pemilih AI"
@@ -130,6 +138,7 @@ case "$1" in
         echo "  ai agy [args...]    Jalankan Antigravity CLI langsung"
         echo "  ai web              Buka mode Web UI OpenCode"
         echo "  ai session [args...]Kelola sesi, cari riwayat & vacuum storage"
+        echo "  ai memory [args...] Kelola Knowledge Memory & AI Brain persisten"
         echo "  ai plugin [args...] Pasang MCP servers & OpenCode plugins"
         echo "  ai config [args...] Wizard pengaturan API key & default model"
         echo "  ai doctor           Jalankan pemeriksaan kesehatan sistem"
@@ -168,10 +177,11 @@ echo -e "  ${CYAN}8)${RESET} Plugin & MCP Tools   (Termux device, web fetch, db)
 echo -e "  ${CYAN}9)${RESET} Konfigurasi AI & Key (Setup API key & model)"
 echo -e "  ${CYAN}10)${RESET} Backup Pengaturan   (Export settings & tokens)"
 echo -e "  ${CYAN}11)${RESET} Restore Pengaturan  (Restore dari arsip)"
-echo -e "  ${YELLOW}12)${RESET} Keluar"
+echo -e "  ${CYAN}12)${RESET} Knowledge Memory & AI Brain (Solusi terverifikasi & search FTS5)"
+echo -e "  ${YELLOW}13)${RESET} Keluar"
 echo ""
 
-read -r -p "Masukkan pilihan [1-12]: " choice
+read -r -p "Masukkan pilihan [1-13]: " choice
 
 case "$choice" in
     1)
@@ -252,6 +262,13 @@ case "$choice" in
             exec bash "$TOOLS_DIR/backup.sh" restore
         else
             exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- restore
+        fi
+        ;;
+    12)
+        if [ -f "$TOOLS_DIR/memory.sh" ]; then
+            exec bash "$TOOLS_DIR/memory.sh"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/memory.sh | bash
         fi
         ;;
     *)

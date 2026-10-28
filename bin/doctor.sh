@@ -290,7 +290,45 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# 7. Ringkasan Diagnostik & Skor Kesehatan
+# 7. Knowledge Memory & AI Brain Health
+# ------------------------------------------------------------------------------
+echo -e "\n${BOLD}7. Knowledge Memory & AI Brain Health:${RESET}"
+
+# Check Python SQLite & FTS5
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if python3 -c "import sqlite3; con=sqlite3.connect(':memory:'); cur=con.cursor(); cur.execute('CREATE VIRTUAL TABLE t USING fts5(c);');" >/dev/null 2>&1; then
+    echo -e "  [${PASS}] SQLite3 & Mesin FTS5: ${GREEN}Tersedia & Aktif (High Speed Search)${RESET}"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+else
+    echo -e "  [${WARN}] SQLite3 FTS5: ${YELLOW}Tidak aktif / Fallback ke LIKE${RESET}"
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# Check Memory DB and directory permissions
+MEMORY_DIR="$HOME_DIR/.local/share/termux-ai"
+MEMORY_DB="$MEMORY_DIR/memory.db"
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if [ -d "$MEMORY_DIR" ]; then
+    DIR_PERM=$(stat -c "%a" "$MEMORY_DIR" 2>/dev/null || echo "unknown")
+    if [ "$DIR_PERM" = "700" ]; then
+        echo -e "  [${PASS}] Knowledge Memory Storage: ${GREEN}Aman (chmod 700)${RESET}"
+        PASSED_CHECKS=$((PASSED_CHECKS + 1))
+    else
+        echo -e "  [${WARN}] Knowledge Memory Storage: Izin direktori ${YELLOW}$DIR_PERM${RESET} (Disarankan 700)"
+        WARNINGS=$((WARNINGS + 1))
+        if [ "$AUTO_FIX" = "true" ]; then
+            chmod 700 "$MEMORY_DIR"
+            [ -f "$MEMORY_DB" ] && chmod 600 "$MEMORY_DB"
+            echo -e "         ${CYAN}[Auto-Fix] Izin direktori diperbaiki ke 700.${RESET}"
+        fi
+    fi
+else
+    echo -e "  [${PASS}] Knowledge Memory Storage: ${GREEN}Siap diinisialisasi${RESET}"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+fi
+
+# ------------------------------------------------------------------------------
+# 8. Ringkasan Diagnostik & Skor Kesehatan
 # ------------------------------------------------------------------------------
 echo -e "\n${BOLD}${CYAN}=================================================="
 echo "               Ringkasan Diagnostik               "

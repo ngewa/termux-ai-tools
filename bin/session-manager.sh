@@ -12,6 +12,8 @@ set -e
 
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 HOME_DIR="${HOME:-/data/data/com.termux/files/home}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
 OPENCODE_DB="$HOME_DIR/.local/share/opencode/opencode.db"
 AGY_DB="$HOME_DIR/.gemini/antigravity-cli/conversation_summaries.db"
 EXPORT_DIR="$HOME_DIR/sessions-export"
@@ -754,9 +756,10 @@ interactive_menu() {
         echo -e "  ${YELLOW}5)${RESET} 🧹 Bersihkan Berkas Log & Output Sementara"
         echo -e "  ${GREEN}6)${RESET} 🗜️ Optimasi & SQLite VACUUM (Bebaskan GB Storage)"
         echo -e "  ${RED}7)${RESET} 🗑️ Prune / Hapus Sesi Lama Berdasarkan Umur"
+        echo -e "  ${CYAN}8)${RESET} 🧠 Knowledge Memory & AI Brain (Solusi & Catatan Permanen)"
         echo -e "  ${YELLOW}0)${RESET} 🚪 Kembali / Keluar"
         echo ""
-        read -r -p "Pilihan Anda [0-7]: " menu_opt
+        read -r -p "Pilihan Anda [0-8]: " menu_opt
 
         case "$menu_opt" in
             1)
@@ -862,6 +865,13 @@ interactive_menu() {
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
+            8)
+                if [ -f "$SCRIPT_DIR/memory-manager.sh" ]; then
+                    bash "$SCRIPT_DIR/memory-manager.sh"
+                elif [ -f "$REPO_DIR/memory.sh" ]; then
+                    bash "$REPO_DIR/memory.sh"
+                fi
+                ;;
             0)
                 echo "Keluar dari wizard."
                 break
@@ -921,6 +931,17 @@ case "$1" in
             exit 1
         fi
         ;;
+    memory|mem)
+        shift
+        if [ -f "$SCRIPT_DIR/memory-manager.sh" ]; then
+            exec bash "$SCRIPT_DIR/memory-manager.sh" "$@"
+        elif [ -f "$REPO_DIR/memory.sh" ]; then
+            exec bash "$REPO_DIR/memory.sh" "$@"
+        else
+            echo "Knowledge Memory manager tidak ditemukan."
+            exit 1
+        fi
+        ;;
     help|--help|-h)
         echo -e "${BOLD}${CYAN}Termux AI Tools - Session Manager Usage:${RESET}"
         echo "  session.sh                         Buka menu interaktif TUI"
@@ -934,6 +955,7 @@ case "$1" in
         echo "  session.sh prune --days <N>        Hapus sesi yang lebih tua dari N hari"
         echo "  session.sh prune --keep <N>        Sisakan N sesi terbaru, hapus sisanya"
         echo "  session.sh resume <id_sesi>        Lanjutkan sesi di OpenCode"
+        echo "  session.sh memory <command>        Akses Knowledge Memory / AI Brain (CRUD & Search)"
         exit 0
         ;;
     *)

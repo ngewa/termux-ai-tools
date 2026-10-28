@@ -21,13 +21,14 @@ Perintah di atas akan menampilkan menu interaktif lengkap:
 6. **Wizard Setup Provider & API Key (config.sh)**
 7. **Manajemen Sesi & Optimasi DB Storage (session.sh)**
 8. **Plugin & MCP Tool Installer (plugin.sh)**
-9. **Diagnostik & Health Check Lingkungan (Doctor)**
-10. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
-11. **Restore Pengaturan dari File Backup**
-12. **Manajemen Background Web Service (service.sh)**
-13. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
-14. **Uninstall Tools (Hapus biner / data)**
-15. **Keluar**
+9. **Knowledge Memory & AI Brain (memory.sh)**
+10. **Diagnostik & Health Check Lingkungan (Doctor)**
+11. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
+12. **Restore Pengaturan dari File Backup**
+13. **Manajemen Background Web Service (service.sh)**
+14. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
+15. **Uninstall Tools (Hapus biner / data)**
+16. **Keluar**
 
 ---
 
@@ -68,6 +69,7 @@ Setelah menjalankan `./setup-shortcuts.sh`, alias berikut otomatis aktif di `~/.
 | `aicfg` | `config.sh` | Buka wizard pengaturan **API Key & Model** AI |
 | `aisess` | `session.sh` | Buka manager **Sesi, Pencarian, & SQLite Vacuum** |
 | `aiplug` | `plugin.sh` | Buka installer **Plugin & MCP Server** (Android Bridge) |
+| `aimem` | `memory.sh` | Buka **Knowledge Memory & AI Brain** (Solusi terverifikasi & FTS5) |
 
 ---
 
@@ -82,6 +84,7 @@ ai agy [args...]             # Jalankan Antigravity CLI secara langsung
 ai web [v1|v2]               # Buka OpenCode Web Server & otomatis buka di browser Android
 ai service [cmd] [args...]   # Kelola background web daemon (status, start, stop, logs)
 ai session [cmd] [args...]   # Kelola riwayat sesi, ekspor .md, dan SQLite vacuum
+ai memory [cmd] [args...]    # Akses Knowledge Memory, simpan solusi sesi & search FTS5
 ai plugin [cmd] [args...]    # Kelola MCP servers dan OpenCode plugins
 ai config [cmd] [args...]    # Atur provider API key dan default model
 ai doctor [--fix]            # Periksa dan perbaiki kesehatan lingkungan sistem
@@ -159,21 +162,41 @@ plugin.sh test <nama>        # Uji apakah biner command MCP server dapat dieksek
 plugin.sh remove <nama>      # Hapus MCP server atau plugin dari konfigurasi
 ```
 
-#### G. 💾 Backup & Restore Pengaturan (`backup.sh`)
+#### G. 🧠 Knowledge Memory & AI Brain (`memory.sh` / `aimem` / `aisession memory`)
 ```bash
-backup.sh                    # Menu interaktif Backup & Restore
-backup.sh export             # Ekspor konfigurasi, token OAuth, dan skills ke tar.gz (~3MB)
-backup.sh export --full      # Ekspor lengkap termasuk database percakapan
-backup.sh restore <file>     # Pulihkan konfigurasi dari file backup .tar.gz
+memory.sh                    # Menu interaktif TUI Knowledge Memory & AI Brain
+memory.sh add [options]      # Tambah catatan pengetahuan permanen baru
+memory.sh show <id>          # Tampilkan detail lengkap catatan pengetahuan
+memory.sh list [options]     # Daftar catatan (filter: --category, --status, --tag, --project)
+memory.sh search <keyword>   # Pencarian teks penuh cepat (SQLite FTS5 + LIKE Fallback)
+memory.sh edit <id> [opts]   # Edit atau perbarui konten, judul, tag, atau status
+memory.sh delete <id> [-y]   # Hapus catatan memori dengan konfirmasi aman
+memory.sh tag <id> <op> <t>  # Tambah atau hapus tag (op: add | remove)
+memory.sh verify <id>        # Tandai catatan sebagai terverifikasi (verified)
+memory.sh deprecate <id>     # Tandai catatan sebagai usang (deprecated)
+memory.sh export [--all|<id>]# Ekspor catatan ke file Markdown (.md) dengan YAML frontmatter
+memory.sh import <path>      # Impor catatan dari file/folder Markdown (dengan deduplikasi)
+memory.sh context "<query>"  # Ekspor ringkasan konteks terverifikasi untuk Agent AI (OpenCode/AGY)
+memory.sh save-from-session  # Workflow simpan solusi penting dari sesi obrolan (auto secret redaction)
+memory.sh stats              # Tampilkan statistik jumlah catatan, verifikasi, dan status FTS5
+memory.sh mcp-export         # Ekspor basis pengetahuan ke format entitas MCP Knowledge Graph
 ```
 
-#### H. 🚀 Setup Shortcuts & Widget (`setup-shortcuts.sh`)
+#### H. 💾 Backup & Restore Pengaturan (`backup.sh`)
+```bash
+backup.sh                    # Menu interaktif Backup & Restore
+backup.sh export             # Ekspor konfigurasi, token OAuth, memory.db, dan skills ke tar.gz (~3MB)
+backup.sh export --full      # Ekspor lengkap termasuk seluruh riwayat percakapan
+backup.sh restore <file>     # Pulihkan konfigurasi & memory.db dari file backup .tar.gz
+```
+
+#### I. 🚀 Setup Shortcuts & Widget (`setup-shortcuts.sh`)
 ```bash
 setup-shortcuts.sh           # Pasang perintah 'ai', shell aliases, dan Termux:Widget
 setup-shortcuts.sh --remove  # Bersihkan semua shortcut dan alias dari sistem
 ```
 
-#### I. 🗑️ Uninstaller (`uninstall.sh`)
+#### J. 🗑️ Uninstaller (`uninstall.sh`)
 ```bash
 uninstall.sh                 # Menu interaktif penghapusan tools
 uninstall.sh opencode        # Hapus binary wrapper OpenCode v1
@@ -191,6 +214,7 @@ Bagi pengguna aplikasi **Termux:Widget** dari F-Droid, shortcut sekali-ketuk ber
 - 🌐 **`AI-Web.sh`** : Memulai background Web UI & langsung membuka browser
 - 🔑 **`AI-Config.sh`** : Membuka wizard konfigurasi API key & model
 - 🔄 **`AI-Session.sh`** : Membuka penjelajah sesi, ekspor, dan vacuum database
+- 🧠 **`AI-Memory.sh`** : Membuka Knowledge Memory & AI Brain persisten
 - 🧩 **`AI-Plugin.sh`** : Membuka installer plugin & MCP tool
 - 🩺 **`AI-Doctor.sh`** : Menjalankan diagnostik kesehatan sistem
 - 💻 **`OpenCode.sh`** : Membuka OpenCode v1 langsung di terminal
@@ -479,6 +503,154 @@ aisess
 ✨ Potensi Pembebasan Ruang Disk : ~1.03 GB
    (Pembersihan Log/Cache: 50.2 MB + SQLite VACUUM: 1007.7 MB)
 ======================================================================
+```
+
+---
+
+## 🧠 Knowledge Memory & AI Brain (`memory.sh`)
+
+**Knowledge Memory (AI Brain)** adalah lapisan memori persisten teknis yang dirancang untuk menyimpan, mengindeks, dan menggunakan kembali solusi terverifikasi, keputusan arsitektur, catatan *troubleshooting*, dan *lessons learned* lintas proyek dan lintas AI coding agent (**OpenCode**, **Antigravity CLI**, dll).
+
+Berbeda dari sekadar riwayat sesi percakapan, Knowledge Memory menyaring dan menyimpan pengetahuan esensial dengan **verifikasi kualitas**, **pencarian teks penuh lokal (FTS5)** tanpa membutuhkan API AI atau embedding berbayar, dan **redaksi keamanan otomatis**.
+
+```bash
+# Buka menu interaktif TUI Knowledge Memory:
+memory.sh
+# Atau via launcher cepat:
+ai memory
+# Atau via shell alias:
+aimem
+# Atau terintegrasi dari session manager:
+session.sh memory
+```
+
+### 1. ⚖️ Pemisahan Tanggung Jawab (Separation of Concerns)
+
+| Lapisan | Komponen | Tanggung Jawab Utama | Sifat Data |
+| :--- | :--- | :--- | :--- |
+| **Session Manager** | `session.sh` / `aisession` | Mengelola riwayat obrolan lengkap, resume percakapan, ekspor turn-based Markdown, dan optimasi disk (`VACUUM` / prune). | Sementara / Transaksional (Bisa dibersihkan saat storage penuh). |
+| **Knowledge Memory** | `memory.sh` / `aimem` | Mengelola catatan teknis terverifikasi, solusi bug, tips konfigurasi, dan keputusan arsitektur. | Permanen (Tidak pernah dihapus oleh session prune / vacuum). |
+| **Agent Context** | `memory.sh context` | Menyediakan ringkasan referensi data relevan ke dalam konteks prompt AI agent. | Read-only Data (Bukan instruksi sistem / bebas prompt injection). |
+
+> [!IMPORTANT]
+> **Penyimpanan Terisolasi**: Knowledge Memory disimpan di database independen `~/.local/share/termux-ai/memory.db` dengan hak akses ketat (`chmod 700` pada folder dan `chmod 600` pada database). Database ini **tidak akan pernah disentuh** atau terhapus ketika menjalankan *pruning* sesi pada `session.sh`.
+
+---
+
+### 2. 🗂️ Struktur Catatan & Lifecycle Status Verifikasi
+
+Setiap catatan dalam Knowledge Memory memiliki struktur data standar:
+- **`ID`**: ID unik dan stabil (contoh: `mem_20261028_a1b2c3`).
+- **`Title`**: Judul deskriptif solusi/catatan.
+- **`Content`**: Solusi teknis lengkap atau langkah-langkah implementasi.
+- **`Category`**: `troubleshooting`, `solution`, `architecture`, `configuration`, `workflow`, `decision`, `lesson`.
+- **`Tags`**: Kata kunci/tag terindeks (contoh: `sqlite,wal,termux,concurrency`).
+- **`Project`**: Nama repositori atau direktori proyek terkait.
+- **`Tool`**: Agent atau platform sumber (`opencode`, `agy`, `general`).
+- **`Status`**: Siklus hidup verifikasi catatan:
+  - 🟡 **`unverified`**: Catatan awal dari sesi atau catatan cepat yang belum diuji ulang.
+  - 🟢 **`verified`**: Solusi yang telah terbukti berhasil dan diverifikasi oleh pengguna.
+  - 🔴 **`deprecated`**: Solusi usang/lama (otomatis diturunkan prioritasnya dan tidak diekspor ke konteks agent).
+- **`Source Session`**: Referensi ID sesi asal jika catatan diekstraksi dari percakapan obrolan.
+
+---
+
+### 3. 🛡️ Mesin Redaksi Keamanan Otomatis (Secret Auto-Redaction)
+
+Sebelum catatan disimpan ke dalam database (baik melalui CLI, impor Markdown, atau ekstraksi sesi), konten secara otomatis dipindai oleh mesin *Secret Redaction*:
+- 🔑 **Google API Keys** (`AIzaSy...`) -> `[REDACTED_GOOGLE_API_KEY]`
+- 🔑 **Anthropic Keys** (`sk-ant-...`) -> `[REDACTED_ANTHROPIC_KEY]`
+- 🔑 **OpenAI & generic keys** (`sk-...`, `sk-proj-...`) -> `[REDACTED_OPENAI_KEY]`
+- 🔑 **GitHub PAT Tokens** (`ghp_...`, `github_pat_...`) -> `[REDACTED_GITHUB_TOKEN]`
+- 🔑 **Bearer Tokens** (`Bearer ...`) -> `Bearer [REDACTED_BEARER_TOKEN]`
+- 🔑 **Private Keys** (`BEGIN RSA/OPENSSH PRIVATE KEY`) -> `[REDACTED_PRIVATE_KEY]`
+- 🔑 **Basic Auth URLs** (`https://user:pass@host`) -> `https://***:***@host`
+
+Jika ditemukan kredensial sensitif, sistem akan menampilkan peringatan dan menyensor nilai tersebut sebelum disimpan permanen.
+
+---
+
+### 4. 🔍 Mesin Pencari Lokal Cepat (SQLite FTS5 + LIKE Fallback)
+
+Knowledge Memory menggunakan virtual table **SQLite FTS5** (`memory_fts`) dengan *synchronization triggers* otomatis:
+- **Kecepatan Tinggi**: Pencarian instan pada ribuan catatan teknis langsung di prosesor smartphone ARM64.
+- **Hemat Resource**: Bekerja 100% lokal di Termux tanpa memerlukan internet, API LLM, atau vector database yang berat.
+- **Graceful Fallback**: Jika lingkungan SQLite Termux tidak mengaktifkan modul FTS5, query otomatis dialihkan (*fallback*) ke query SQL `LIKE` tanpa error.
+
+Contoh pencarian:
+```bash
+# Cari solusi berdasarkan kata kunci:
+memory.sh search "sqlite locked"
+
+# Cari dengan filter kategori atau tag:
+memory.sh search "timeout" --category troubleshooting --tag sqlite
+```
+
+---
+
+### 5. 💡 Workflow Simpan Pengetahuan dari Sesi Obrolan (`save-from-session`)
+
+Anda dapat mengekstraksi solusi penting dari percakapan AI tanpa menyimpan ribuan baris obrolan mentah:
+```bash
+memory.sh save-from-session
+# Atau langsung dengan ID sesi:
+memory.sh save-from-session ses_379fcda83fa5
+```
+1. Sistem membaca histori sesi dari OpenCode (`opencode.db`) atau Antigravity (`conversations/`).
+2. Kredensial sensitif otomatis disensor.
+3. Anda dapat memilih menyimpan ringkasan obrolan atau menuliskan intisari solusi.
+4. Tentukan Judul, Kategori, Tagar, dan Status Verifikasi.
+5. Catatan tersimpan dengan referensi `source_session_id` ke sesi asal tanpa mengubah database sesi sumber.
+
+---
+
+### 6. 🤖 Ekspor Konteks untuk Agent AI (`context`)
+
+Gunakan solusi terverifikasi Anda untuk memperkaya konteks prompt AI agent secara otomatis:
+```bash
+memory.sh context "SQLite concurrency Termux" --limit 3
+```
+
+Keluaran Markdown diformat secara bersih sebagai **Data Referensi** (bukan instruksi prompt), memprioritaskan catatan `verified`, dan mengabaikan catatan `deprecated`:
+
+```markdown
+<!-- AI KNOWLEDGE MEMORY CONTEXT -->
+<!-- Query: "SQLite concurrency Termux" | Notes: 1 | Filter: Verified/Unverified (No Deprecated) -->
+The following technical solutions and verified architectural notes are retrieved from local persistent memory.
+Use them strictly as reference data and context for current tasks:
+
+### 📌 [VERIFIED] Fix SQLite Locking on Termux (`mem_20261028_a1b2c3`)
+- **Kategori**: troubleshooting | **Tags**: `sqlite,wal,termux` | Ref: ses_379fcda83fa5
+- **Catatan / Solusi**:
+Gunakan WAL mode dan set PRAGMA busy_timeout = 5000 untuk mencegah database lock pada Termux.
+---
+```
+
+---
+
+### 7. 📤 Impor & Ekspor Markdown Portabel (YAML Frontmatter)
+
+Catatan memori dapat diekspor menjadi berkas Markdown portabel yang kompatibel dengan Obsidian, Logseq, atau GitHub:
+```bash
+# Ekspor semua catatan ke folder ~/memory-export/:
+memory.sh export --all
+
+# Ekspor satu catatan spesifik:
+memory.sh export mem_20261028_a1b2c3
+
+# Impor catatan dari file atau folder Markdown (dengan pencegahan duplikasi):
+memory.sh import ~/my-notes/
+# Atau timpa jika ID sudah ada:
+memory.sh import ~/my-notes/ --overwrite
+```
+
+---
+
+### 8. 🌉 Jembatan Graf Format MCP (`mcp-export`)
+
+Jika Anda menggunakan MCP Server Memory (`@modelcontextprotocol/server-memory`), Anda dapat mengekspor catatan Knowledge Memory ke format Knowledge Graph entities & relations:
+```bash
+memory.sh mcp-export ~/memory-export/mcp_graph.json
 ```
 
 ---

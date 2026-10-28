@@ -112,23 +112,31 @@ else
     log_warn "Tidak ada konfigurasi Antigravity CLI (~/.gemini) yang ditemukan."
 fi
 
+# 3. Backup Knowledge Memory (AI Brain)
+if [ -d "$HOME_DIR/.local/share/termux-ai" ]; then
+    log_info "Mengamankan Knowledge Memory (AI Brain: memory.db)..."
+    mkdir -p "$STAGE_DIR/memory"
+    tar -czf "$STAGE_DIR/memory/termux_ai_memory.tar.gz" -C "$HOME_DIR/.local/share" termux-ai 2>/dev/null || true
+    ITEMS_COUNT=$((ITEMS_COUNT + 1))
+    log_ok "Knowledge Memory (memory.db) berhasil dikemas."
+fi
 
 if [ "$ITEMS_COUNT" -eq 0 ]; then
     log_err "Tidak ada file konfigurasi yang ditemukan untuk diexport!"
     exit 1
 fi
 
-# 3. Create metadata file
+# 4. Create metadata file
 cat > "$STAGE_DIR/metadata.json" << EOF
 {
-  "backup_version": "1.0",
+  "backup_version": "1.1",
   "created_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "device_user": "$(whoami 2>/dev/null || echo 'termux')",
-  "packages": ["opencode", "antigravity-cli"]
+  "packages": ["opencode", "antigravity-cli", "termux-ai-memory"]
 }
 EOF
 
-# 4. Create final backup archive
+# 5. Create final backup archive
 log_info "Membuat arsip final backup: $OUTPUT_PATH..."
 tar -czf "$OUTPUT_PATH" -C "$STAGE_DIR" .
 

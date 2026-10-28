@@ -109,4 +109,16 @@ if [ -d "$STAGE_DIR/gemini" ]; then
     log_ok "Pengaturan Antigravity CLI berhasil dipulihkan."
 fi
 
+# 3. Restore Knowledge Memory (AI Brain)
+if [ -d "$STAGE_DIR/memory" ]; then
+    log_info "Memulihkan Knowledge Memory (AI Brain)..."
+    mkdir -p "$HOME_DIR/.local/share"
+    if [ -f "$STAGE_DIR/memory/termux_ai_memory.tar.gz" ]; then
+        tar -xzf "$STAGE_DIR/memory/termux_ai_memory.tar.gz" -C "$HOME_DIR/.local/share"
+        chmod 700 "$HOME_DIR/.local/share/termux-ai" 2>/dev/null || true
+        chmod 600 "$HOME_DIR/.local/share/termux-ai"/memory.db* 2>/dev/null || true
+    fi
+    log_ok "Knowledge Memory (memory.db) berhasil dipulihkan."
+fi
+
 echo -e "\n${BOLD}${GREEN}✅ Restore Berhasil! Semua pengaturan dan token telah dipulihkan.${RESET}\n"
