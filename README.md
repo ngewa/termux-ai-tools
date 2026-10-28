@@ -810,6 +810,16 @@ Repositori ini dilengkapi alur kerja otomatisasi **GitHub Actions** (`.github/wo
    - Pada `install-agy.sh` dan paket DEBIAN `antigravity-cli`, diterapkan patching instruksi ARM64 (rewriting pola opcode dan `immr`/`imms`) sehingga binary aman dari crash `Segmentation Fault`.
    - Versi `1.3.5` dipertahankan sebagai versi default yang stabil dan terverifikasi secara penuh.
 
+4. **Isolasi `LD_LIBRARY_PATH` & Dynamic Linker Cache glibc (Solusi `bad ELF magic: 2f2a2047`)**:
+   - **Latar Belakang Masalah**: Jika wrapper C menetapkan `setenv("LD_LIBRARY_PATH", "$PREFIX/glibc/lib")`, variabel tersebut akan diwariskan ke seluruh proses turunan (*child processes*), seperti MCP Server (`termux-device`, `code-review-graph`), plugin, dan command bash Termux asli.
+   - Dynamic linker Android Bionic (`/system/bin/linker64`) yang menjalankan executable Termux asli (seperti `python3`) akan membaca `LD_LIBRARY_PATH` glibc dan mencoba me-load `$PREFIX/glibc/lib/libc.so`. Karena file tersebut sebenarnya adalah GNU ld script berbasis teks (`/* GNU ld script...` dengan magic hex header `2f2a2047`), Android Bionic linker langsung crash dengan error:
+     ```text
+     CANNOT LINK EXECUTABLE "python3": ".../glibc/lib/libc.so" has bad ELF magic: 2f2a2047
+     ```
+   - **Solusi Arsitektur**:
+     - Direktori `$PREFIX/glibc/lib` didaftarkan ke `$PREFIX/glibc/etc/ld.so.conf` dan dicache menggunakan `ldconfig` (`$PREFIX/glibc/etc/ld.so.cache`). Dynamic linker glibc (`ld-linux-aarch64.so.1`) me-resolve pustaka miliknya secara native dan cepat dari file cache tersebut.
+     - Seluruh biner wrapper C (`opencode`, `opencode-v2`, `agy`) memanggil `unsetenv("LD_LIBRARY_PATH")` dan `unsetenv("LD_PRELOAD")`, sehingga seluruh proses turunan Termux berjalan di lingkungan Android Bionic yang bersih tanpa kontaminasi library glibc.
+
 ---
 
 ## 📋 Lisensi

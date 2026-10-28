@@ -103,6 +103,28 @@ else
     ERRORS=$((ERRORS + 1))
 fi
 
+# glibc dynamic linker cache check (mencegah bad ELF magic 2f2a2047 pada biner Termux/Bionic)
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if [ -f "$PREFIX/glibc/etc/ld.so.cache" ]; then
+    echo -e "  [${PASS}] glibc dynamic linker cache: ${GREEN}ld.so.cache aktif${RESET}"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+elif [ -x "$PREFIX/glibc/bin/ldconfig" ]; then
+    echo -e "  [${WARN}] glibc dynamic linker cache: ${YELLOW}belum dibuat (ld.so.cache)${RESET}"
+    WARNINGS=$((WARNINGS + 1))
+    if [ "$AUTO_FIX" = "true" ]; then
+        echo -e "         ${CYAN}[Auto-Fix] Mengonfigurasi ld.so.conf dan menjalankan ldconfig...${RESET}"
+        mkdir -p "$PREFIX/glibc/etc"
+        if ! grep -qsF "$PREFIX/glibc/lib" "$PREFIX/glibc/etc/ld.so.conf" 2>/dev/null; then
+            echo "$PREFIX/glibc/lib" >> "$PREFIX/glibc/etc/ld.so.conf"
+        fi
+        chmod 644 "$PREFIX/glibc/etc/ld.so.conf" 2>/dev/null || true
+        "$PREFIX/glibc/bin/ldconfig" >/dev/null 2>&1 || true
+    fi
+else
+    echo -e "  [${WARN}] glibc ldconfig: ${YELLOW}tidak ditemukan${RESET}"
+    WARNINGS=$((WARNINGS + 1))
+fi
+
 # Tools & dependencies
 DEPS=("clang" "curl" "tar" "python" "patchelf")
 MISSING_DEPS=()

@@ -127,7 +127,17 @@ patchelf --set-interpreter "$LOADER" "$EXTRACTED_BIN" 2>/dev/null || true
 mv "$EXTRACTED_BIN" "$SHARE_DIR/opencode.real"
 chmod 755 "$SHARE_DIR/opencode.real"
 
-# 6. Write and compile C wrapper
+# 6. Configure glibc ld.so.cache & compile C wrapper
+log_info "Mengonfigurasi glibc dynamic linker cache..."
+if [ -d "$PREFIX/glibc/etc" ] && [ -x "$PREFIX/glibc/bin/ldconfig" ]; then
+    mkdir -p "$PREFIX/glibc/etc"
+    if ! grep -qsF "$LIB_PATH" "$PREFIX/glibc/etc/ld.so.conf"; then
+        echo "$LIB_PATH" >> "$PREFIX/glibc/etc/ld.so.conf"
+    fi
+    chmod 644 "$PREFIX/glibc/etc/ld.so.conf" 2>/dev/null || true
+    "$PREFIX/glibc/bin/ldconfig" >/dev/null 2>&1 || true
+fi
+
 log_info "Menyiapkan wrapper C di $BIN_DIR/opencode-v2..."
 cat > "$STAGE/opencode-v2.c" <<'C_EOF'
 #include <stdlib.h>
@@ -136,8 +146,8 @@ cat > "$STAGE/opencode-v2.c" <<'C_EOF'
 
 int main(int argc, char** argv) {
     unsetenv("LD_PRELOAD");
+    unsetenv("LD_LIBRARY_PATH");
 
-    setenv("LD_LIBRARY_PATH", "/data/data/com.termux/files/usr/glibc/lib", 1);
     setenv("GODEBUG", "netdns=cgo", 1);
     setenv("SSL_CERT_FILE", "/data/data/com.termux/files/usr/etc/tls/cert.pem", 1);
 
