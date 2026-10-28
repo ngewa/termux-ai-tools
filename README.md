@@ -51,6 +51,154 @@ curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.
 
 ---
 
+## 📖 Panduan Lengkap Semua Perintah (All Commands Reference)
+
+Berikut ringkasan lengkap seluruh perintah (*cheatsheet*), alias cepat, skrip CLI, dan widget yang tersedia di **Termux AI Tools**:
+
+### 1. ⚡ Shell Aliases (Perintah Singkat di Terminal)
+Setelah menjalankan `./setup-shortcuts.sh`, alias berikut otomatis aktif di `~/.bashrc` dan `~/.zshrc`:
+
+| Alias | Perintah Asli | Deskripsi Singkat |
+| :--- | :--- | :--- |
+| `ai` | `ai-launcher.sh` | **Menu Utama**: Buka TUI launcher interaktif untuk semua tool AI |
+| `oc` | `opencode "$@"` | Jalankan **OpenCode v1** langsung dengan argumen tambahan |
+| `oc2` | `opencode-v2 "$@"` | Jalankan **OpenCode v2** langsung dengan argumen tambahan |
+| `aidoc` | `doctor.sh` | Jalankan **Health Doctor** & verifikasi 18 titik sistem |
+| `aiup` | `update.sh` | Cek status rilis terbaru upstream dari GitHub & npm |
+| `aicfg` | `config.sh` | Buka wizard pengaturan **API Key & Model** AI |
+| `aisess` | `session.sh` | Buka manager **Sesi, Pencarian, & SQLite Vacuum** |
+| `aiplug` | `plugin.sh` | Buka installer **Plugin & MCP Server** (Android Bridge) |
+
+---
+
+### 2. ⚡ Dispatcher Perintah Global `ai`
+Perintah `ai` dapat dijalankan dari folder mana saja dengan sub-perintah berikut:
+
+```bash
+ai                           # Buka menu interaktif TUI
+ai oc [args...]              # Jalankan OpenCode v1 secara langsung
+ai oc2 [args...]             # Jalankan OpenCode v2 secara langsung
+ai agy [args...]             # Jalankan Antigravity CLI secara langsung
+ai web [v1|v2]               # Buka OpenCode Web Server & otomatis buka di browser Android
+ai service [cmd] [args...]   # Kelola background web daemon (status, start, stop, logs)
+ai session [cmd] [args...]   # Kelola riwayat sesi, ekspor .md, dan SQLite vacuum
+ai plugin [cmd] [args...]    # Kelola MCP servers dan OpenCode plugins
+ai config [cmd] [args...]    # Atur provider API key dan default model
+ai doctor [--fix]            # Periksa dan perbaiki kesehatan lingkungan sistem
+ai update                    # Cek versi terpasang vs rilis terbaru GitHub/npm
+ai backup [--full]           # Backup konfigurasi dan token ke .tar.gz
+ai restore [berkas.tar.gz]   # Pulihkan pengaturan dari berkas backup
+```
+
+---
+
+### 3. 🛠️ Daftar Perintah CLI Lengkap Berdasarkan Modul
+
+#### A. 🩺 Health Doctor (`doctor.sh`)
+```bash
+doctor.sh                    # Jalankan 18 pemeriksaan lingkungan & dependensi
+doctor.sh --fix              # Otomatis perbaiki sertifikat TLS, permission, dan dependensi
+```
+
+#### B. 🔄 Pengecek Versi Rilis Upstream (`update.sh`)
+```bash
+update.sh                    # Periksa rilis resmi GitHub anomalyco/opencode vs versi lokal
+```
+
+#### C. 🌐 Background Web Service Manager (`service.sh`)
+```bash
+service.sh                   # Menu interaktif Web Service Manager
+service.sh status            # Cek status PID, port (4096/4097), dan pemakaian RAM
+service.sh start v2          # Jalankan OpenCode v2 Web Service & otomatis buka browser
+service.sh start v1          # Jalankan OpenCode v1 Web Service & otomatis buka browser
+service.sh stop v2           # Hentikan background service OpenCode v2
+service.sh stop all          # Hentikan semua service AI yang sedang berjalan
+service.sh restart v2        # Restart background service OpenCode v2
+service.sh logs v2           # Tampilkan isi log web service
+service.sh logs v2 -f        # Pantau log secara real-time (follow)
+service.sh open v2           # Buka kembali halaman Web UI di browser Android
+```
+
+#### D. 🔑 Wizard Setup API Key & Provider (`config.sh` / `aiconfig`)
+```bash
+config.sh                    # Buka wizard konfigurasi interaktif
+config.sh list               # Tampilkan tabel status provider aktif, masked key, dan model
+config.sh set <provider>     # Simpan API key (input disembunyikan untuk privasi)
+config.sh set <prov> <key>   # Simpan API key secara langsung
+config.sh get <provider>     # Tampilkan masked key untuk provider tertentu
+config.sh remove <provider>  # Hapus kredensial API key provider dari auth.json
+config.sh model              # Tampilkan model default OpenCode yang aktif saat ini
+config.sh model <model_id>   # Atur model default OpenCode (misal: google/gemini-2.5-flash)
+config.sh test [provider]    # Uji validitas API key via HTTPS (HTTP 200 OK)
+config.sh sync-env           # Ekspor key ke ~/.termux_ai_env & auto-load ke ~/.bashrc
+```
+
+#### E. 🔄 Manajemen Sesi & Optimasi Penyimpanan (`session.sh` / `aisession`)
+```bash
+session.sh                   # Menu interaktif Session Manager
+session.sh status            # Analisis storage database, total sesi, dan ruang dead space
+session.sh list [limit]      # Tampilkan daftar sesi terbaru (OpenCode & Antigravity)
+session.sh search <keyword>  # Cari percakapan lama berdasarkan topik, prompt, atau ID
+session.sh info <id_sesi>    # Tampilkan metadata lengkap sesi (model, token, biaya)
+session.sh export <id_sesi>  # Ekspor sesi ke file Markdown (.md) & salin ke /sdcard/Download/
+session.sh clean             # Bersihkan berkas log debug lama dan cache temporary snapshot
+session.sh vacuum            # SQLite VACUUM untuk mengompresi DB & bebaskan 1GB+ memori HP
+session.sh prune --days <N>  # Hapus sesi lama yang lebih tua dari N hari & jalankan VACUUM
+session.sh prune --keep <N>  # Sisakan N sesi terbaru dan bersihkan sisanya
+session.sh resume <id_sesi>  # Lanjutkan percakapan lama langsung di OpenCode
+```
+
+#### F. 🧩 Plugin & MCP Tool Installer (`plugin.sh` / `aiplugin`)
+```bash
+plugin.sh                    # Menu interaktif Plugin & MCP Installer
+plugin.sh status             # Tampilkan status MCP server & plugin yang aktif di OC & AGY
+plugin.sh install <preset>   # Pasang preset MCP ke kedua platform (OpenCode & Antigravity)
+                             # Pilihan preset: termux-device, fetch, sqlite, filesystem, memory, github
+plugin.sh install notifier   # Pasang plugin notifikasi Android ke OpenCode
+plugin.sh test <nama>        # Uji apakah biner command MCP server dapat dieksekusi di Termux
+plugin.sh remove <nama>      # Hapus MCP server atau plugin dari konfigurasi
+```
+
+#### G. 💾 Backup & Restore Pengaturan (`backup.sh`)
+```bash
+backup.sh                    # Menu interaktif Backup & Restore
+backup.sh export             # Ekspor konfigurasi, token OAuth, dan skills ke tar.gz (~3MB)
+backup.sh export --full      # Ekspor lengkap termasuk database percakapan
+backup.sh restore <file>     # Pulihkan konfigurasi dari file backup .tar.gz
+```
+
+#### H. 🚀 Setup Shortcuts & Widget (`setup-shortcuts.sh`)
+```bash
+setup-shortcuts.sh           # Pasang perintah 'ai', shell aliases, dan Termux:Widget
+setup-shortcuts.sh --remove  # Bersihkan semua shortcut dan alias dari sistem
+```
+
+#### I. 🗑️ Uninstaller (`uninstall.sh`)
+```bash
+uninstall.sh                 # Menu interaktif penghapusan tools
+uninstall.sh opencode        # Hapus binary wrapper OpenCode v1
+uninstall.sh opencode-v2     # Hapus binary wrapper OpenCode v2
+uninstall.sh agy             # Hapus binary wrapper Antigravity CLI
+uninstall.sh all             # Hapus semua binary tools
+uninstall.sh all --purge     # Hapus semua tools beserta folder data & konfigurasi user
+```
+
+---
+
+### 4. 📱 Android Homescreen Shortcuts (Termux:Widget)
+Bagi pengguna aplikasi **Termux:Widget** dari F-Droid, shortcut sekali-ketuk berikut otomatis tersedia di layar utama Android:
+- ⚡ **`AI-Menu.sh`** : Membuka launcher utama pilihan AI
+- 🌐 **`AI-Web.sh`** : Memulai background Web UI & langsung membuka browser
+- 🔑 **`AI-Config.sh`** : Membuka wizard konfigurasi API key & model
+- 🔄 **`AI-Session.sh`** : Membuka penjelajah sesi, ekspor, dan vacuum database
+- 🧩 **`AI-Plugin.sh`** : Membuka installer plugin & MCP tool
+- 🩺 **`AI-Doctor.sh`** : Menjalankan diagnostik kesehatan sistem
+- 💻 **`OpenCode.sh`** : Membuka OpenCode v1 langsung di terminal
+- 🚀 **`OpenCode-v2.sh`**: Membuka OpenCode v2 langsung di terminal
+- 🪐 **`Antigravity-CLI.sh`**: Membuka Antigravity CLI langsung di terminal
+
+---
+
 ## 🔄 Pembaruan (Update Checker)
 
 Skrip `update.sh` secara otomatis membandingkan versi yang terpasang di Termux Anda dengan rilis resmi terbaru di GitHub / npm:
