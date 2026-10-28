@@ -48,11 +48,12 @@ show_menu() {
     echo -e "  ${CYAN}6)${RESET} Diagnostik & Health Check Lingkungan (Doctor)"
     echo -e "  ${CYAN}7)${RESET} Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)"
     echo -e "  ${CYAN}8)${RESET} Restore Pengaturan dari File Backup"
-    echo -e "  ${GREEN}9)${RESET} Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)"
-    echo -e "  ${RED}10)${RESET} Uninstall Tools (Hapus biner / data)"
-    echo -e "  ${YELLOW}11)${RESET} Keluar"
+    echo -e "  ${CYAN}9)${RESET} Manajemen Background Web Service (service.sh)"
+    echo -e "  ${GREEN}10)${RESET} Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)"
+    echo -e "  ${RED}11)${RESET} Uninstall Tools (Hapus biner / data)"
+    echo -e "  ${YELLOW}12)${RESET} Keluar"
     echo ""
-    read -r -p "Pilihan Anda [1-11]: " opt
+    read -r -p "Pilihan Anda [1-12]: " opt
     case "$opt" in
         1)
             local s
@@ -100,15 +101,20 @@ show_menu() {
             ;;
         9)
             local s
-            s=$(get_script "bin/setup-shortcuts.sh")
+            s=$(get_script "bin/service.sh")
             bash "$s"
             ;;
         10)
             local s
-            s=$(get_script "bin/uninstall.sh")
+            s=$(get_script "bin/setup-shortcuts.sh")
             bash "$s"
             ;;
         11)
+            local s
+            s=$(get_script "bin/uninstall.sh")
+            bash "$s"
+            ;;
+        12)
             echo "Keluar."
             exit 0
             ;;
@@ -149,6 +155,11 @@ case "$1" in
         shift
         bash "$s" "$@"
         ;;
+    service|web|--service)
+        s=$(get_script "bin/service.sh")
+        shift
+        bash "$s" "$@"
+        ;;
     shortcuts|shortcut|--shortcuts)
         s=$(get_script "bin/setup-shortcuts.sh")
         shift
@@ -173,6 +184,7 @@ case "$1" in
         show_menu
         ;;
 esac
+
 
 
 

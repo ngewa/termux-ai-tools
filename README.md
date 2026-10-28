@@ -21,9 +21,10 @@ Perintah di atas akan menampilkan menu interaktif lengkap:
 6. **Diagnostik & Health Check Lingkungan (Doctor)**
 7. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
 8. **Restore Pengaturan dari File Backup**
-9. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
-10. **Uninstall Tools (Hapus biner / data)**
-11. **Keluar**
+9. **Manajemen Background Web Service (service.sh)**
+10. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
+11. **Uninstall Tools (Hapus biner / data)**
+12. **Keluar**
 
 ---
 
@@ -164,10 +165,53 @@ curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/setup-sh
 3. **Termux:Widget Shortcuts (`~/.shortcuts/`)**:
    - Jika Anda memasang aplikasi **Termux:Widget** dari F-Droid, shortcut berikut otomatis siap digunakan di homescreen HP:
      - `AI-Menu.sh` (Peluncur AI satu ketukan)
+     - `AI-Web.sh` (Buka Web Server & Browser sekali ketuk)
      - `OpenCode.sh` (Buka OpenCode 1 langsung)
      - `OpenCode-v2.sh` (Buka OpenCode 2 langsung)
      - `Antigravity-CLI.sh` (Buka AGY langsung)
      - `AI-Doctor.sh` (Cek kesehatan sistem)
+
+---
+
+## 🌐 Background Web Service Manager (`service.sh`)
+
+Jalankan OpenCode Web / Serve di latar belakang (daemon) dan buka antarmuka Web UI di browser Android (Chrome / default) secara otomatis:
+
+```bash
+# Menampilkan menu interaktif Web Service Manager:
+./service.sh
+
+# Menjalankan OpenCode v2 Web Service & otomatis buka browser:
+./service.sh start v2
+
+# Menjalankan OpenCode v1 Web Service & otomatis buka browser:
+./service.sh start v1
+
+# Memeriksa status dan pemakaian memori server:
+./service.sh status
+
+# Melihat log server secara real-time:
+./service.sh logs v2 -f
+
+# Membuka kembali halaman Web UI di browser Android:
+./service.sh open v2
+
+# Menghentikan layanan:
+./service.sh stop v2
+./service.sh stop all
+```
+
+Contoh tampilan status:
+```text
+=== Status Background Web Services ===
+
+Layanan         | Status                 | PID      | Port   | URL                      
+------------------------------------------------------------------------------------
+opencode-v1     | STOPPED                | -        | -      | -                        
+opencode-v2     | RUNNING (140MB RAM)    | 24064    | 4097   | http://127.0.0.1:4097    
+------------------------------------------------------------------------------------
+```
+
 
 ---
 

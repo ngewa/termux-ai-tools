@@ -47,17 +47,25 @@ case "$1" in
         ;;
     web)
         shift
-        if [ -x "$PREFIX/bin/opencode-v2" ]; then
-            echo -e "${CYAN}Menjalankan OpenCode 2 Web Interface...${RESET}"
-            exec "$PREFIX/bin/opencode-v2" web "$@"
-        elif [ -x "$PREFIX/bin/opencode" ]; then
-            echo -e "${CYAN}Menjalankan OpenCode 1 Web Interface...${RESET}"
-            exec "$PREFIX/bin/opencode" web "$@"
+        if [ -f "$TOOLS_DIR/service.sh" ]; then
+            exec bash "$TOOLS_DIR/service.sh" start v2 "$@"
         else
-            echo -e "${RED}[ERROR]${RESET} OpenCode belum terpasang."
-            exit 1
+            if [ -x "$PREFIX/bin/opencode-v2" ]; then
+                exec "$PREFIX/bin/opencode-v2" serve "$@"
+            else
+                exec "$PREFIX/bin/opencode" web "$@"
+            fi
         fi
         ;;
+    service)
+        shift
+        if [ -f "$TOOLS_DIR/service.sh" ]; then
+            exec bash "$TOOLS_DIR/service.sh" "$@"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/service.sh | bash -s -- "$@"
+        fi
+        ;;
+
     doc|doctor)
         shift
         if [ -f "$TOOLS_DIR/doctor.sh" ]; then
@@ -158,12 +166,15 @@ case "$choice" in
         fi
         ;;
     4)
-        if [ -x "$PREFIX/bin/opencode-v2" ]; then
-            exec "$PREFIX/bin/opencode-v2" web
+        if [ -f "$TOOLS_DIR/service.sh" ]; then
+            exec bash "$TOOLS_DIR/service.sh"
+        elif [ -x "$PREFIX/bin/opencode-v2" ]; then
+            exec "$PREFIX/bin/opencode-v2" serve
         elif [ -x "$PREFIX/bin/opencode" ]; then
             exec "$PREFIX/bin/opencode" web
         fi
         ;;
+
     5)
         if [ -f "$TOOLS_DIR/update.sh" ]; then
             exec bash "$TOOLS_DIR/update.sh"

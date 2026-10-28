@@ -51,13 +51,15 @@ else
     fi
     chmod 755 "$AI_BIN"
 
-    # Create global symlinks for doctor, update, and backup if repo exists locally
+    # Create global symlinks for doctor, update, backup, and service if repo exists locally
     if [ -d "$REPO_DIR" ]; then
         ln -sf "$REPO_DIR/doctor.sh" "$PREFIX/bin/doctor.sh"
         ln -sf "$REPO_DIR/update.sh" "$PREFIX/bin/update.sh"
         ln -sf "$REPO_DIR/backup.sh" "$PREFIX/bin/backup.sh"
+        ln -sf "$REPO_DIR/service.sh" "$PREFIX/bin/service.sh"
     fi
-    log_ok "Perintah 'ai', 'doctor.sh', 'update.sh' kini dapat dijalankan dari terminal mana saja!"
+    log_ok "Perintah 'ai', 'doctor.sh', 'service.sh' kini dapat dijalankan dari terminal mana saja!"
+
 fi
 
 
@@ -145,13 +147,21 @@ echo ""
 read -r -p "Tekan ENTER untuk keluar..." _
 EOF
 
+    # 6. AI Web Server & Browser Shortcut
+    cat > "$SHORTCUTS_DIR/AI-Web.sh" << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+service.sh start v2
+EOF
+
     chmod +x "$SHORTCUTS_DIR"/*.sh
     log_ok "Shortcut Termux:Widget berhasil dibuat:"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Menu.sh${RESET}"
+    echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Web.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/OpenCode.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/OpenCode-v2.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/Antigravity-CLI.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Doctor.sh${RESET}"
+
 fi
 
 # ------------------------------------------------------------------------------
