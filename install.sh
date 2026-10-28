@@ -45,12 +45,13 @@ show_menu() {
     echo -e "  ${GREEN}3)${RESET} Install / Update Antigravity CLI (agy v1.3.5 stabil)"
     echo -e "  ${GREEN}4)${RESET} Install / Update Semua Tools"
     echo -e "  ${GREEN}5)${RESET} Cek Status & Versi Terpasang"
-    echo -e "  ${CYAN}6)${RESET} Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)"
-    echo -e "  ${CYAN}7)${RESET} Restore Pengaturan dari File Backup"
-    echo -e "  ${RED}8)${RESET} Uninstall Tools (Hapus biner / data)"
-    echo -e "  ${YELLOW}9)${RESET} Keluar"
+    echo -e "  ${CYAN}6)${RESET} Diagnostik & Health Check Lingkungan (Doctor)"
+    echo -e "  ${CYAN}7)${RESET} Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)"
+    echo -e "  ${CYAN}8)${RESET} Restore Pengaturan dari File Backup"
+    echo -e "  ${RED}9)${RESET} Uninstall Tools (Hapus biner / data)"
+    echo -e "  ${YELLOW}10)${RESET} Keluar"
     echo ""
-    read -r -p "Pilihan Anda [1-9]: " opt
+    read -r -p "Pilihan Anda [1-10]: " opt
     case "$opt" in
         1)
             local s
@@ -83,20 +84,25 @@ show_menu() {
             ;;
         6)
             local s
-            s=$(get_script "bin/export-config.sh")
+            s=$(get_script "bin/doctor.sh")
             bash "$s"
             ;;
         7)
             local s
-            s=$(get_script "bin/restore-config.sh")
+            s=$(get_script "bin/export-config.sh")
             bash "$s"
             ;;
         8)
             local s
-            s=$(get_script "bin/uninstall.sh")
+            s=$(get_script "bin/restore-config.sh")
             bash "$s"
             ;;
         9)
+            local s
+            s=$(get_script "bin/uninstall.sh")
+            bash "$s"
+            ;;
+        10)
             echo "Keluar."
             exit 0
             ;;
@@ -132,6 +138,11 @@ case "$1" in
         s=$(get_script "update.sh")
         bash "$s"
         ;;
+    doctor|--doctor)
+        s=$(get_script "bin/doctor.sh")
+        shift
+        bash "$s" "$@"
+        ;;
     export|backup|--export)
         s=$(get_script "bin/export-config.sh")
         shift
@@ -151,5 +162,6 @@ case "$1" in
         show_menu
         ;;
 esac
+
 
 

@@ -18,10 +18,11 @@ Perintah di atas akan menampilkan menu interaktif lengkap:
 3. **Install / Update Antigravity CLI** (`agy v1.3.5` build stabil dengan memory patch)
 4. **Install / Update Semua Tools**
 5. **Cek Status & Versi Terpasang**
-6. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
-7. **Restore Pengaturan dari File Backup**
-8. **Uninstall Tools (Hapus biner / data)**
-9. **Keluar**
+6. **Diagnostik & Health Check Lingkungan (Doctor)**
+7. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
+8. **Restore Pengaturan dari File Backup**
+9. **Uninstall Tools (Hapus biner / data)**
+10. **Keluar**
 
 ---
 
@@ -75,6 +76,59 @@ Antigravity CLI    | 1.3.5            | 1.4.8            | Stabil (1.3.5)
 ----------------------------------------------------------------------
 ```
 
+---
+
+## 🩺 Diagnostik & Health Doctor (`doctor.sh`)
+
+Periksa kondisi kesehatan sistem Termux, status dynamic linker `glibc`, sertifikat TLS, risiko Android OOM Killer, ketersediaan RAM/Swap, dan integritas autentikasi:
+
+```bash
+# Jalankan langsung dari web:
+curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- doctor
+
+# Atau secara lokal:
+./doctor.sh
+
+# Perbaikan otomatis masalah yang ditemukan:
+./doctor.sh --fix
+```
+
+Contoh keluaran diagnostik:
+```text
+==================================================
+    🩺 Termux AI Tools - System & Health Doctor    
+==================================================
+
+1. Sistem & Arsitektur:
+  [✔ PASS] Arsitektur CPU: aarch64 (ARM64)
+  [✔ PASS] Kernel Linux: 4.14.190
+  [✔ PASS] Ruang Penyimpanan: 15 GB bebas
+
+2. Lingkungan glibc & Dynamic Linker:
+  [✔ PASS] glibc dynamic loader: /data/data/com.termux/files/usr/glibc/lib/ld-linux-aarch64.so.1
+  [✔ PASS] glibc core libraries: libc.so.6 terdeteksi
+  [✔ PASS] Dependensi binary: clang, curl, tar, python, patchelf
+
+3. Jaringan & Sertifikat TLS/SSL:
+  [✔ PASS] TLS/SSL Certificate: /data/data/com.termux/files/usr/etc/tls/cert.pem (196K)
+  [✔ PASS] Koneksi HTTPS ke GitHub API & npm: Normal (200/OK)
+
+4. Analisis Memori RAM & Swap (OOM Prevention):
+  [✔ PASS] RAM Tersedia: 3.4 GB / 7.5 GB (Sangat aman untuk LLM agent)
+  [✔ PASS] Swap / zRAM: 2.1 GB bebas / 4.0 GB
+
+5. Status & Integritas Biner AI Tools:
+  [✔ PASS] OpenCode v1: Terpasang (v1.19.4)
+  [✔ PASS] OpenCode v2: Terpasang (opencode v2.2.0)
+  [✔ PASS] Antigravity CLI (agy): Terpasang (v1.3.5)
+
+6. Status Kredensial & Autentikasi:
+  [✔ PASS] OpenCode Auth: Terkonfigurasi (Provider: google)
+  [✔ PASS] Antigravity OAuth Token: Tersedia & aman (chmod 600)
+
+Skor Kesehatan : 100%
+🎉 SEMUA SISTEM NORMAL! Lingkungan Termux AI Tools 100% prima.
+```
 
 ---
 
