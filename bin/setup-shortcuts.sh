@@ -1,0 +1,172 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -e
+
+# ==============================================================================
+# Setup Shortcuts, Shell Aliases, and Termux:Widget Launcher for AI Tools
+# ==============================================================================
+
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+HOME_DIR="${HOME:-/data/data/com.termux/files/home}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
+SHORTCUTS_DIR="$HOME_DIR/.shortcuts"
+
+GREEN="\033[32m"
+YELLOW="\033[33m"
+CYAN="\033[36m"
+RED="\033[31m"
+BOLD="\033[1m"
+RESET="\033[0m"
+
+log_info() { echo -e "${CYAN}[INFO]${RESET} $1"; }
+log_ok() { echo -e "${GREEN}[OK]${RESET} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${RESET} $1"; }
+log_err() { echo -e "${RED}[ERROR]${RESET} $1"; }
+
+REMOVE_MODE=false
+for arg in "$@"; do
+    if [ "$arg" = "--remove" ] || [ "$arg" = "--uninstall" ] || [ "$arg" = "-r" ]; then
+        REMOVE_MODE=true
+    fi
+done
+
+echo -e "\n${BOLD}${CYAN}=== Termux AI Tools - Quick Launcher & Shortcuts Setup ===${RESET}\n"
+
+# ------------------------------------------------------------------------------
+# 1. Install or Remove Global 'ai' & Helper Commands
+# ------------------------------------------------------------------------------
+AI_BIN="$PREFIX/bin/ai"
+if [ "$REMOVE_MODE" = "true" ]; then
+    log_info "Menghapus perintah global 'ai' dan symlink..."
+    rm -f "$AI_BIN" "$PREFIX/bin/doctor.sh" "$PREFIX/bin/update.sh" "$PREFIX/bin/backup.sh"
+    log_ok "Perintah global berhasil dibersihkan."
+else
+    log_info "Memasang perintah global 'ai' ke $AI_BIN..."
+    if [ -f "$SCRIPT_DIR/ai-launcher.sh" ]; then
+        cp "$SCRIPT_DIR/ai-launcher.sh" "$AI_BIN"
+    elif [ -f "$REPO_DIR/bin/ai-launcher.sh" ]; then
+        cp "$REPO_DIR/bin/ai-launcher.sh" "$AI_BIN"
+    else
+        curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/bin/ai-launcher.sh -o "$AI_BIN"
+    fi
+    chmod 755 "$AI_BIN"
+
+    # Create global symlinks for doctor, update, and backup if repo exists locally
+    if [ -d "$REPO_DIR" ]; then
+        ln -sf "$REPO_DIR/doctor.sh" "$PREFIX/bin/doctor.sh"
+        ln -sf "$REPO_DIR/update.sh" "$PREFIX/bin/update.sh"
+        ln -sf "$REPO_DIR/backup.sh" "$PREFIX/bin/backup.sh"
+    fi
+    log_ok "Perintah 'ai', 'doctor.sh', 'update.sh' kini dapat dijalankan dari terminal mana saja!"
+fi
+
+
+# ------------------------------------------------------------------------------
+# 2. Setup / Remove Shell Aliases (.bashrc & .zshrc)
+# ------------------------------------------------------------------------------
+ALIAS_START="# >>> termux-ai-tools aliases >>>"
+ALIAS_END="# <<< termux-ai-tools aliases <<<"
+
+manage_shell_rc() {
+    local rc_file="$1"
+    if [ ! -f "$rc_file" ]; then
+        touch "$rc_file"
+    fi
+
+    # Remove existing alias block first
+    sed -i "/$ALIAS_START/,/$ALIAS_END/d" "$rc_file" 2>/dev/null || true
+
+    if [ "$REMOVE_MODE" != "true" ]; then
+        cat >> "$rc_file" << EOF
+
+$ALIAS_START
+alias oc="opencode"
+alias oc2="opencode-v2"
+alias aidoc="doctor.sh"
+alias aiup="update.sh"
+$ALIAS_END
+EOF
+        log_ok "Alias ditambahkan ke $(basename "$rc_file") (oc, oc2, aidoc, aiup)"
+    fi
+}
+
+log_info "Mengonfigurasi shell aliases..."
+[ -f "$HOME_DIR/.bashrc" ] || touch "$HOME_DIR/.bashrc"
+manage_shell_rc "$HOME_DIR/.bashrc"
+
+if [ -f "$HOME_DIR/.zshrc" ]; then
+    manage_shell_rc "$HOME_DIR/.zshrc"
+fi
+
+# ------------------------------------------------------------------------------
+# 3. Setup / Remove Termux:Widget Shortcuts (~/.shortcuts/)
+# ------------------------------------------------------------------------------
+if [ "$REMOVE_MODE" = "true" ]; then
+    log_info "Menghapus shortcut Termux:Widget..."
+    rm -f "$SHORTCUTS_DIR/OpenCode.sh" \
+          "$SHORTCUTS_DIR/OpenCode-v2.sh" \
+          "$SHORTCUTS_DIR/Antigravity-CLI.sh" \
+          "$SHORTCUTS_DIR/AI-Menu.sh" \
+          "$SHORTCUTS_DIR/AI-Doctor.sh"
+    log_ok "Shortcut Termux:Widget berhasil dibersihkan."
+else
+    log_info "Menyiapkan direktori Termux:Widget di $SHORTCUTS_DIR..."
+    mkdir -p "$SHORTCUTS_DIR" "$SHORTCUTS_DIR/tasks"
+
+    # 1. AI Menu Launcher
+    cat > "$SHORTCUTS_DIR/AI-Menu.sh" << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+exec ai
+EOF
+
+    # 2. OpenCode v1 Shortcut
+    cat > "$SHORTCUTS_DIR/OpenCode.sh" << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+exec opencode "$@"
+EOF
+
+    # 3. OpenCode v2 Shortcut
+    cat > "$SHORTCUTS_DIR/OpenCode-v2.sh" << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+exec opencode-v2 "$@"
+EOF
+
+    # 4. Antigravity CLI Shortcut
+    cat > "$SHORTCUTS_DIR/Antigravity-CLI.sh" << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+exec agy "$@"
+EOF
+
+    # 5. AI Doctor Shortcut
+    cat > "$SHORTCUTS_DIR/AI-Doctor.sh" << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+doctor.sh
+echo ""
+read -r -p "Tekan ENTER untuk keluar..." _
+EOF
+
+    chmod +x "$SHORTCUTS_DIR"/*.sh
+    log_ok "Shortcut Termux:Widget berhasil dibuat:"
+    echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Menu.sh${RESET}"
+    echo -e "  • ${CYAN}$SHORTCUTS_DIR/OpenCode.sh${RESET}"
+    echo -e "  • ${CYAN}$SHORTCUTS_DIR/OpenCode-v2.sh${RESET}"
+    echo -e "  • ${CYAN}$SHORTCUTS_DIR/Antigravity-CLI.sh${RESET}"
+    echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Doctor.sh${RESET}"
+fi
+
+# ------------------------------------------------------------------------------
+# 4. Ringkasan
+# ------------------------------------------------------------------------------
+if [ "$REMOVE_MODE" = "true" ]; then
+    echo -e "\n${BOLD}${GREEN}✅ Seluruh shortcut dan alias berhasil dibersihkan!${RESET}\n"
+else
+    echo -e "\n${BOLD}${GREEN}✅ Penyiapan Shortcut Selesai!${RESET}"
+    echo -e "\n${BOLD}Cara Penggunaan Baru:${RESET}"
+    echo -e "  1. Ketik ${CYAN}${BOLD}ai${RESET} di terminal mana saja untuk membuka menu peluncur interaktif."
+    echo -e "  2. Gunakan alias cepat:"
+    echo -e "     - ${CYAN}oc${RESET}   : Jalankan OpenCode v1"
+    echo -e "     - ${CYAN}oc2${RESET}  : Jalankan OpenCode v2"
+    echo -e "     - ${CYAN}aidoc${RESET}: Jalankan Health Doctor"
+    echo -e "     - ${CYAN}aiup${RESET} : Cek & update versi rilis"
+    echo -e "  3. Jika Anda menginstal aplikasi Android ${BOLD}Termux:Widget${RESET}, widget shortcut akan muncul di homescreen HP Anda!\n"
+fi

@@ -21,8 +21,9 @@ Perintah di atas akan menampilkan menu interaktif lengkap:
 6. **Diagnostik & Health Check Lingkungan (Doctor)**
 7. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
 8. **Restore Pengaturan dari File Backup**
-9. **Uninstall Tools (Hapus biner / data)**
-10. **Keluar**
+9. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
+10. **Uninstall Tools (Hapus biner / data)**
+11. **Keluar**
 
 ---
 
@@ -129,6 +130,44 @@ Contoh keluaran diagnostik:
 Skor Kesehatan : 100%
 🎉 SEMUA SISTEM NORMAL! Lingkungan Termux AI Tools 100% prima.
 ```
+
+---
+
+## 🚀 Quick Launcher & Android Shortcuts (`setup-shortcuts.sh`)
+
+Sistem peluncur cepat terintegrasi untuk kenyamanan penggunaan AI coding agent di perangkat Android:
+
+```bash
+# Pasang perintah 'ai', alias shell, dan widget Termux:
+./setup-shortcuts.sh
+
+# Atau langsung dari web:
+curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/setup-shortcuts.sh | bash
+```
+
+### Fitur yang Disediakan:
+1. **Perintah Global `ai`**:
+   - `ai` : Buka menu interaktif peluncur AI.
+   - `ai oc [args...]` : Jalankan OpenCode v1 secara langsung.
+   - `ai oc2 [args...]` : Jalankan OpenCode v2 secara langsung.
+   - `ai agy [args...]` : Jalankan Antigravity CLI secara langsung.
+   - `ai web` : Jalankan OpenCode Web UI mode di browser.
+   - `ai doc` : Jalankan diagnostik kesehatan sistem (Doctor).
+   - `ai up` : Cek dan update ke rilis GitHub terbaru.
+   - `ai backup` : Export / backup pengaturan dan token.
+   - `ai restore` : Restore pengaturan dari berkas backup.
+2. **Shell Aliases (`.bashrc` / `.zshrc`)**:
+   - `oc` : Shortcut instan untuk `opencode` (v1).
+   - `oc2`: Shortcut instan untuk `opencode-v2` (v2).
+   - `aidoc`: Shortcut instan untuk `doctor.sh`.
+   - `aiup`: Shortcut instan untuk `update.sh`.
+3. **Termux:Widget Shortcuts (`~/.shortcuts/`)**:
+   - Jika Anda memasang aplikasi **Termux:Widget** dari F-Droid, shortcut berikut otomatis siap digunakan di homescreen HP:
+     - `AI-Menu.sh` (Peluncur AI satu ketukan)
+     - `OpenCode.sh` (Buka OpenCode 1 langsung)
+     - `OpenCode-v2.sh` (Buka OpenCode 2 langsung)
+     - `Antigravity-CLI.sh` (Buka AGY langsung)
+     - `AI-Doctor.sh` (Cek kesehatan sistem)
 
 ---
 
