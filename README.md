@@ -20,13 +20,14 @@ Perintah di atas akan menampilkan menu interaktif lengkap:
 5. **Cek Status & Versi Terpasang**
 6. **Wizard Setup Provider & API Key (config.sh)**
 7. **Manajemen Sesi & Optimasi DB Storage (session.sh)**
-8. **Diagnostik & Health Check Lingkungan (Doctor)**
-9. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
-10. **Restore Pengaturan dari File Backup**
-11. **Manajemen Background Web Service (service.sh)**
-12. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
-13. **Uninstall Tools (Hapus biner / data)**
-14. **Keluar**
+8. **Plugin & MCP Tool Installer (plugin.sh)**
+9. **Diagnostik & Health Check Lingkungan (Doctor)**
+10. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
+11. **Restore Pengaturan dari File Backup**
+12. **Manajemen Background Web Service (service.sh)**
+13. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
+14. **Uninstall Tools (Hapus biner / data)**
+15. **Keluar**
 
 ---
 
@@ -331,6 +332,50 @@ aisess
    (Pembersihan Log/Cache: 50.2 MB + SQLite VACUUM: 1007.7 MB)
 ======================================================================
 ```
+
+---
+
+## 🧩 Plugin & MCP Tool Installer (`plugin.sh`)
+
+Perluas kemampuan AI coding agent Anda dengan **Model Context Protocol (MCP)** servers dan **OpenCode Plugins** khusus lingkungan Android Termux:
+
+```bash
+# Buka menu interaktif Plugin & MCP Installer:
+plugin.sh
+# Atau via launcher cepat:
+ai plugin
+# Atau alias:
+aiplug
+```
+
+### Katalog MCP Server Bawaan:
+- 📱 **`termux-device` (Termux Device Bridge)**:
+  - Mengintegrasikan fungsi Android langsung ke AI: Cek status & persentase baterai HP (`termux_battery`), baca/tulis clipboard Android (`termux_clipboard`), kirim notifikasi push ke status bar Android saat tugas coding selesai (`termux_notify`), popup toast di layar (`termux_toast`), getarkan HP (`termux_vibrate`), dan buka link di browser Android (`termux_open_url`).
+- 🌐 **`fetch` (Web Fetcher)**:
+  - Mengambil artikel web, dokumentasi online, dan response REST API secara instan (`@modelcontextprotocol/server-fetch`).
+- 🗄️ **`sqlite` (SQLite Database Explorer)**:
+  - Menghubungkan AI langsung ke file SQLite untuk inspeksi tabel dan eksekusi query (`@modelcontextprotocol/server-sqlite`).
+- 📁 **`filesystem` (Filesystem Manager)**:
+  - Operasi file terisolasi (`@modelcontextprotocol/server-filesystem`).
+- 🧠 **`memory` (Knowledge Graph Memory)**:
+  - Memori jangka panjang AI yang persisten lintas sesi percakapan (`@modelcontextprotocol/server-memory`).
+- 🐙 **`github` (GitHub API)**:
+  - Mengelola repositori, issue, dan pull request GitHub langsung dari chat AI (`@modelcontextprotocol/server-github`).
+
+### Katalog Plugin OpenCode Bawaan:
+- 🔔 **`termux-notifier.ts`**: Notifikasi otomatis ke status bar Android saat sesi OpenCode selesai memproses instruksi panjang.
+- ⚡ **`rtk.ts`**: Plugin penghemat token dan kompilasi cerdas menggunakan Rust Toolkit (`rtk`).
+- 🛡️ **`crg-plugin.ts`**: Auto-update knowledge graph code review.
+
+### Kemampuan & Perintah CLI Cepat:
+
+| Perintah | Deskripsi |
+| :--- | :--- |
+| `plugin.sh status` (atau `aiplugin`) | Menampilkan daftar MCP server dan plugin yang aktif di OpenCode & Antigravity |
+| `plugin.sh install <preset> [target]` | Memasang preset MCP (contoh: `termux-device`, `fetch`, `sqlite`, `memory`) |
+| `plugin.sh install notifier` | Memasang plugin notifikasi Android ke OpenCode |
+| `plugin.sh test <nama>` | Menguji ketersediaan biner/command MCP server di sistem Termux |
+| `plugin.sh remove <nama> [target]` | Menghapus integrasi MCP server atau plugin |
 
 ---
 
