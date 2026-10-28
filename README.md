@@ -18,13 +18,14 @@ Perintah di atas akan menampilkan menu interaktif lengkap:
 3. **Install / Update Antigravity CLI** (`agy v1.3.5` build stabil dengan memory patch)
 4. **Install / Update Semua Tools**
 5. **Cek Status & Versi Terpasang**
-6. **Diagnostik & Health Check Lingkungan (Doctor)**
-7. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
-8. **Restore Pengaturan dari File Backup**
-9. **Manajemen Background Web Service (service.sh)**
-10. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
-11. **Uninstall Tools (Hapus biner / data)**
-12. **Keluar**
+6. **Wizard Setup Provider & API Key (config.sh)**
+7. **Diagnostik & Health Check Lingkungan (Doctor)**
+8. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
+9. **Restore Pengaturan dari File Backup**
+10. **Manajemen Background Web Service (service.sh)**
+11. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
+12. **Uninstall Tools (Hapus biner / data)**
+13. **Keluar**
 
 ---
 
@@ -212,6 +213,70 @@ opencode-v2     | RUNNING (140MB RAM)    | 24064    | 4097   | http://127.0.0.1:
 ------------------------------------------------------------------------------------
 ```
 
+
+---
+
+## 🔑 Wizard Setup API Key & Provider (`config.sh`)
+
+Kelola API key penyedia AI dan model default dengan mudah, aman, dan interaktif:
+
+```bash
+# Menjalankan Interactive Config Wizard:
+config.sh
+# Atau:
+ai config
+# Atau:
+aiconfig
+```
+
+### Kemampuan & Perintah CLI Cepat:
+
+| Perintah | Deskripsi |
+| :--- | :--- |
+| `config.sh list` (atau `aiconfig`) | Menampilkan tabel status provider aktif, masked API key, dan model aktif |
+| `config.sh set <provider> [key]` | Menyimpan / memperbarui API key ke `~/.local/share/opencode/auth.json` |
+| `config.sh get <provider>` | Menampilkan masked API key untuk provider tertentu |
+| `config.sh model [model_id]` | Menampilkan atau mengatur default model di `~/.config/opencode/opencode.jsonc` |
+| `config.sh test [provider]` | Menguji validitas koneksi & API key secara langsung via HTTP (HTTP 200 OK) |
+| `config.sh sync-env` | Mengekspor API keys ke `~/.termux_ai_env` (bisa di-source oleh `~/.bashrc`) |
+| `config.sh remove <provider>` | Menghapus kredensial provider dari sistem |
+
+### Provider yang Didukung Secara Langsung:
+- 🌐 **Google Gemini** (`google`): `google/gemini-2.5-flash`, `google/gemini-2.5-pro`
+- 🧠 **Anthropic Claude** (`anthropic`): `anthropic/claude-3-7-sonnet`, `anthropic/claude-3-5-sonnet`
+- ⚡ **OpenAI** (`openai`): `openai/gpt-4.5-preview`, `openai/gpt-4o`, `openai/o3-mini`
+- 🐋 **DeepSeek** (`deepseek`): `deepseek/deepseek-chat`, `deepseek/deepseek-reasoner`
+- 🔀 **OpenRouter** (`openrouter`): `openrouter/auto`, ratusan model lewat satu API key
+- 🚀 **Groq** (`groq`): `groq/llama-3.3-70b-versatile`, inferensi ultra-cepat
+- 🌪️ **Mistral AI** (`mistral`): `mistral/mistral-large-latest`, `mistral/codestral-latest`
+- 🤖 **xAI (Grok)** (`xai`): `xai/grok-2-latest`, `xai/grok-beta`
+- ⚙️ **Custom Provider**: Masukkan provider atau base URL kustom pilihan Anda.
+
+### Contoh Tampilan Status:
+```text
+======================================================================
+              DAFTAR PROVIDER & STATUS API KEY TERPASANG              
+======================================================================
+🎯 Model Aktif (opencode.jsonc): google/gemini-2.5-flash
+
+PROVIDER         NAMA                 STATUS       API KEY (MASKED)    
+----------------------------------------------------------------------
+google           Google Gemini        [ AKTIF ]    AIzaSyAT...3g4k     
+anthropic        Anthropic Claude     [ BELUM ]    -                   
+openai           OpenAI               [ BELUM ]    -                   
+deepseek         DeepSeek             [ BELUM ]    -                   
+openrouter       OpenRouter           [ BELUM ]    -                   
+groq             Groq                 [ BELUM ]    -                   
+mistral          Mistral AI           [ BELUM ]    -                   
+xai              xAI (Grok)           [ BELUM ]    -                   
+----------------------------------------------------------------------
+```
+
+### Keamanan & Privasi:
+- Input API key menggunakan mode silent input (`read -s`) sehingga tidak tercatat di history bash.
+- Output terminal otomatis dimasking (`AIzaSy...3g4k`), tidak pernah menampilkan plain text key.
+- File `auth.json` dan `~/.termux_ai_env` otomatis diberi hak akses `chmod 600` (hanya bisa dibaca oleh pemilik akun).
+- Backup otomatis (`auth.json.bak` & `opencode.jsonc.bak`) dibuat setiap kali konfigurasi diubah.
 
 ---
 

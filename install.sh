@@ -45,15 +45,16 @@ show_menu() {
     echo -e "  ${GREEN}3)${RESET} Install / Update Antigravity CLI (agy v1.3.5 stabil)"
     echo -e "  ${GREEN}4)${RESET} Install / Update Semua Tools"
     echo -e "  ${GREEN}5)${RESET} Cek Status & Versi Terpasang"
-    echo -e "  ${CYAN}6)${RESET} Diagnostik & Health Check Lingkungan (Doctor)"
-    echo -e "  ${CYAN}7)${RESET} Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)"
-    echo -e "  ${CYAN}8)${RESET} Restore Pengaturan dari File Backup"
-    echo -e "  ${CYAN}9)${RESET} Manajemen Background Web Service (service.sh)"
-    echo -e "  ${GREEN}10)${RESET} Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)"
-    echo -e "  ${RED}11)${RESET} Uninstall Tools (Hapus biner / data)"
-    echo -e "  ${YELLOW}12)${RESET} Keluar"
+    echo -e "  ${CYAN}6)${RESET} Wizard Setup Provider & API Key (config.sh)"
+    echo -e "  ${CYAN}7)${RESET} Diagnostik & Health Check Lingkungan (Doctor)"
+    echo -e "  ${CYAN}8)${RESET} Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)"
+    echo -e "  ${CYAN}9)${RESET} Restore Pengaturan dari File Backup"
+    echo -e "  ${CYAN}10)${RESET} Manajemen Background Web Service (service.sh)"
+    echo -e "  ${GREEN}11)${RESET} Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)"
+    echo -e "  ${RED}12)${RESET} Uninstall Tools (Hapus biner / data)"
+    echo -e "  ${YELLOW}13)${RESET} Keluar"
     echo ""
-    read -r -p "Pilihan Anda [1-12]: " opt
+    read -r -p "Pilihan Anda [1-13]: " opt
     case "$opt" in
         1)
             local s
@@ -86,35 +87,40 @@ show_menu() {
             ;;
         6)
             local s
-            s=$(get_script "bin/doctor.sh")
+            s=$(get_script "bin/config-helper.sh")
             bash "$s"
             ;;
         7)
             local s
-            s=$(get_script "bin/export-config.sh")
+            s=$(get_script "bin/doctor.sh")
             bash "$s"
             ;;
         8)
             local s
-            s=$(get_script "bin/restore-config.sh")
+            s=$(get_script "bin/export-config.sh")
             bash "$s"
             ;;
         9)
             local s
-            s=$(get_script "bin/service.sh")
+            s=$(get_script "bin/restore-config.sh")
             bash "$s"
             ;;
         10)
             local s
-            s=$(get_script "bin/setup-shortcuts.sh")
+            s=$(get_script "bin/service.sh")
             bash "$s"
             ;;
         11)
             local s
-            s=$(get_script "bin/uninstall.sh")
+            s=$(get_script "bin/setup-shortcuts.sh")
             bash "$s"
             ;;
         12)
+            local s
+            s=$(get_script "bin/uninstall.sh")
+            bash "$s"
+            ;;
+        13)
             echo "Keluar."
             exit 0
             ;;
@@ -149,6 +155,11 @@ case "$1" in
     check|update|--check)
         s=$(get_script "update.sh")
         bash "$s"
+        ;;
+    config|cfg|--config)
+        s=$(get_script "bin/config-helper.sh")
+        shift
+        bash "$s" "$@"
         ;;
     doctor|--doctor)
         s=$(get_script "bin/doctor.sh")

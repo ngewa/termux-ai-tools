@@ -38,7 +38,7 @@ echo -e "\n${BOLD}${CYAN}=== Termux AI Tools - Quick Launcher & Shortcuts Setup 
 AI_BIN="$PREFIX/bin/ai"
 if [ "$REMOVE_MODE" = "true" ]; then
     log_info "Menghapus perintah global 'ai' dan symlink..."
-    rm -f "$AI_BIN" "$PREFIX/bin/doctor.sh" "$PREFIX/bin/update.sh" "$PREFIX/bin/backup.sh"
+    rm -f "$AI_BIN" "$PREFIX/bin/doctor.sh" "$PREFIX/bin/update.sh" "$PREFIX/bin/backup.sh" "$PREFIX/bin/service.sh" "$PREFIX/bin/config.sh" "$PREFIX/bin/aiconfig"
     log_ok "Perintah global berhasil dibersihkan."
 else
     log_info "Memasang perintah global 'ai' ke $AI_BIN..."
@@ -51,14 +51,16 @@ else
     fi
     chmod 755 "$AI_BIN"
 
-    # Create global symlinks for doctor, update, backup, and service if repo exists locally
+    # Create global symlinks for doctor, update, backup, service, and config if repo exists locally
     if [ -d "$REPO_DIR" ]; then
         ln -sf "$REPO_DIR/doctor.sh" "$PREFIX/bin/doctor.sh"
         ln -sf "$REPO_DIR/update.sh" "$PREFIX/bin/update.sh"
         ln -sf "$REPO_DIR/backup.sh" "$PREFIX/bin/backup.sh"
         ln -sf "$REPO_DIR/service.sh" "$PREFIX/bin/service.sh"
+        ln -sf "$REPO_DIR/config.sh" "$PREFIX/bin/config.sh"
+        ln -sf "$REPO_DIR/config.sh" "$PREFIX/bin/aiconfig"
     fi
-    log_ok "Perintah 'ai', 'doctor.sh', 'service.sh' kini dapat dijalankan dari terminal mana saja!"
+    log_ok "Perintah 'ai', 'config.sh', 'doctor.sh', 'service.sh' kini dapat dijalankan dari terminal mana saja!"
 
 fi
 
@@ -86,9 +88,10 @@ alias oc="opencode"
 alias oc2="opencode-v2"
 alias aidoc="doctor.sh"
 alias aiup="update.sh"
+alias aicfg="config.sh"
 $ALIAS_END
 EOF
-        log_ok "Alias ditambahkan ke $(basename "$rc_file") (oc, oc2, aidoc, aiup)"
+        log_ok "Alias ditambahkan ke $(basename "$rc_file") (oc, oc2, aidoc, aiup, aicfg)"
     fi
 }
 
@@ -109,6 +112,8 @@ if [ "$REMOVE_MODE" = "true" ]; then
           "$SHORTCUTS_DIR/OpenCode-v2.sh" \
           "$SHORTCUTS_DIR/Antigravity-CLI.sh" \
           "$SHORTCUTS_DIR/AI-Menu.sh" \
+          "$SHORTCUTS_DIR/AI-Web.sh" \
+          "$SHORTCUTS_DIR/AI-Config.sh" \
           "$SHORTCUTS_DIR/AI-Doctor.sh"
     log_ok "Shortcut Termux:Widget berhasil dibersihkan."
 else
@@ -153,10 +158,17 @@ EOF
 service.sh start v2
 EOF
 
+    # 7. AI Config Wizard Shortcut
+    cat > "$SHORTCUTS_DIR/AI-Config.sh" << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+config.sh
+EOF
+
     chmod +x "$SHORTCUTS_DIR"/*.sh
     log_ok "Shortcut Termux:Widget berhasil dibuat:"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Menu.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Web.sh${RESET}"
+    echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Config.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/OpenCode.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/OpenCode-v2.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/Antigravity-CLI.sh${RESET}"

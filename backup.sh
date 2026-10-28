@@ -1,7 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REAL_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$REAL_PATH")" && pwd)"
 
 case "$1" in
     export|backup|--export)

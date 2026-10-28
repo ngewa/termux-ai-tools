@@ -98,6 +98,14 @@ case "$1" in
             exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- restore "$@"
         fi
         ;;
+    cfg|config)
+        shift
+        if [ -f "$TOOLS_DIR/config.sh" ]; then
+            exec bash "$TOOLS_DIR/config.sh" "$@"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/config.sh | bash -s -- "$@"
+        fi
+        ;;
     help|--help|-h)
         echo -e "${BOLD}${CYAN}AI Quick Launcher Usage:${RESET}"
         echo "  ai                  Buka menu interaktif pemilih AI"
@@ -105,6 +113,7 @@ case "$1" in
         echo "  ai oc2 [args...]    Jalankan OpenCode v2 langsung"
         echo "  ai agy [args...]    Jalankan Antigravity CLI langsung"
         echo "  ai web              Buka mode Web UI OpenCode"
+        echo "  ai config [args...] Wizard pengaturan API key & default model"
         echo "  ai doctor           Jalankan pemeriksaan kesehatan sistem"
         echo "  ai update           Cek & update versi terbaru dari GitHub"
         echo "  ai backup           Export / backup pengaturan & token"
@@ -136,12 +145,13 @@ echo -e "  ${GREEN}3)${RESET} Antigravity CLI      ${CYAN}${AGY_VER}${RESET}"
 echo -e "  ${GREEN}4)${RESET} OpenCode Web UI      (Buka server web)"
 echo -e "  ${CYAN}5)${RESET} Pengecekan Update    (Cek rilis baru upstream)"
 echo -e "  ${CYAN}6)${RESET} Diagnostik Sistem    (Doctor & Health check)"
-echo -e "  ${CYAN}7)${RESET} Backup Pengaturan    (Export settings & tokens)"
-echo -e "  ${CYAN}8)${RESET} Restore Pengaturan   (Restore dari arsip)"
-echo -e "  ${YELLOW}9)${RESET} Keluar"
+echo -e "  ${CYAN}7)${RESET} Konfigurasi AI & Key (Setup API key & model)"
+echo -e "  ${CYAN}8)${RESET} Backup Pengaturan    (Export settings & tokens)"
+echo -e "  ${CYAN}9)${RESET} Restore Pengaturan   (Restore dari arsip)"
+echo -e "  ${YELLOW}10)${RESET} Keluar"
 echo ""
 
-read -r -p "Masukkan pilihan [1-9]: " choice
+read -r -p "Masukkan pilihan [1-10]: " choice
 
 case "$choice" in
     1)
@@ -190,13 +200,20 @@ case "$choice" in
         fi
         ;;
     7)
+        if [ -f "$TOOLS_DIR/config.sh" ]; then
+            exec bash "$TOOLS_DIR/config.sh"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/config.sh | bash
+        fi
+        ;;
+    8)
         if [ -f "$TOOLS_DIR/backup.sh" ]; then
             exec bash "$TOOLS_DIR/backup.sh" export
         else
             exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- export
         fi
         ;;
-    8)
+    9)
         if [ -f "$TOOLS_DIR/backup.sh" ]; then
             exec bash "$TOOLS_DIR/backup.sh" restore
         else
