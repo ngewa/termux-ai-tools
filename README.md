@@ -19,13 +19,14 @@ Perintah di atas akan menampilkan menu interaktif lengkap:
 4. **Install / Update Semua Tools**
 5. **Cek Status & Versi Terpasang**
 6. **Wizard Setup Provider & API Key (config.sh)**
-7. **Diagnostik & Health Check Lingkungan (Doctor)**
-8. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
-9. **Restore Pengaturan dari File Backup**
-10. **Manajemen Background Web Service (service.sh)**
-11. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
-12. **Uninstall Tools (Hapus biner / data)**
-13. **Keluar**
+7. **Manajemen Sesi & Optimasi DB Storage (session.sh)**
+8. **Diagnostik & Health Check Lingkungan (Doctor)**
+9. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
+10. **Restore Pengaturan dari File Backup**
+11. **Manajemen Background Web Service (service.sh)**
+12. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
+13. **Uninstall Tools (Hapus biner / data)**
+14. **Keluar**
 
 ---
 
@@ -277,6 +278,59 @@ xai              xAI (Grok)           [ BELUM ]    -
 - Output terminal otomatis dimasking (`AIzaSy...3g4k`), tidak pernah menampilkan plain text key.
 - File `auth.json` dan `~/.termux_ai_env` otomatis diberi hak akses `chmod 600` (hanya bisa dibaca oleh pemilik akun).
 - Backup otomatis (`auth.json.bak` & `opencode.jsonc.bak`) dibuat setiap kali konfigurasi diubah.
+
+---
+
+## 🔄 Session & Context Manager (`session.sh`)
+
+Kelola riwayat percakapan, cari topik lama, ekspor sesi ke catatan Markdown (.md), dan bebaskan **ratusan MB hingga Gigabyte memori internal HP** dengan pembersihan log serta SQLite `VACUUM`:
+
+```bash
+# Buka menu interaktif Session Manager:
+session.sh
+# Atau via launcher cepat:
+ai session
+# Atau alias:
+aisess
+```
+
+### Kemampuan & Perintah CLI Cepat:
+
+| Perintah | Deskripsi |
+| :--- | :--- |
+| `session.sh status` (atau `aisession`) | Menampilkan analisis pemakaian memori database, sesi tersimpan, dan potensi dead space |
+| `session.sh list [limit]` | Menampilkan daftar sesi percakapan terbaru (OpenCode & Antigravity) |
+| `session.sh search <kata_kunci>` | Mencari sesi berdasarkan kata kunci pada judul percakapan, prompt, atau ID |
+| `session.sh info <id_sesi>` | Menampilkan metadata lengkap sesi (model, jumlah pesan, parts, token, biaya) |
+| `session.sh export <id_sesi>` | Mengekspor sesi percakapan ke file dokumen Markdown (`.md`) dan disalin ke Download HP |
+| `session.sh clean` | Membersihkan berkas log debug dan temporary snapshot/output (`~50 MB+`) |
+| `session.sh vacuum` | Menjalankan SQLite `VACUUM` untuk mengompresi DB dan mengembalikan storage ke Android (`1 GB+`) |
+| `session.sh prune --days <N>` | Menghapus sesi lama yang lebih tua dari N hari dan otomatis menjalankan VACUUM |
+| `session.sh prune --keep <N>` | Menyisakan N sesi percakapan terbaru dan menghapus sisanya secara aman |
+| `session.sh resume <id_sesi>` | Melanjutkan percakapan lama secara langsung di OpenCode |
+
+### Contoh Tampilan Analisis Storage:
+```text
+======================================================================
+           ANALISIS PENYIMPANAN SESI & KONTEKS AI (STORAGE)           
+======================================================================
+1. OpenCode Storage:
+  • Database Utama (opencode.db) : 338.0 MB (151 sesi, 12756 pesan)
+  • SQLite WAL Temporary Cache   : 11.6 MB
+  • Log & Riwayat Debug          : 20.7 MB
+  • Tool Output & Snapshot Cache : 8.8 MB
+  • Ruang Kosong (Dead Pages)    : 1007.7 MB (Bisa dibebaskan dengan VACUUM)
+
+2. Antigravity CLI (agy) Storage:
+  • File Sesi Percakapan (.db/.pb): 310.6 MB (43 ringkasan)
+  • Brain Context & Scratchpad   : 176.0 MB
+  • Log Riwayat Eksekusi         : 20.7 MB
+----------------------------------------------------------------------
+📁 Total Penggunaan Storage AI   : 1.86 GB
+✨ Potensi Pembebasan Ruang Disk : ~1.03 GB
+   (Pembersihan Log/Cache: 50.2 MB + SQLite VACUUM: 1007.7 MB)
+======================================================================
+```
 
 ---
 
