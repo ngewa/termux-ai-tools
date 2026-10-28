@@ -398,11 +398,12 @@ interactive_menu() {
         echo -e "  ${GREEN}5)${RESET} 🧠 Pasang MCP: Memory Knowledge Graph"
         echo -e "  ${GREEN}6)${RESET} 🐙 Pasang MCP: GitHub API Integration"
         echo -e "  ${CYAN}7)${RESET} 🔔 Pasang OpenCode Plugin: Termux Notifier"
-        echo -e "  ${YELLOW}8)${RESET} 🧪 Uji Validitas Eksekusi MCP Server"
-        echo -e "  ${RED}9)${RESET} 🗑️ Hapus MCP Server / Plugin"
+        echo -e "  ${CYAN}8)${RESET} ⚡ Pasang OpenCode Plugin: RTK (Token Savings & Command Rewriter)"
+        echo -e "  ${YELLOW}9)${RESET} 🧪 Uji Validitas Eksekusi MCP Server"
+        echo -e "  ${RED}10)${RESET} 🗑️ Hapus MCP Server / Plugin"
         echo -e "  ${YELLOW}0)${RESET} 🚪 Kembali / Keluar"
         echo ""
-        read -r -p "Pilihan Anda [0-9]: " menu_opt
+        read -r -p "Pilihan Anda [0-10]: " menu_opt
 
         case "$menu_opt" in
             1)
@@ -457,6 +458,13 @@ interactive_menu() {
                 ;;
             8)
                 echo ""
+                log_info "Memasang OpenCode Plugin: RTK..."
+                run_python_manager "install-plugin" "$REPO_DIR" "rtk"
+                echo ""
+                read -r -p "Tekan ENTER untuk kembali..." _
+                ;;
+            9)
+                echo ""
                 read -r -p "Masukkan nama MCP server yang ingin diuji (contoh: termux-device): " test_name
                 if [ -n "$test_name" ]; then
                     echo ""
@@ -465,7 +473,7 @@ interactive_menu() {
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
-            9)
+            10)
                 echo ""
                 read -r -p "Masukkan nama MCP atau plugin yang ingin dihapus: " del_name
                 if [ -n "$del_name" ]; then
@@ -503,6 +511,8 @@ case "$1" in
         target="${2:-all}"
         if [ "$preset" = "notifier" ] || [ "$preset" = "termux-notifier" ]; then
             run_python_manager "install-plugin" "$REPO_DIR" "termux-notifier"
+        elif [ "$preset" = "rtk" ]; then
+            run_python_manager "install-plugin" "$REPO_DIR" "rtk"
         else
             run_python_manager "install-mcp" "$REPO_DIR" "$preset" "$target"
         fi
