@@ -22,13 +22,14 @@ Perintah di atas akan menampilkan menu interaktif lengkap:
 7. **Manajemen Sesi & Optimasi DB Storage (session.sh)**
 8. **Plugin & MCP Tool Installer (plugin.sh)**
 9. **Knowledge Memory & AI Brain (memory.sh)**
-10. **Diagnostik & Health Check Lingkungan (Doctor)**
-11. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
-12. **Restore Pengaturan dari File Backup**
-13. **Manajemen Background Web Service (service.sh)**
-14. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
-15. **Uninstall Tools (Hapus biner / data)**
-16. **Keluar**
+10. **Manajemen AI Agent Skills (skill.sh)**
+11. **Diagnostik & Health Check Lingkungan (Doctor)**
+12. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
+13. **Restore Pengaturan dari File Backup**
+14. **Manajemen Background Web Service (service.sh)**
+15. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
+16. **Uninstall Tools (Hapus biner / data)**
+17. **Keluar**
 
 ---
 
@@ -70,6 +71,7 @@ Setelah menjalankan `./setup-shortcuts.sh`, alias berikut otomatis aktif di `~/.
 | `aisess` | `session.sh` | Buka manager **Sesi, Pencarian, & SQLite Vacuum** |
 | `aiplug` | `plugin.sh` | Buka installer **Plugin & MCP Server** (Android Bridge) |
 | `aimem` | `memory.sh` | Buka **Knowledge Memory & AI Brain** (Solusi terverifikasi & FTS5) |
+| `aiskill` | `skill.sh` | Buka **AI Agent Skill Manager** (Prompt Master, Antislop, UI/UX) |
 
 ---
 
@@ -86,6 +88,7 @@ ai service [cmd] [args...]   # Kelola background web daemon (status, start, stop
 ai session [cmd] [args...]   # Kelola riwayat sesi, ekspor .md, dan SQLite vacuum
 ai memory [cmd] [args...]    # Akses Knowledge Memory, simpan solusi sesi & search FTS5
 ai plugin [cmd] [args...]    # Kelola MCP servers dan OpenCode plugins
+ai skill [cmd] [args...]     # Kelola AI Agent Skills (daftar, pasang, toggle, update)
 ai config [cmd] [args...]    # Atur provider API key dan default model
 ai doctor [--fix]            # Periksa dan perbaiki kesehatan lingkungan sistem
 ai update                    # Cek versi terpasang vs rilis terbaru GitHub/npm
@@ -182,7 +185,23 @@ memory.sh stats              # Tampilkan statistik jumlah catatan, verifikasi, d
 memory.sh mcp-export         # Ekspor basis pengetahuan ke format entitas MCP Knowledge Graph
 ```
 
-#### H. 💾 Backup & Restore Pengaturan (`backup.sh`)
+#### H. 🧠 AI Agent Skill Manager (`skill.sh` / `aiskill` / `ai skill`)
+```bash
+skill.sh                     # Menu interaktif TUI Skill Manager
+skill.sh list                # Tampilkan status seluruh skill aktif & nonaktif (~/.agents & ~/.gemini)
+skill.sh presets             # Lihat katalog skill populer (prompt-master, antislop, ui-ux-pro-max, dll.)
+skill.sh install <nama|url>  # Pasang skill dari katalog preset, GitHub URL, atau folder lokal
+skill.sh toggle <nama>       # Toggle aktif/nonaktifkan skill untuk menghemat context window & token
+skill.sh enable <nama>       # Aktifkan skill yang sebelumnya dinonaktifkan
+skill.sh disable <nama>      # Nonaktifkan skill tanpa menghapus berkas (pindah ke skills-disabled)
+skill.sh update [nama]       # Perbarui skill berbasis Git menggunakan git pull
+skill.sh info <nama>         # Tampilkan detail metadata, izin, dan pratinjau SKILL.md
+skill.sh create <nama>       # Buat scaffold template skill baru sesuai standar open SKILL.md
+skill.sh remove <nama>       # Hapus skill dari penyimpanan Termux
+skill.sh doctor              # Audit format YAML frontmatter, validasi duplikasi, & integritas skill
+```
+
+#### I. 💾 Backup & Restore Pengaturan (`backup.sh`)
 ```bash
 backup.sh                    # Menu interaktif Backup & Restore
 backup.sh export             # Ekspor konfigurasi, token OAuth, memory.db, dan skills ke tar.gz (~3MB)
@@ -190,13 +209,13 @@ backup.sh export --full      # Ekspor lengkap termasuk seluruh riwayat percakapa
 backup.sh restore <file>     # Pulihkan konfigurasi & memory.db dari file backup .tar.gz
 ```
 
-#### I. 🚀 Setup Shortcuts & Widget (`setup-shortcuts.sh`)
+#### J. 🚀 Setup Shortcuts & Widget (`setup-shortcuts.sh`)
 ```bash
 setup-shortcuts.sh           # Pasang perintah 'ai', shell aliases, dan Termux:Widget
 setup-shortcuts.sh --remove  # Bersihkan semua shortcut dan alias dari sistem
 ```
 
-#### J. 🗑️ Uninstaller (`uninstall.sh`)
+#### K. 🗑️ Uninstaller (`uninstall.sh`)
 ```bash
 uninstall.sh                 # Menu interaktif penghapusan tools
 uninstall.sh opencode        # Hapus binary wrapper OpenCode v1
@@ -216,6 +235,7 @@ Bagi pengguna aplikasi **Termux:Widget** dari F-Droid, shortcut sekali-ketuk ber
 - 🔄 **`AI-Session.sh`** : Membuka penjelajah sesi, ekspor, dan vacuum database
 - 🧠 **`AI-Memory.sh`** : Membuka Knowledge Memory & AI Brain persisten
 - 🧩 **`AI-Plugin.sh`** : Membuka installer plugin & MCP tool
+- 🎯 **`AI-Skill.sh`**  : Membuka AI Agent Skill Manager
 - 🩺 **`AI-Doctor.sh`** : Menjalankan diagnostik kesehatan sistem
 - 💻 **`OpenCode.sh`** : Membuka OpenCode v1 langsung di terminal
 - 🚀 **`OpenCode-v2.sh`**: Membuka OpenCode v2 langsung di terminal

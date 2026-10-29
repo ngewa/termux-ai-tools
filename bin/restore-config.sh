@@ -121,4 +121,13 @@ if [ -d "$STAGE_DIR/memory" ]; then
     log_ok "Knowledge Memory (memory.db) berhasil dipulihkan."
 fi
 
+# 4. Restore Universal Agent Skills (~/.agents)
+if [ -d "$STAGE_DIR/agents" ]; then
+    log_info "Memulihkan Universal Agent Skills (~/.agents)..."
+    if [ -f "$STAGE_DIR/agents/agents_skills.tar.gz" ]; then
+        tar -xzf "$STAGE_DIR/agents/agents_skills.tar.gz" -C "$HOME_DIR"
+    fi
+    log_ok "Universal Agent Skills (~/.agents) berhasil dipulihkan."
+fi
+
 echo -e "\n${BOLD}${GREEN}✅ Restore Berhasil! Semua pengaturan dan token telah dipulihkan.${RESET}\n"

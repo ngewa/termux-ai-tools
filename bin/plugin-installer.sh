@@ -218,6 +218,12 @@ def action_list():
 # ------------------------------------------------------------------------------
 def action_install_mcp(preset_id, target="all", custom_env=None):
     if preset_id not in PRESETS:
+        # Smart detection: check if it's an Agent Skill!
+        skill_presets = ["prompt-master", "antislop", "ui-ux-pro-max", "banner-design"]
+        if preset_id in skill_presets or "skill" in preset_id.lower() or preset_id.endswith(".git") or "/" in preset_id:
+            print(f"\033[33m[INFO]\033[0m '{preset_id}' terdeteksi sebagai AI Agent Skill (bukan MCP Server).")
+            print(f"       Gunakan perintah Skill Manager: \033[1m\033[32maiskill install {preset_id}\033[0m atau \033[1mskill.sh\033[0m")
+            return
         print(f"Preset '{preset_id}' tidak dikenal.")
         return
 
@@ -401,9 +407,10 @@ interactive_menu() {
         echo -e "  ${CYAN}8)${RESET} ⚡ Pasang OpenCode Plugin: RTK (Token Savings & Command Rewriter)"
         echo -e "  ${YELLOW}9)${RESET} 🧪 Uji Validitas Eksekusi MCP Server"
         echo -e "  ${RED}10)${RESET} 🗑️ Hapus MCP Server / Plugin"
+        echo -e "  ${CYAN}11)${RESET} 🧠 Kelola AI Agent Skills (skill.sh / aiskill)"
         echo -e "  ${YELLOW}0)${RESET} 🚪 Kembali / Keluar"
         echo ""
-        read -r -p "Pilihan Anda [0-10]: " menu_opt
+        read -r -p "Pilihan Anda [0-11]: " menu_opt
 
         case "$menu_opt" in
             1)
@@ -485,6 +492,14 @@ interactive_menu() {
                 fi
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
+                ;;
+            11)
+                echo ""
+                if [ -f "$REPO_DIR/skill.sh" ]; then
+                    bash "$REPO_DIR/skill.sh"
+                elif [ -f "$TOOLS_DIR/skill.sh" ]; then
+                    bash "$TOOLS_DIR/skill.sh"
+                fi
                 ;;
             0)
                 echo "Selesai."

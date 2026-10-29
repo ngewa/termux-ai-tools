@@ -130,6 +130,14 @@ case "$1" in
             exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/memory.sh | bash -s -- "$@"
         fi
         ;;
+    skill|skills)
+        shift
+        if [ -f "$TOOLS_DIR/skill.sh" ]; then
+            exec bash "$TOOLS_DIR/skill.sh" "$@"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/skill.sh | bash -s -- "$@"
+        fi
+        ;;
     help|--help|-h)
         echo -e "${BOLD}${CYAN}AI Quick Launcher Usage:${RESET}"
         echo "  ai                  Buka menu interaktif pemilih AI"
@@ -140,6 +148,7 @@ case "$1" in
         echo "  ai session [args...]Kelola sesi, cari riwayat & vacuum storage"
         echo "  ai memory [args...] Kelola Knowledge Memory & AI Brain persisten"
         echo "  ai plugin [args...] Pasang MCP servers & OpenCode plugins"
+        echo "  ai skill [args...]  Kelola AI Agent Skills (Prompt Master, Antislop, UI/UX)"
         echo "  ai config [args...] Wizard pengaturan API key & default model"
         echo "  ai doctor           Jalankan pemeriksaan kesehatan sistem"
         echo "  ai update           Cek & update versi terbaru dari GitHub"
@@ -178,10 +187,11 @@ echo -e "  ${CYAN}9)${RESET} Konfigurasi AI & Key (Setup API key & model)"
 echo -e "  ${CYAN}10)${RESET} Backup Pengaturan   (Export settings & tokens)"
 echo -e "  ${CYAN}11)${RESET} Restore Pengaturan  (Restore dari arsip)"
 echo -e "  ${CYAN}12)${RESET} Knowledge Memory & AI Brain (Solusi terverifikasi & search FTS5)"
-echo -e "  ${YELLOW}13)${RESET} Keluar"
+echo -e "  ${CYAN}13)${RESET} AI Agent Skills     (Prompt Master, Antislop, UI/UX Design)"
+echo -e "  ${YELLOW}14)${RESET} Keluar"
 echo ""
 
-read -r -p "Masukkan pilihan [1-13]: " choice
+read -r -p "Masukkan pilihan [1-14]: " choice
 
 case "$choice" in
     1)
@@ -269,6 +279,13 @@ case "$choice" in
             exec bash "$TOOLS_DIR/memory.sh"
         else
             exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/memory.sh | bash
+        fi
+        ;;
+    13)
+        if [ -f "$TOOLS_DIR/skill.sh" ]; then
+            exec bash "$TOOLS_DIR/skill.sh"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/skill.sh | bash
         fi
         ;;
     *)

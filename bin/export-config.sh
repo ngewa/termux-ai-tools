@@ -121,22 +121,31 @@ if [ -d "$HOME_DIR/.local/share/termux-ai" ]; then
     log_ok "Knowledge Memory (memory.db) berhasil dikemas."
 fi
 
+# 4. Backup Universal Agent Skills (~/.agents)
+if [ -d "$HOME_DIR/.agents" ]; then
+    log_info "Mengamankan Universal Agent Skills (~/.agents)..."
+    mkdir -p "$STAGE_DIR/agents"
+    tar -czf "$STAGE_DIR/agents/agents_skills.tar.gz" -C "$HOME_DIR" .agents 2>/dev/null || true
+    ITEMS_COUNT=$((ITEMS_COUNT + 1))
+    log_ok "Universal Agent Skills (~/.agents) berhasil dikemas."
+fi
+
 if [ "$ITEMS_COUNT" -eq 0 ]; then
     log_err "Tidak ada file konfigurasi yang ditemukan untuk diexport!"
     exit 1
 fi
 
-# 4. Create metadata file
+# 5. Create metadata file
 cat > "$STAGE_DIR/metadata.json" << EOF
 {
-  "backup_version": "1.1",
+  "backup_version": "1.2",
   "created_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "device_user": "$(whoami 2>/dev/null || echo 'termux')",
-  "packages": ["opencode", "antigravity-cli", "termux-ai-memory"]
+  "packages": ["opencode", "antigravity-cli", "termux-ai-memory", "agent-skills"]
 }
 EOF
 
-# 5. Create final backup archive
+# 6. Create final backup archive
 log_info "Membuat arsip final backup: $OUTPUT_PATH..."
 tar -czf "$OUTPUT_PATH" -C "$STAGE_DIR" .
 
