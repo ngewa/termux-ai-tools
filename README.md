@@ -23,13 +23,14 @@ Perintah di atas akan menampilkan menu interaktif lengkap:
 8. **Plugin & MCP Tool Installer (plugin.sh)**
 9. **Knowledge Memory & AI Brain (memory.sh)**
 10. **Manajemen AI Agent Skills (skill.sh)**
-11. **Diagnostik & Health Check Lingkungan (Doctor)**
-12. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
-13. **Restore Pengaturan dari File Backup**
-14. **Manajemen Background Web Service (service.sh)**
-15. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
-16. **Uninstall Tools (Hapus biner / data)**
-17. **Keluar**
+11. **Manajemen AI Subagents & Personas (agent.sh)**
+12. **Diagnostik & Health Check Lingkungan (Doctor)**
+13. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
+14. **Restore Pengaturan dari File Backup**
+15. **Manajemen Background Web Service (service.sh)**
+16. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
+17. **Uninstall Tools (Hapus biner / data)**
+18. **Keluar**
 
 ---
 
@@ -72,6 +73,7 @@ Setelah menjalankan `./setup-shortcuts.sh`, alias berikut otomatis aktif di `~/.
 | `aiplug` | `plugin.sh` | Buka installer **Plugin & MCP Server** (Android Bridge) |
 | `aimem` | `memory.sh` | Buka **Knowledge Memory & AI Brain** (Solusi terverifikasi & FTS5) |
 | `aiskill` | `skill.sh` | Buka **AI Agent Skill Manager** (Prompt Master, Antislop, UI/UX) |
+| `aiagent` | `agent.sh` | Buka **AI Persona & Subagent Manager** (Roblox, Toolkit, Reverser) |
 
 ---
 
@@ -89,6 +91,7 @@ ai session [cmd] [args...]   # Kelola riwayat sesi, ekspor .md, dan SQLite vacuu
 ai memory [cmd] [args...]    # Akses Knowledge Memory, simpan solusi sesi & search FTS5
 ai plugin [cmd] [args...]    # Kelola MCP servers dan OpenCode plugins
 ai skill [cmd] [args...]     # Kelola AI Agent Skills (daftar, pasang, toggle, update)
+ai agent [cmd] [args...]     # Kelola AI Subagents & Personas (daftar, create, sync, run)
 ai config [cmd] [args...]    # Atur provider API key dan default model
 ai doctor [--fix]            # Periksa dan perbaiki kesehatan lingkungan sistem
 ai update                    # Cek versi terpasang vs rilis terbaru GitHub/npm
@@ -201,7 +204,21 @@ skill.sh remove <nama>       # Hapus skill dari penyimpanan Termux
 skill.sh doctor              # Audit format YAML frontmatter, validasi duplikasi, & integritas skill
 ```
 
-#### I. 💾 Backup & Restore Pengaturan (`backup.sh`)
+#### I. 🤖 AI Subagents & Personas Manager (`agent.sh` / `aiagent` / `ai agent`)
+```bash
+agent.sh                     # Menu interaktif TUI Persona Manager
+agent.sh list                # Tampilkan daftar persona aktif/nonaktif di Antigravity & OpenCode
+agent.sh presets             # Lihat template persona populer (code-reviewer, android-reverser, dll)
+agent.sh create <nama>       # Buat persona baru (opsi: --both, --gemini, --opencode)
+agent.sh sync [nama]         # Sinkronkan silang persona antara Antigravity <-> OpenCode
+agent.sh info <nama>         # Tampilkan detail metadata, tools aktif, dan instruksi sistem
+agent.sh toggle <nama>       # Toggle aktif/nonaktifkan persona
+agent.sh run <nama>          # Jalankan OpenCode atau Antigravity langsung dengan persona tersebut
+agent.sh remove <nama>       # Hapus persona dari sistem
+agent.sh doctor              # Audit kelengkapan YAML frontmatter & sinkronisasi silang
+```
+
+#### J. 💾 Backup & Restore Pengaturan (`backup.sh`)
 ```bash
 backup.sh                    # Menu interaktif Backup & Restore
 backup.sh export             # Ekspor konfigurasi, token OAuth, memory.db, dan skills ke tar.gz (~3MB)
@@ -209,13 +226,13 @@ backup.sh export --full      # Ekspor lengkap termasuk seluruh riwayat percakapa
 backup.sh restore <file>     # Pulihkan konfigurasi & memory.db dari file backup .tar.gz
 ```
 
-#### J. 🚀 Setup Shortcuts & Widget (`setup-shortcuts.sh`)
+#### K. 🚀 Setup Shortcuts & Widget (`setup-shortcuts.sh`)
 ```bash
 setup-shortcuts.sh           # Pasang perintah 'ai', shell aliases, dan Termux:Widget
 setup-shortcuts.sh --remove  # Bersihkan semua shortcut dan alias dari sistem
 ```
 
-#### K. 🗑️ Uninstaller (`uninstall.sh`)
+#### L. 🗑️ Uninstaller (`uninstall.sh`)
 ```bash
 uninstall.sh                 # Menu interaktif penghapusan tools
 uninstall.sh opencode        # Hapus binary wrapper OpenCode v1
@@ -236,6 +253,7 @@ Bagi pengguna aplikasi **Termux:Widget** dari F-Droid, shortcut sekali-ketuk ber
 - 🧠 **`AI-Memory.sh`** : Membuka Knowledge Memory & AI Brain persisten
 - 🧩 **`AI-Plugin.sh`** : Membuka installer plugin & MCP tool
 - 🎯 **`AI-Skill.sh`**  : Membuka AI Agent Skill Manager
+- 🤖 **`AI-Agent.sh`**  : Membuka AI Persona & Subagent Manager
 - 🩺 **`AI-Doctor.sh`** : Menjalankan diagnostik kesehatan sistem
 - 💻 **`OpenCode.sh`** : Membuka OpenCode v1 langsung di terminal
 - 🚀 **`OpenCode-v2.sh`**: Membuka OpenCode v2 langsung di terminal

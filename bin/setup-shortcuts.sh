@@ -38,7 +38,7 @@ echo -e "\n${BOLD}${CYAN}=== Termux AI Tools - Quick Launcher & Shortcuts Setup 
 AI_BIN="$PREFIX/bin/ai"
 if [ "$REMOVE_MODE" = "true" ]; then
     log_info "Menghapus perintah global 'ai' dan symlink..."
-    rm -f "$AI_BIN" "$PREFIX/bin/doctor.sh" "$PREFIX/bin/update.sh" "$PREFIX/bin/backup.sh" "$PREFIX/bin/service.sh" "$PREFIX/bin/config.sh" "$PREFIX/bin/aiconfig" "$PREFIX/bin/session.sh" "$PREFIX/bin/aisession" "$PREFIX/bin/plugin.sh" "$PREFIX/bin/aiplugin" "$PREFIX/bin/memory.sh" "$PREFIX/bin/aimem" "$PREFIX/bin/skill.sh" "$PREFIX/bin/aiskill"
+    rm -f "$AI_BIN" "$PREFIX/bin/doctor.sh" "$PREFIX/bin/update.sh" "$PREFIX/bin/backup.sh" "$PREFIX/bin/service.sh" "$PREFIX/bin/config.sh" "$PREFIX/bin/aiconfig" "$PREFIX/bin/session.sh" "$PREFIX/bin/aisession" "$PREFIX/bin/plugin.sh" "$PREFIX/bin/aiplugin" "$PREFIX/bin/memory.sh" "$PREFIX/bin/aimem" "$PREFIX/bin/skill.sh" "$PREFIX/bin/aiskill" "$PREFIX/bin/agent.sh" "$PREFIX/bin/aiagent"
     log_ok "Perintah global berhasil dibersihkan."
 else
     log_info "Memasang perintah global 'ai' ke $AI_BIN..."
@@ -51,7 +51,7 @@ else
     fi
     chmod 755 "$AI_BIN"
 
-    # Create global symlinks for doctor, update, backup, service, config, session, plugin, memory, and skill if repo exists locally
+    # Create global symlinks for doctor, update, backup, service, config, session, plugin, memory, skill, and agent if repo exists locally
     if [ -d "$REPO_DIR" ]; then
         ln -sf "$REPO_DIR/doctor.sh" "$PREFIX/bin/doctor.sh"
         ln -sf "$REPO_DIR/update.sh" "$PREFIX/bin/update.sh"
@@ -67,8 +67,10 @@ else
         ln -sf "$REPO_DIR/memory.sh" "$PREFIX/bin/aimem"
         ln -sf "$REPO_DIR/skill.sh" "$PREFIX/bin/skill.sh"
         ln -sf "$REPO_DIR/skill.sh" "$PREFIX/bin/aiskill"
+        ln -sf "$REPO_DIR/agent.sh" "$PREFIX/bin/agent.sh"
+        ln -sf "$REPO_DIR/agent.sh" "$PREFIX/bin/aiagent"
     fi
-    log_ok "Perintah 'ai', 'skill.sh', 'aiskill', 'plugin.sh', 'session.sh', 'memory.sh', 'aimem', 'config.sh', 'doctor.sh', 'service.sh' kini dapat dijalankan dari terminal mana saja!"
+    log_ok "Perintah 'ai', 'agent.sh', 'aiagent', 'skill.sh', 'aiskill', 'plugin.sh', 'session.sh', 'memory.sh', 'aimem', 'config.sh', 'doctor.sh', 'service.sh' kini dapat dijalankan dari terminal mana saja!"
 
 fi
 
@@ -101,9 +103,10 @@ alias aisess="session.sh"
 alias aiplug="plugin.sh"
 alias aimem="memory.sh"
 alias aiskill="skill.sh"
+alias aiagent="agent.sh"
 $ALIAS_END
 EOF
-        log_ok "Alias ditambahkan ke $(basename "$rc_file") (oc, oc2, aidoc, aiup, aicfg, aisess, aiplug, aimem, aiskill)"
+        log_ok "Alias ditambahkan ke $(basename "$rc_file") (oc, oc2, aidoc, aiup, aicfg, aisess, aiplug, aimem, aiskill, aiagent)"
     fi
 }
 
@@ -129,6 +132,7 @@ if [ "$REMOVE_MODE" = "true" ]; then
           "$SHORTCUTS_DIR/AI-Session.sh" \
           "$SHORTCUTS_DIR/AI-Plugin.sh" \
           "$SHORTCUTS_DIR/AI-Skill.sh" \
+          "$SHORTCUTS_DIR/AI-Agent.sh" \
           "$SHORTCUTS_DIR/AI-Memory.sh" \
           "$SHORTCUTS_DIR/AI-Doctor.sh"
     log_ok "Shortcut Termux:Widget berhasil dibersihkan."
@@ -198,7 +202,13 @@ EOF
 skill.sh
 EOF
 
-    # 11. AI Knowledge Memory / Brain Shortcut
+    # 11. AI Subagents & Personas Shortcut
+    cat > "$SHORTCUTS_DIR/AI-Agent.sh" << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+agent.sh
+EOF
+
+    # 12. AI Knowledge Memory / Brain Shortcut
     cat > "$SHORTCUTS_DIR/AI-Memory.sh" << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 memory.sh
@@ -211,6 +221,7 @@ EOF
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Config.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Session.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Skill.sh${RESET}"
+    echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Agent.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Memory.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Plugin.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/OpenCode.sh${RESET}"

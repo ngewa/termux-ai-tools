@@ -138,10 +138,10 @@ fi
 # 5. Create metadata file
 cat > "$STAGE_DIR/metadata.json" << EOF
 {
-  "backup_version": "1.2",
+  "backup_version": "1.3",
   "created_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "device_user": "$(whoami 2>/dev/null || echo 'termux')",
-  "packages": ["opencode", "antigravity-cli", "termux-ai-memory", "agent-skills"]
+  "packages": ["opencode", "antigravity-cli", "termux-ai-memory", "agent-skills", "ai-personas"]
 }
 EOF
 

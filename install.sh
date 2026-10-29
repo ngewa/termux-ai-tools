@@ -50,15 +50,16 @@ show_menu() {
     echo -e "  ${CYAN}8)${RESET} Plugin & MCP Tool Installer (plugin.sh)"
     echo -e "  ${CYAN}9)${RESET} Knowledge Memory & AI Brain (memory.sh)"
     echo -e "  ${CYAN}10)${RESET} Manajemen AI Agent Skills (skill.sh)"
-    echo -e "  ${CYAN}11)${RESET} Diagnostik & Health Check Lingkungan (Doctor)"
-    echo -e "  ${CYAN}12)${RESET} Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)"
-    echo -e "  ${CYAN}13)${RESET} Restore Pengaturan dari File Backup"
-    echo -e "  ${CYAN}14)${RESET} Manajemen Background Web Service (service.sh)"
-    echo -e "  ${GREEN}15)${RESET} Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)"
-    echo -e "  ${RED}16)${RESET} Uninstall Tools (Hapus biner / data)"
-    echo -e "  ${YELLOW}17)${RESET} Keluar"
+    echo -e "  ${CYAN}11)${RESET} Manajemen AI Subagents & Personas (agent.sh)"
+    echo -e "  ${CYAN}12)${RESET} Diagnostik & Health Check Lingkungan (Doctor)"
+    echo -e "  ${CYAN}13)${RESET} Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)"
+    echo -e "  ${CYAN}14)${RESET} Restore Pengaturan dari File Backup"
+    echo -e "  ${CYAN}15)${RESET} Manajemen Background Web Service (service.sh)"
+    echo -e "  ${GREEN}16)${RESET} Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)"
+    echo -e "  ${RED}17)${RESET} Uninstall Tools (Hapus biner / data)"
+    echo -e "  ${YELLOW}18)${RESET} Keluar"
     echo ""
-    read -r -p "Pilihan Anda [1-17]: " opt
+    read -r -p "Pilihan Anda [1-18]: " opt
     case "$opt" in
         1)
             local s
@@ -116,35 +117,40 @@ show_menu() {
             ;;
         11)
             local s
-            s=$(get_script "bin/doctor.sh")
+            s=$(get_script "bin/agent-manager.sh")
             bash "$s"
             ;;
         12)
             local s
-            s=$(get_script "bin/export-config.sh")
+            s=$(get_script "bin/doctor.sh")
             bash "$s"
             ;;
         13)
             local s
-            s=$(get_script "bin/restore-config.sh")
+            s=$(get_script "bin/export-config.sh")
             bash "$s"
             ;;
         14)
             local s
-            s=$(get_script "bin/service.sh")
+            s=$(get_script "bin/restore-config.sh")
             bash "$s"
             ;;
         15)
             local s
-            s=$(get_script "bin/setup-shortcuts.sh")
+            s=$(get_script "bin/service.sh")
             bash "$s"
             ;;
         16)
             local s
-            s=$(get_script "bin/uninstall.sh")
+            s=$(get_script "bin/setup-shortcuts.sh")
             bash "$s"
             ;;
         17)
+            local s
+            s=$(get_script "bin/uninstall.sh")
+            bash "$s"
+            ;;
+        18)
             echo "Keluar."
             exit 0
             ;;
@@ -202,6 +208,11 @@ case "$1" in
         ;;
     skill|skills|--skill)
         s=$(get_script "bin/skill-manager.sh")
+        shift
+        bash "$s" "$@"
+        ;;
+    agent|agents|--agent)
+        s=$(get_script "bin/agent-manager.sh")
         shift
         bash "$s" "$@"
         ;;
