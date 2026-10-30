@@ -75,9 +75,13 @@ DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${TARGET_
 
 log_info "Mengunduh OpenCode v${TARGET_VERSION} ($TARFILE)..."
 if ! curl -fSL -o "$TMP_DIR/opencode.tar.gz" "$DOWNLOAD_URL"; then
-    log_err "Gagal mengunduh $DOWNLOAD_URL"
-    rm -rf "$TMP_DIR"
-    exit 1
+    DOWNLOAD_URL_NO_V="https://github.com/anomalyco/opencode/releases/download/${TARGET_VERSION}/${TARFILE}"
+    log_warn "Mencoba URL alternatif tanpa 'v': $DOWNLOAD_URL_NO_V..."
+    if ! curl -fSL -o "$TMP_DIR/opencode.tar.gz" "$DOWNLOAD_URL_NO_V"; then
+        log_err "Gagal mengunduh OpenCode v${TARGET_VERSION} dari GitHub Releases!"
+        rm -rf "$TMP_DIR"
+        exit 1
+    fi
 fi
 
 log_info "Mengekstrak binary ke $SHARE_DIR..."

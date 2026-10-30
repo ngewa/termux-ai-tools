@@ -69,9 +69,13 @@ DOWNLOAD_URL="https://github.com/google-antigravity/antigravity-cli/releases/dow
 
 log_info "Mengunduh Antigravity CLI v${TARGET_VERSION}..."
 if ! curl -fSL -o "$TMP_DIR/agy.tar.gz" "$DOWNLOAD_URL"; then
-    log_err "Gagal mengunduh $DOWNLOAD_URL"
-    rm -rf "$TMP_DIR"
-    exit 1
+    DOWNLOAD_URL_V="https://github.com/google-antigravity/antigravity-cli/releases/download/v${TARGET_VERSION}/agy_cli_linux_arm64.tar.gz"
+    log_warn "Mencoba URL alternatif dengan awalan 'v': $DOWNLOAD_URL_V..."
+    if ! curl -fSL -o "$TMP_DIR/agy.tar.gz" "$DOWNLOAD_URL_V"; then
+        log_err "Gagal mengunduh Antigravity CLI v${TARGET_VERSION} dari GitHub Releases!"
+        rm -rf "$TMP_DIR"
+        exit 1
+    fi
 fi
 
 log_info "Mengekstrak arsip..."

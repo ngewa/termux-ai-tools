@@ -3,11 +3,13 @@ set -e
 
 # ==============================================================================
 # AI Tools Updater for Termux (OpenCode & Antigravity CLI)
-# Real-time GitHub Upstream Releases Checker
+# Real-time GitHub Upstream Releases Checker & Interactive Version Selector
 # ==============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+CACHE_DIR="${HOME:-/data/data/com.termux/files/home}/.cache/termux-ai"
+CACHE_TTL=300
 
 GREEN="\033[32m"
 YELLOW="\033[33m"
@@ -21,32 +23,91 @@ log_ok() { echo -e "${GREEN}[OK]${RESET} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${RESET} $1"; }
 log_err() { echo -e "${RED}[ERROR]${RESET} $1"; }
 
+mkdir -p "$CACHE_DIR"
+
+# Helper to get cached data or fetch from GitHub
+fetch_release_data() {
+    local cache_file="$1"
+    local url="$2"
+    local force_refresh="$3"
+    local now
+    now=$(date +%s)
+    local mtime=0
+    if [ -f "$cache_file" ]; then
+        mtime=$(stat -c %Y "$cache_file" 2>/dev/null || echo 0)
+    fi
+
+    if [ "$force_refresh" != "true" ] && [ -s "$cache_file" ] && [ $((now - mtime)) -lt $CACHE_TTL ]; then
+        cat "$cache_file"
+        return 0
+    fi
+
+    local data
+    data=$(curl -sL --max-time 10 "$url" 2>/dev/null || echo "")
+    if [ -n "$data" ] && echo "$data" | grep -q '"tag_name"'; then
+        echo "$data" > "$cache_file"
+        echo "$data"
+    elif [ -s "$cache_file" ]; then
+        cat "$cache_file"
+    else
+        echo ""
+    fi
+}
+
+FORCE_REFRESH=false
+if [ "${1:-}" = "--refresh" ] || [ "${2:-}" = "--refresh" ]; then
+    FORCE_REFRESH=true
+fi
+
 echo -e "\n${BOLD}${CYAN}=== Memeriksa Update AI Tools di Termux (Live GitHub) ===${RESET}\n"
 
 # 1. Fetch releases live from GitHub anomalyco/opencode
-log_info "Mengambil data rilis resmi langsung dari GitHub (anomalyco/opencode)..."
-OPENCODE_RELEASES_JSON=$(curl -sL --max-time 15 "https://api.github.com/repos/anomalyco/opencode/releases?per_page=30" 2>/dev/null || echo "")
+log_info "Mengambil data rilis resmi OpenCode dari GitHub (anomalyco/opencode)..."
+OPENCODE_RELEASES_JSON=$(fetch_release_data "$CACHE_DIR/opencode_releases.json" "https://api.github.com/repos/anomalyco/opencode/releases?per_page=30" "$FORCE_REFRESH")
 
-# Extract OpenCode v1 latest tag
-OPENCODE_LATEST_TAG=$(echo "$OPENCODE_RELEASES_JSON" | grep '"tag_name":' | grep '"v1\.' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || true)
-OPENCODE_LATEST="${OPENCODE_LATEST_TAG#v}"
-if [ -z "$OPENCODE_LATEST" ]; then
-    OPENCODE_LATEST="1.19.4"
+# Parse OpenCode v2 versions (clean, filtering out non-v2 like process-daemon)
+OPENCODE2_LIST=()
+if [ -n "$OPENCODE_RELEASES_JSON" ]; then
+    mapfile -t OPENCODE2_LIST < <(echo "$OPENCODE_RELEASES_JSON" | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' | grep -E '^v?2\.[0-9]+' | head -n 5)
 fi
+if [ ${#OPENCODE2_LIST[@]} -eq 0 ]; then
+    OPENCODE2_LIST=("v2.2.2" "v2.2.1" "v2.2.0")
+fi
+OPENCODE2_LATEST="${OPENCODE2_LIST[0]#v}"
 
-# Extract OpenCode v2 latest tag
-OPENCODE2_LATEST_TAG=$(echo "$OPENCODE_RELEASES_JSON" | grep '"tag_name":' | grep '"v2\.' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || true)
-OPENCODE2_LATEST="${OPENCODE2_LATEST_TAG#v}"
-if [ -z "$OPENCODE2_LATEST" ]; then
-    OPENCODE2_LATEST="2.2.0"
+# Parse OpenCode v1 versions (clean, filtering out non-v1 like process-daemon)
+OPENCODE1_LIST=()
+if [ -n "$OPENCODE_RELEASES_JSON" ]; then
+    mapfile -t OPENCODE1_LIST < <(echo "$OPENCODE_RELEASES_JSON" | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' | grep -E '^v?1\.[0-9]+' | head -n 5)
 fi
+if [ ${#OPENCODE1_LIST[@]} -eq 0 ]; then
+    OPENCODE1_LIST=("v1.19.5" "v1.19.4" "v1.19.3" "v1.19.2")
+fi
+OPENCODE_LATEST="${OPENCODE1_LIST[0]#v}"
 
 # 2. Fetch releases live from GitHub google-antigravity/antigravity-cli
-log_info "Mengambil data rilis resmi Antigravity CLI dari GitHub..."
-AGY_LATEST_RAW=$(curl -sL --max-time 15 "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/latest" 2>/dev/null | grep '"tag_name":' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || echo "1.4.8")
-AGY_LATEST="${AGY_LATEST_RAW#v}"
-if [ -z "$AGY_LATEST" ]; then
-    AGY_LATEST="1.4.8"
+log_info "Mengambil data rilis resmi Antigravity CLI dari GitHub (google-antigravity/antigravity-cli)..."
+AGY_RELEASES_JSON=$(fetch_release_data "$CACHE_DIR/agy_releases.json" "https://api.github.com/repos/google-antigravity/antigravity-cli/releases?per_page=30" "$FORCE_REFRESH")
+
+AGY_LIST=()
+if [ -n "$AGY_RELEASES_JSON" ]; then
+    mapfile -t AGY_LIST < <(echo "$AGY_RELEASES_JSON" | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' | grep -E '^[v0-9]' | head -n 5)
+fi
+if [ ${#AGY_LIST[@]} -eq 0 ]; then
+    AGY_LIST=("1.4.10" "1.4.9" "1.4.8")
+fi
+AGY_LATEST="${AGY_LIST[0]#v}"
+
+# Ensure v1.3.5 is included in AGY list because it's the tested stable version for Termux ARM64 memory layout
+HAS_135=false
+for v in "${AGY_LIST[@]}"; do
+    if [ "${v#v}" = "1.3.5" ]; then
+        HAS_135=true
+        break
+    fi
+done
+if [ "$HAS_135" = false ]; then
+    AGY_LIST+=("1.3.5")
 fi
 
 # 3. Detect installed versions
@@ -68,14 +129,48 @@ if [ -f "$PREFIX/bin/agy" ]; then
     AGY_INSTALLED=$(echo "$RAW_AGY" | sed -E 's/.*([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
 fi
 
-# 4. Display recent upstream release tags from GitHub
-if [ -n "$OPENCODE_RELEASES_JSON" ]; then
-    echo -e "\n${BOLD}${CYAN}Rilis Terbaru di GitHub Upstream (anomalyco/opencode):${RESET}"
-    echo "$OPENCODE_RELEASES_JSON" | grep '"tag_name":' | head -n 8 | sed -E 's/.*"([^"]+)".*/  • \1/'
-fi
+# 4. Display recent upstream release tags from GitHub (Neat, clean, categorized with [latest] markers)
+echo -e "\n${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+echo -e "${BOLD}${CYAN}  🌐 Rilis Terbaru di GitHub Upstream${RESET}"
+echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
+echo -e "\n${BOLD}${GREEN}📦 OpenCode v2${RESET} ${CYAN}(github.com/anomalyco/opencode)${RESET}:"
+for i in "${!OPENCODE2_LIST[@]}"; do
+    ver="${OPENCODE2_LIST[$i]}"
+    if [ "$i" -eq 0 ]; then
+        echo -e "   • ${BOLD}${CYAN}${ver}${RESET}  ${GREEN}${BOLD}[latest ⭐]${RESET}"
+    else
+        echo -e "   • ${ver}"
+    fi
+done
+
+echo -e "\n${BOLD}${GREEN}📦 OpenCode v1${RESET} ${CYAN}(github.com/anomalyco/opencode)${RESET}:"
+for i in "${!OPENCODE1_LIST[@]}"; do
+    ver="${OPENCODE1_LIST[$i]}"
+    if [ "$i" -eq 0 ]; then
+        echo -e "   • ${BOLD}${CYAN}${ver}${RESET}  ${GREEN}${BOLD}[latest ⭐]${RESET}"
+    else
+        echo -e "   • ${ver}"
+    fi
+done
+
+echo -e "\n${BOLD}${GREEN}🚀 Antigravity CLI (AGY)${RESET} ${CYAN}(github.com/google-antigravity/antigravity-cli)${RESET}:"
+for i in "${!AGY_LIST[@]}"; do
+    ver="${AGY_LIST[$i]}"
+    extra=""
+    if [ "$i" -eq 0 ]; then
+        extra="  ${GREEN}${BOLD}[latest ⭐]${RESET}"
+    fi
+    if [ "${ver#v}" = "1.3.5" ]; then
+        extra="${extra}  ${YELLOW}[Stabil Android/Termux 🛡️]${RESET}"
+    fi
+    echo -e "   • ${BOLD}${CYAN}${ver}${RESET}${extra}"
+done
+echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+
+# 5. Status Summary Table
 echo -e "\n${BOLD}Ringkasan Status di Termux Anda:${RESET}"
-printf "%-18s | %-16s | %-16s | %-10s\n" "Software" "Terpasang" "Upstream" "Status"
+printf "%-18s | %-16s | %-16s | %-10s\n" "Software" "Terpasang" "Upstream (Last)" "Status"
 echo "----------------------------------------------------------------------"
 
 # OpenCode v1 status
@@ -98,67 +193,177 @@ else
 fi
 printf "%-18s | %-16s | %-16s | %-10b\n" "OpenCode v2" "$OPENCODE2_INSTALLED" "$OPENCODE2_LATEST" "$OPENCODE2_STATUS"
 
-# AGY status (v1.3.5 build stabil memori Termux)
+# AGY status
 if [ "$AGY_INSTALLED" = "1.3.5" ]; then
     AGY_STATUS="${GREEN}Stabil (1.3.5)${RESET}"
 elif [ "$AGY_INSTALLED" = "$AGY_LATEST" ]; then
-    AGY_STATUS="${GREEN}Up-to-date${RESET}"
+    AGY_STATUS="${GREEN}Up-to-date (${AGY_LATEST})${RESET}"
 elif [ "$AGY_INSTALLED" = "Tidak terpasang" ]; then
     AGY_STATUS="${YELLOW}Belum ada${RESET}"
 else
-    AGY_STATUS="${YELLOW}Stabil (1.3.5)${RESET}"
+    AGY_STATUS="${YELLOW}Versi: ${AGY_INSTALLED}${RESET}"
 fi
 printf "%-18s | %-16s | %-16s | %-10b\n" "Antigravity CLI" "$AGY_INSTALLED" "$AGY_LATEST" "$AGY_STATUS"
 echo "----------------------------------------------------------------------"
-echo -e "${YELLOW}Catatan AGY:${RESET} Versi 1.3.5 adalah build yang paling stabil & kompatibel dengan patch memori Termux."
+echo -e "${YELLOW}Catatan AGY:${RESET} Versi 1.3.5 adalah build teruji paling stabil & kompatibel dengan patch memori Termux."
 echo ""
 
-TARGET="$1"
+# Helper function: Interactive version selection
+SELECTED_VERSION=""
+choose_version() {
+    local tool_name="$1"
+    shift
+    local versions=("$@")
 
-# Handle arguments
-if [ "$TARGET" = "opencode" ] || [ "$TARGET" = "v1" ]; then
-    log_info "Memulai update OpenCode v1 ke versi $OPENCODE_LATEST..."
-    bash "$SCRIPT_DIR/bin/install-opencode.sh" "$OPENCODE_LATEST" --force
-    exit 0
-elif [ "$TARGET" = "opencode-v2" ] || [ "$TARGET" = "v2" ]; then
-    log_info "Memulai update OpenCode v2 ke versi $OPENCODE2_LATEST..."
-    bash "$SCRIPT_DIR/bin/install-opencode-v2.sh" "$OPENCODE2_LATEST" --force
-    exit 0
-elif [ "$TARGET" = "agy" ]; then
-    log_info "Memulai update / reinstal Antigravity CLI (1.3.5 stabil)..."
-    bash "$SCRIPT_DIR/bin/install-agy.sh" "1.3.5" --force
-    exit 0
-elif [ "$TARGET" = "all" ]; then
-    log_info "Mengupdate semua tools..."
-    bash "$SCRIPT_DIR/bin/install-opencode.sh" "$OPENCODE_LATEST"
-    bash "$SCRIPT_DIR/bin/install-opencode-v2.sh" "$OPENCODE2_LATEST"
-    bash "$SCRIPT_DIR/bin/install-agy.sh" "1.3.5"
-    exit 0
+    if [ ${#versions[@]} -eq 0 ]; then
+        echo -e "${YELLOW}Tidak ada daftar versi otomatis. Silakan masukkan versi manual.${RESET}"
+        read -r -p "Masukkan versi (misal: 1.0.0): " manual_v
+        SELECTED_VERSION="${manual_v#v}"
+        return 0
+    fi
+
+    echo -e "\n${BOLD}${CYAN}=== Pilih Versi ${tool_name} ===${RESET}"
+    local count=1
+    for ver in "${versions[@]}"; do
+        local badge=""
+        if [ $count -eq 1 ]; then
+            badge="${GREEN}${BOLD}[latest ⭐]${RESET}"
+        fi
+        if [ "${ver#v}" = "1.3.5" ]; then
+            badge="${badge} ${YELLOW}[Stabil Android/Termux 🛡️]${RESET}"
+        fi
+        printf "  ${BOLD}%2d)${RESET} %-12s %b\n" "$count" "$ver" "$badge"
+        ((count++))
+    done
+    printf "  ${YELLOW}%2s)${RESET} Masukkan versi kustom secara manual\n" "m"
+    printf "  ${RED}%2s)${RESET} Batal / Kembali ke menu\n" "0"
+    echo ""
+
+    local choice
+    read -r -p "Pilihan versi [1-$((count-1)), default: 1 (${versions[0]})]: " choice
+    choice="${choice:-1}"
+
+    if [ "$choice" = "0" ] || [ "$choice" = "batal" ] || [ "$choice" = "q" ]; then
+        echo -e "${YELLOW}Pemasangan dibatalkan.${RESET}"
+        SELECTED_VERSION=""
+        return 1
+    elif [ "$choice" = "m" ] || [ "$choice" = "M" ]; then
+        read -r -p "Masukkan versi target (misal: 1.19.4): " manual_v
+        SELECTED_VERSION="${manual_v#v}"
+        if [ -z "$SELECTED_VERSION" ]; then
+            echo -e "${RED}Versi tidak boleh kosong.${RESET}"
+            return 1
+        fi
+        return 0
+    elif [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -lt "$count" ]; then
+        local idx=$((choice - 1))
+        local picked="${versions[$idx]}"
+        SELECTED_VERSION="${picked#v}"
+        return 0
+    else
+        echo -e "${RED}Pilihan tidak valid!${RESET}"
+        return 1
+    fi
+}
+
+# 6. Handle CLI arguments if provided
+TARGET="${1:-}"
+CUSTOM_VER="${2:-}"
+
+if [ -n "$TARGET" ]; then
+    case "$TARGET" in
+        opencode|v1)
+            if [ -n "$CUSTOM_VER" ] && [ "$CUSTOM_VER" != "--refresh" ]; then
+                SELECTED_VERSION="${CUSTOM_VER#v}"
+            elif [ -t 0 ]; then
+                choose_version "OpenCode v1" "${OPENCODE1_LIST[@]}" || exit 0
+            else
+                SELECTED_VERSION="$OPENCODE_LATEST"
+            fi
+            log_info "Memulai update OpenCode v1 ke versi $SELECTED_VERSION..."
+            bash "$SCRIPT_DIR/bin/install-opencode.sh" "$SELECTED_VERSION" --force
+            exit 0
+            ;;
+        opencode-v2|v2)
+            if [ -n "$CUSTOM_VER" ] && [ "$CUSTOM_VER" != "--refresh" ]; then
+                SELECTED_VERSION="${CUSTOM_VER#v}"
+            elif [ -t 0 ]; then
+                choose_version "OpenCode v2" "${OPENCODE2_LIST[@]}" || exit 0
+            else
+                SELECTED_VERSION="$OPENCODE2_LATEST"
+            fi
+            log_info "Memulai update OpenCode v2 ke versi $SELECTED_VERSION..."
+            bash "$SCRIPT_DIR/bin/install-opencode-v2.sh" "$SELECTED_VERSION" --force
+            exit 0
+            ;;
+        agy)
+            if [ -n "$CUSTOM_VER" ] && [ "$CUSTOM_VER" != "--refresh" ]; then
+                SELECTED_VERSION="${CUSTOM_VER#v}"
+            elif [ -t 0 ]; then
+                choose_version "Antigravity CLI (AGY)" "${AGY_LIST[@]}" || exit 0
+            else
+                SELECTED_VERSION="1.3.5"
+            fi
+            log_info "Memulai update / pasang Antigravity CLI ke versi $SELECTED_VERSION..."
+            bash "$SCRIPT_DIR/bin/install-agy.sh" "$SELECTED_VERSION" --force
+            exit 0
+            ;;
+        all)
+            log_info "Mengupdate semua tools ke versi rilis terbaru / stabil..."
+            bash "$SCRIPT_DIR/bin/install-opencode.sh" "$OPENCODE_LATEST" --force
+            bash "$SCRIPT_DIR/bin/install-opencode-v2.sh" "$OPENCODE2_LATEST" --force
+            bash "$SCRIPT_DIR/bin/install-agy.sh" "1.3.5" --force
+            exit 0
+            ;;
+        --check|check)
+            # Only status check was requested
+            exit 0
+            ;;
+        --refresh)
+            # Checked with force refresh and exit
+            exit 0
+            ;;
+    esac
 fi
 
-# Interactive prompt if no arguments
+# 7. Interactive menu if no arguments
 echo -e "${BOLD}Pilihan tindakan:${RESET}"
-echo "1) Update OpenCode v1 ke versi terbaru ($OPENCODE_LATEST)"
-echo "2) Update / Pasang OpenCode v2 ke versi terbaru ($OPENCODE2_LATEST)"
-echo "3) Pasang / Reinstall Antigravity CLI (v1.3.5 stabil)"
-echo "4) Update / Sinkronisasi Semua Tools"
-echo "5) Keluar"
+echo -e "  ${GREEN}1)${RESET} Update / Pasang OpenCode v1          (Pilih versi)"
+echo -e "  ${GREEN}2)${RESET} Update / Pasang OpenCode v2          (Pilih versi)"
+echo -e "  ${GREEN}3)${RESET} Pasang / Update Antigravity CLI (AGY)(Pilih versi)"
+echo -e "  ${GREEN}4)${RESET} Update / Sinkronisasi Semua Tools    (Versi Terbaru)"
+echo -e "  ${YELLOW}5)${RESET} Keluar"
+echo ""
 read -r -p "Masukkan pilihan [1-5]: " choice
 
 case "$choice" in
     1)
-        bash "$SCRIPT_DIR/bin/install-opencode.sh" "$OPENCODE_LATEST" --force
+        if choose_version "OpenCode v1" "${OPENCODE1_LIST[@]}"; then
+            log_info "Memulai instalasi OpenCode v1 versi ${SELECTED_VERSION}..."
+            bash "$SCRIPT_DIR/bin/install-opencode.sh" "$SELECTED_VERSION" --force
+        fi
         ;;
     2)
-        bash "$SCRIPT_DIR/bin/install-opencode-v2.sh" "$OPENCODE2_LATEST" --force
+        if choose_version "OpenCode v2" "${OPENCODE2_LIST[@]}"; then
+            log_info "Memulai instalasi OpenCode v2 versi ${SELECTED_VERSION}..."
+            bash "$SCRIPT_DIR/bin/install-opencode-v2.sh" "$SELECTED_VERSION" --force
+        fi
         ;;
     3)
-        bash "$SCRIPT_DIR/bin/install-agy.sh" "1.3.5" --force
+        if choose_version "Antigravity CLI (AGY)" "${AGY_LIST[@]}"; then
+            log_info "Memulai instalasi Antigravity CLI versi ${SELECTED_VERSION}..."
+            bash "$SCRIPT_DIR/bin/install-agy.sh" "$SELECTED_VERSION" --force
+        fi
         ;;
     4)
-        bash "$SCRIPT_DIR/bin/install-opencode.sh" "$OPENCODE_LATEST"
-        bash "$SCRIPT_DIR/bin/install-opencode-v2.sh" "$OPENCODE2_LATEST"
-        bash "$SCRIPT_DIR/bin/install-agy.sh" "1.3.5"
+        log_info "Mengupdate semua tools..."
+        log_info "1. Mengupdate OpenCode v1 ke versi terbaru ($OPENCODE_LATEST)..."
+        bash "$SCRIPT_DIR/bin/install-opencode.sh" "$OPENCODE_LATEST" --force
+        log_info "2. Mengupdate OpenCode v2 ke versi terbaru ($OPENCODE2_LATEST)..."
+        bash "$SCRIPT_DIR/bin/install-opencode-v2.sh" "$OPENCODE2_LATEST" --force
+        log_info "3. Memasang Antigravity CLI (1.3.5 stabil)..."
+        bash "$SCRIPT_DIR/bin/install-agy.sh" "1.3.5" --force
+        log_ok "Semua tools berhasil diperbarui!"
         ;;
     *)
         echo "Selesai."
