@@ -193,7 +193,8 @@ memory.sh mcp-export         # Ekspor basis pengetahuan ke format entitas MCP Kn
 skill.sh                     # Menu interaktif TUI Skill Manager
 skill.sh list                # Tampilkan status seluruh skill aktif & nonaktif (~/.agents & ~/.gemini)
 skill.sh presets             # Lihat katalog skill populer (prompt-master, antislop, ui-ux-pro-max, dll.)
-skill.sh install <nama|url>  # Pasang skill dari katalog preset, GitHub URL, atau folder lokal
+skill.sh search [keyword]    # Cari skill resmi Claude dari anthropics/claude-plugins-official (hanya yang didukung)
+skill.sh install <nama|url>  # Pasang skill dari katalog preset, Claude, GitHub URL, atau folder lokal
 skill.sh toggle <nama>       # Toggle aktif/nonaktifkan skill untuk menghemat context window & token
 skill.sh enable <nama>       # Aktifkan skill yang sebelumnya dinonaktifkan
 skill.sh disable <nama>      # Nonaktifkan skill tanpa menghapus berkas (pindah ke skills-disabled)

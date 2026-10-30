@@ -84,6 +84,245 @@ PRESETS = {
     }
 }
 
+CLAUDE_OFFICIAL_REPO = "https://github.com/anthropics/claude-plugins-official"
+CLAUDE_OFFICIAL_GIT = "https://github.com/anthropics/claude-plugins-official.git"
+
+# Katalog AI Agent Skills resmi yang didukung dari anthropics/claude-plugins-official
+# Hanya mencakup skill yang memiliki format SKILL.md valid & kompatibel (non-skill tool/LSP murni difilter)
+CLAUDE_OFFICIAL_SKILLS = {
+    "frontend-design": {
+        "name": "Frontend Design",
+        "plugin": "frontend-design",
+        "category": "design",
+        "path": "plugins/frontend-design/skills/frontend-design",
+        "desc": "Panduan desain visual & antarmuka UI/UX terarah, tipografi estetis, dan layout anti-template.",
+    },
+    "claude-security": {
+        "name": "Claude Security",
+        "plugin": "claude-security",
+        "category": "security",
+        "path": "plugins/claude-security/skills/claude-security",
+        "desc": "Audit keamanan basis kode, deteksi kerentanan OWASP, analisis ancaman, dan remediasi terarah.",
+    },
+    "skill-creator": {
+        "name": "Skill Creator",
+        "plugin": "skill-creator",
+        "category": "development",
+        "path": "plugins/skill-creator/skills/skill-creator",
+        "desc": "Panduan membuat skill AI baru, menyempurnakan instruksi SKILL.md, dan mengukur efektivitas panduan.",
+    },
+    "agent-development": {
+        "name": "Agent Development",
+        "plugin": "plugin-dev",
+        "category": "development",
+        "path": "plugins/plugin-dev/skills/agent-development",
+        "desc": "Perancangan agen mandiri (autonomous subagent), pemicu, frontmatter, dan arsitektur agen.",
+    },
+    "command-development": {
+        "name": "Command Development",
+        "plugin": "plugin-dev",
+        "category": "development",
+        "path": "plugins/plugin-dev/skills/command-development",
+        "desc": "Pembuatan slash command interaktif, workflow otomatis, dan parameterisasi perintah agen.",
+    },
+    "hook-development": {
+        "name": "Hook Development",
+        "plugin": "plugin-dev",
+        "category": "development",
+        "path": "plugins/plugin-dev/skills/hook-development",
+        "desc": "Pengembangan hook event-driven untuk intercept aksi, audit bash command, dan validasi berkas.",
+    },
+    "mcp-integration": {
+        "name": "MCP Integration",
+        "plugin": "plugin-dev",
+        "category": "development",
+        "path": "plugins/plugin-dev/skills/mcp-integration",
+        "desc": "Integrasi Model Context Protocol (MCP), konfigurasi server stdio/SSE/HTTP, dan registrasi tool.",
+    },
+    "plugin-settings": {
+        "name": "Plugin Settings",
+        "plugin": "plugin-dev",
+        "category": "development",
+        "path": "plugins/plugin-dev/skills/plugin-settings",
+        "desc": "Pengelolaan pengaturan plugin, parsing skema konfigurasi frontmatter, dan validasi opsi.",
+    },
+    "plugin-structure": {
+        "name": "Plugin Structure",
+        "plugin": "plugin-dev",
+        "category": "development",
+        "path": "plugins/plugin-dev/skills/plugin-structure",
+        "desc": "Standar struktur plugin: plugin.json, skills/, agents/, hooks/, dan praktik terbaik.",
+    },
+    "skill-development": {
+        "name": "Skill Development",
+        "plugin": "plugin-dev",
+        "category": "development",
+        "path": "plugins/plugin-dev/skills/skill-development",
+        "desc": "Prinsip penulisan instruksi Agent Skills berkualitas tinggi dengan konsumsi context window hemat.",
+    },
+    "build-mcp-app": {
+        "name": "Build MCP App",
+        "plugin": "mcp-server-dev",
+        "category": "development",
+        "path": "plugins/mcp-server-dev/skills/build-mcp-app",
+        "desc": "Scaffolding dan pembuatan aplikasi client untuk berkomunikasi dengan server MCP.",
+    },
+    "build-mcp-server": {
+        "name": "Build MCP Server",
+        "plugin": "mcp-server-dev",
+        "category": "development",
+        "path": "plugins/mcp-server-dev/skills/build-mcp-server",
+        "desc": "Membuat server MCP standar (Node/Python/Go) untuk mengekspos resource, tool, dan prompt ke AI.",
+    },
+    "build-mcpb": {
+        "name": "Build MCP Bundle",
+        "plugin": "mcp-server-dev",
+        "category": "development",
+        "path": "plugins/mcp-server-dev/skills/build-mcpb",
+        "desc": "Memaketkan server MCP ke dalam bundle distribusi MCPB terisolasi dan siap deploy.",
+    },
+    "writing-rules": {
+        "name": "Writing Rules (Hookify)",
+        "plugin": "hookify",
+        "category": "productivity",
+        "path": "plugins/hookify/skills/writing-rules",
+        "desc": "Merumuskan aturan deterministik dan proteksi pencegahan kesalahan modifikasi kode oleh agen.",
+    },
+    "playground": {
+        "name": "HTML Playground",
+        "plugin": "playground",
+        "category": "development",
+        "path": "plugins/playground/skills/playground",
+        "desc": "Membuat playground HTML interaktif satu berkas untuk eksperimen prototipe dan visualisasi kode.",
+    },
+    "project-artifact": {
+        "name": "Project Artifact",
+        "plugin": "project-artifact",
+        "category": "productivity",
+        "path": "plugins/project-artifact/skills/project-artifact",
+        "desc": "Menghasilkan laporan artefak status proyek bertab rapi (tinjauan, roadmap, milestone).",
+    },
+    "receipts": {
+        "name": "Usage Receipts",
+        "plugin": "receipts",
+        "category": "productivity",
+        "path": "plugins/receipts/skills/receipts",
+        "desc": "Laporan ringkasan personal dampak dan statistik pemanfaatan AI dalam sesi pengembangan.",
+    },
+    "session-report": {
+        "name": "Session Report",
+        "plugin": "session-report",
+        "category": "productivity",
+        "path": "plugins/session-report/skills/session-report",
+        "desc": "Menghasilkan laporan eksploratif visual HTML tentang konsumsi token, performa, dan riwayat sesi AI.",
+    },
+    "math-olympiad": {
+        "name": "Math Olympiad Solver",
+        "plugin": "math-olympiad",
+        "category": "math",
+        "path": "plugins/math-olympiad/skills/math-olympiad",
+        "desc": "Menyelesaikan soal matematika olimpiade tingkat tinggi (IMO, USAMO, Putnam) dengan verifikasi ketat.",
+    },
+    "siege": {
+        "name": "Math Siege Proof",
+        "plugin": "math-proof",
+        "category": "math",
+        "path": "plugins/math-proof/skills/siege",
+        "desc": "Pembuktian masalah matematika rumit secara bertahap melalui sistem ronde dan penilaian terstruktur.",
+    },
+    "solo": {
+        "name": "Math Solo Proof",
+        "plugin": "math-proof",
+        "category": "math",
+        "path": "plugins/math-proof/skills/solo",
+        "desc": "Pembuktian mandiri analitis untuk persoalan matematika dalam satu sesi terfokus.",
+    },
+    "claude-automation-recommender": {
+        "name": "Automation Recommender",
+        "plugin": "claude-code-setup",
+        "category": "productivity",
+        "path": "plugins/claude-code-setup/skills/claude-automation-recommender",
+        "desc": "Menganalisis codebase dan merekomendasikan automasi (subagen, hooks, skills) yang paling relevan.",
+    },
+    "claude-md-improver": {
+        "name": "CLAUDE.md Improver",
+        "plugin": "claude-md-management",
+        "category": "productivity",
+        "path": "plugins/claude-md-management/skills/claude-md-improver",
+        "desc": "Audit dan penyempurnaan instruksi sistem proyek (CLAUDE.md / AGENTS.md / GEMINI.md) agar lebih efektif.",
+    },
+    "cardputer-buddy": {
+        "name": "Cardputer Buddy",
+        "plugin": "cwc-makers",
+        "category": "productivity",
+        "path": "plugins/cwc-makers/skills/cardputer-buddy",
+        "desc": "Pengembangan aplikasi MicroPython untuk perangkat M5Stack Cardputer mini portable.",
+    },
+    "m5-onboard": {
+        "name": "M5Stack Onboard",
+        "plugin": "cwc-makers",
+        "category": "productivity",
+        "path": "plugins/cwc-makers/skills/m5-onboard",
+        "desc": "Panduan onboarding dan flashing perangkat ESP32 M5Stack baru ke lingkungan MicroPython.",
+    },
+    "discord-access": {
+        "name": "Discord Access",
+        "plugin": "discord",
+        "category": "productivity",
+        "path": "external_plugins/discord/skills/access",
+        "desc": "Manajemen kontrol akses channel Discord, pairing token, dan konfigurasi allowlist.",
+    },
+    "discord-configure": {
+        "name": "Discord Configure",
+        "plugin": "discord",
+        "category": "productivity",
+        "path": "external_plugins/discord/skills/configure",
+        "desc": "Setup awal bot Discord, integrasi kredensial token, dan tinjauan kebijakan akses bot.",
+    },
+    "telegram-access": {
+        "name": "Telegram Access",
+        "plugin": "telegram",
+        "category": "productivity",
+        "path": "external_plugins/telegram/skills/access",
+        "desc": "Manajemen kontrol akses channel Telegram, pairing pengguna, dan daftar izin bot.",
+    },
+    "telegram-configure": {
+        "name": "Telegram Configure",
+        "plugin": "telegram",
+        "category": "productivity",
+        "path": "external_plugins/telegram/skills/configure",
+        "desc": "Konfigurasi token bot Telegram dan pengaturan integrasi alur komunikasi.",
+    },
+    "imessage-access": {
+        "name": "iMessage Access",
+        "plugin": "imessage",
+        "category": "productivity",
+        "path": "external_plugins/imessage/skills/access",
+        "desc": "Manajemen kontrol akses channel iMessage, verifikasi pengirim, dan daftar putih kontak.",
+    },
+    "imessage-configure": {
+        "name": "iMessage Configure",
+        "plugin": "imessage",
+        "category": "productivity",
+        "path": "external_plugins/imessage/skills/configure",
+        "desc": "Setup konfigurasi gateway iMessage dan validasi alur pengiriman pesan.",
+    },
+    "example-command": {
+        "name": "Example Command Skill",
+        "plugin": "example-plugin",
+        "category": "productivity",
+        "path": "plugins/example-plugin/skills/example-command",
+        "desc": "Contoh implementasi skill dengan opsi frontmatter dan instruksi terstruktur.",
+    },
+    "example-skill": {
+        "name": "Example Skill",
+        "plugin": "example-plugin",
+        "category": "productivity",
+        "path": "plugins/example-plugin/skills/example-skill",
+        "desc": "Contoh referensi penulisan pola skill standar untuk Claude Code plugins.",
+    }
+}
+
 def parse_frontmatter(skill_dir):
     skill_file = None
     for name in ["SKILL.md", "skill.md", "Skill.md"]:
@@ -243,14 +482,169 @@ def action_presets():
 
     print("\033[1mCara Pasang:\033[0m")
     print("  aiskill install <preset-name>    (Contoh: \033[32maiskill install prompt-master\033[0m)")
+    print("  aiskill search [keyword]         (Cari skill resmi di: \033[36mclaude-plugins-official\033[0m)")
+
+# ------------------------------------------------------------------------------
+# Action: SEARCH & CLAUDE OFFICIAL REPOSITORY SUPPORT
+# ------------------------------------------------------------------------------
+def install_claude_skill(skill_id, dest_type="universal"):
+    skill_id = skill_id.lower().replace("claude:", "").strip()
+    if skill_id not in CLAUDE_OFFICIAL_SKILLS:
+        matches = [k for k in CLAUDE_OFFICIAL_SKILLS if skill_id in k]
+        if len(matches) == 1:
+            skill_id = matches[0]
+        else:
+            print(f"\033[31m[ERROR]\033[0m Skill resmi Claude '{skill_id}' tidak ditemukan di katalog.")
+            print("Gunakan 'aiskill search <kata-kunci>' untuk mencari skill yang didukung.")
+            return False
+
+    info = CLAUDE_OFFICIAL_SKILLS[skill_id]
+    dest_base = GEMINI_ACTIVE if dest_type == "gemini" else UNIVERSAL_ACTIVE
+    dest_dir = os.path.join(dest_base, skill_id)
+
+    if os.path.exists(dest_dir):
+        print(f"\033[33m[WARN]\033[0m Skill '{skill_id}' sudah terpasang di {dest_dir}.")
+        print(f"Gunakan 'aiskill remove {skill_id}' terlebih dahulu jika ingin memasang ulang.")
+        return False
+
+    print(f"\033[36m[INFO]\033[0m Mengunduh AI Agent Skill resmi '\033[1m{skill_id}\033[0m' dari:")
+    print(f"       Repo: {CLAUDE_OFFICIAL_REPO}")
+    print(f"       Subdirektori: {info['path']}")
+
+    tmp_clone_dir = os.path.join(HOME, ".agents", f"tmp-sparse-{skill_id}")
+    if os.path.exists(tmp_clone_dir):
+        shutil.rmtree(tmp_clone_dir)
+
+    success = False
+    # Metode 1: Git sparse-checkout cepat (hanya mengunduh subfolder skill)
+    try:
+        subprocess.check_call(
+            ["git", "clone", "--depth", "1", "--filter=blob:none", "--no-checkout",
+             CLAUDE_OFFICIAL_GIT, tmp_clone_dir],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        subprocess.check_call(
+            ["git", "-C", tmp_clone_dir, "sparse-checkout", "set", info["path"]],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        subprocess.check_call(
+            ["git", "-C", tmp_clone_dir, "checkout"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        source_skill_dir = os.path.join(tmp_clone_dir, info["path"])
+        if os.path.isdir(source_skill_dir) and any(os.path.isfile(os.path.join(source_skill_dir, f)) for f in ["SKILL.md", "skill.md"]):
+            shutil.copytree(source_skill_dir, dest_dir)
+            success = True
+    except Exception:
+        success = False
+
+    # Metode 2: Fallback unduhan langsung berkas SKILL.md dari GitHub Raw
+    if not success:
+        try:
+            print(f"\033[36m[INFO]\033[0m Menjalankan unduhan langsung (Raw GitHub CDN)...")
+            raw_url = f"https://raw.githubusercontent.com/anthropics/claude-plugins-official/main/{info['path']}/SKILL.md"
+            import urllib.request
+            req = urllib.request.Request(raw_url, headers={"User-Agent": "termux-ai"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                content = resp.read().decode("utf-8", errors="ignore")
+            os.makedirs(dest_dir, exist_ok=True)
+            with open(os.path.join(dest_dir, "SKILL.md"), "w", encoding="utf-8") as f:
+                f.write(content)
+            success = True
+        except Exception as e:
+            print(f"\033[31m[ERROR]\033[0m Gagal mengunduh skill '{skill_id}': {e}")
+
+    if os.path.exists(tmp_clone_dir):
+        shutil.rmtree(tmp_clone_dir)
+
+    if success and os.path.isdir(dest_dir):
+        meta = parse_frontmatter(dest_dir)
+        print(f"\033[32m[OK]\033[0m Skill resmi '\033[1m{skill_id}\033[0m' berhasil dipasang ke \033[36m{dest_dir}\033[0m!")
+        if meta.get("description"):
+            print(f"      Deskripsi: {meta['description']}")
+        return True
+    return False
+
+def action_search(keyword="", dest_type="universal", interactive=False):
+    keyword = keyword.strip().lower()
+    installed = {s["id"] for s in scan_skills()}
+
+    matched = []
+    for sid, s in CLAUDE_OFFICIAL_SKILLS.items():
+        if not keyword or (
+            keyword in sid.lower()
+            or keyword in s["name"].lower()
+            or keyword in s["plugin"].lower()
+            or keyword in s["category"].lower()
+            or keyword in s["desc"].lower()
+        ):
+            matched.append((sid, s))
+
+    print("\033[1m\033[36m========================================================================================\033[0m")
+    if keyword:
+        print(f"\033[1m      PENCARIAN SKILL RESMI CLAUDE: '{keyword}' (claude-plugins-official)         \033[0m")
+    else:
+        print("\033[1m           KATALOG SKILL RESMI CLAUDE (anthropics/claude-plugins-official)              \033[0m")
+    print("\033[1m\033[36m========================================================================================\033[0m")
+    print(f"  \033[2mSumber: {CLAUDE_OFFICIAL_REPO}\033[0m")
+    print("  \033[33mFilter:\033[0m Hanya menampilkan AI Agent Skills yang didukung (format standar SKILL.md).")
+    print("          Komponen tool/LSP murni tanpa instruksi SKILL.md otomatis difilter.\n")
+
+    if not matched:
+        print(f"  \033[31m[INFO]\033[0m Tidak ditemukan skill resmi yang cocok dengan kata kunci '\033[1m{keyword}\033[0m'.")
+        print("  Coba kata kunci lain: design, security, mcp, dev, hook, math, creator, dsb.")
+        return
+
+    for idx, (sid, s) in enumerate(matched, 1):
+        is_inst = sid in installed
+        status = "\033[32m[TERPASANG]\033[0m" if is_inst else "\033[36m[DIDUKUNG]\033[0m"
+        print(f"  \033[1m{idx:2d})\033[0m {status} \033[1m{sid:<24}\033[0m \033[35m[{s['category']}]\033[0m (plugin: {s['plugin']})")
+        print(f"       {s['desc']}")
+        print(f"       \033[2mSubpath: {s['path']}\033[0m\n")
+
+    print(f"\033[1mTotal Ditemukan:\033[0m \033[32m{len(matched)}\033[0m skill resmi didukung.")
+    print("\033[1mPerintah Pasang Langsung:\033[0m")
+    print("  aiskill install claude:<nama-skill>   (Contoh: \033[32maiskill install claude:frontend-design\033[0m)")
+    print("  aiskill install <nama-skill>          (Contoh: \033[32maiskill install claude-security\033[0m)\n")
+
+    if interactive:
+        print("\033[1mPilih nomor skill untuk langsung dipasang:\033[0m")
+        try:
+            choice = input(f"Masukkan nomor [1-{len(matched)}, atau 0 untuk batal]: ").strip()
+            if choice.isdigit():
+                c_num = int(choice)
+                if 1 <= c_num <= len(matched):
+                    chosen_id = matched[c_num - 1][0]
+                    print("")
+                    install_claude_skill(chosen_id, dest_type)
+                else:
+                    print("Dibatalkan.")
+        except (KeyboardInterrupt, EOFError):
+            print("\nDibatalkan.")
 
 # ------------------------------------------------------------------------------
 # Action: INSTALL
 # ------------------------------------------------------------------------------
 def action_install(target_arg, dest_type="universal"):
     if not target_arg:
-        print("\033[31m[ERROR]\033[0m Harap masukkan nama preset atau URL Git repo.")
+        print("\033[31m[ERROR]\033[0m Harap masukkan nama preset, skill Claude, atau URL Git repo.")
         sys.exit(1)
+
+    # Cek jika target adalah skill resmi Claude
+    if target_arg in CLAUDE_OFFICIAL_SKILLS or target_arg.startswith("claude:"):
+        install_claude_skill(target_arg, dest_type)
+        return
+
+    # Cek jika target adalah URL ke claude-plugins-official
+    if "claude-plugins-official" in target_arg:
+        for sid, sinfo in CLAUDE_OFFICIAL_SKILLS.items():
+            if sinfo["path"] in target_arg or sid in target_arg.split("/"):
+                install_claude_skill(sid, dest_type)
+                return
+        print("\033[36m[INFO]\033[0m Link repositori Claude Plugins Official terdeteksi!")
+        print("Menampilkan seluruh AI Agent Skill resmi yang didukung dari repositori tersebut:")
+        action_search("", dest_type=dest_type, interactive=sys.stdin.isatty())
+        return
 
     repo_url = None
     skill_name = None
@@ -606,6 +1000,11 @@ if cmd in ["status", "list", "ls"]:
     action_list()
 elif cmd == "presets":
     action_presets()
+elif cmd in ["search", "find", "cari", "claude"]:
+    kw = sys.argv[2] if len(sys.argv) > 2 else ""
+    dest = "gemini" if "--gemini" in sys.argv else "universal"
+    is_interact = "--interactive" in sys.argv
+    action_search(kw, dest, is_interact)
 elif cmd in ["install", "add"]:
     target = sys.argv[2] if len(sys.argv) > 2 else ""
     dest = "gemini" if "--gemini" in sys.argv else "universal"
@@ -653,17 +1052,18 @@ interactive_menu() {
         echo ""
         echo -e "${BOLD}Pilihan Menu:${RESET}"
         echo -e "  ${GREEN}1)${RESET} 📋 Lihat Katalog Preset Populer (Prompt Master, Antislop, UI/UX)"
-        echo -e "  ${GREEN}2)${RESET} ⚡ Pasang Skill dari Preset Populer"
-        echo -e "  ${GREEN}3)${RESET} 🌐 Pasang Skill dari Git URL / GitHub Repo"
-        echo -e "  ${CYAN}4)${RESET} 🔄 Toggle Aktifkan / Nonaktifkan Skill (Hemat Token)"
-        echo -e "  ${CYAN}5)${RESET} 🚀 Perbarui Skill Terpasang (Git Pull Update)"
-        echo -e "  ${CYAN}6)${RESET} 🔍 Detail & Pratinjau SKILL.md (Inspect)"
-        echo -e "  ${CYAN}7)${RESET} ✨ Buat Template Skill Baru (Scaffold SKILL.md)"
-        echo -e "  ${RED}8)${RESET} 🗑️ Hapus Skill Terpasang"
-        echo -e "  ${YELLOW}9)${RESET} 🩺 Audit & Diagnostik Kesehatan Skill (Doctor)"
+        echo -e "  ${GREEN}2)${RESET} 🔎 Cari & Pasang Skill Resmi Claude (anthropics/claude-plugins-official)"
+        echo -e "  ${GREEN}3)${RESET} ⚡ Pasang Skill dari Preset Populer"
+        echo -e "  ${GREEN}4)${RESET} 🌐 Pasang Skill dari Git URL / GitHub Repo"
+        echo -e "  ${CYAN}5)${RESET} 🔄 Toggle Aktifkan / Nonaktifkan Skill (Hemat Token)"
+        echo -e "  ${CYAN}6)${RESET} 🚀 Perbarui Skill Terpasang (Git Pull Update)"
+        echo -e "  ${CYAN}7)${RESET} 🔍 Detail & Pratinjau SKILL.md (Inspect)"
+        echo -e "  ${CYAN}8)${RESET} ✨ Buat Template Skill Baru (Scaffold SKILL.md)"
+        echo -e "  ${RED}9)${RESET} 🗑️ Hapus Skill Terpasang"
+        echo -e "  ${YELLOW}10)${RESET} 🩺 Audit & Diagnostik Kesehatan Skill (Doctor)"
         echo -e "  ${YELLOW}0)${RESET} 🚪 Kembali / Keluar"
         echo ""
-        read -r -p "Pilihan Anda [0-9]: " menu_opt
+        read -r -p "Pilihan Anda [0-10]: " menu_opt
 
         case "$menu_opt" in
             1)
@@ -673,6 +1073,14 @@ interactive_menu() {
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
             2)
+                echo ""
+                read -r -p "Masukkan kata kunci pencarian skill resmi Claude (kosongkan untuk melihat semua): " search_kw
+                echo ""
+                run_python_manager "search" "$search_kw" "--interactive"
+                echo ""
+                read -r -p "Tekan ENTER untuk kembali..." _
+                ;;
+            3)
                 echo ""
                 echo -e "${BOLD}Pilih preset untuk dipasang:${RESET}"
                 echo "  1) prompt-master   (Optimizer & generator prompt multi-AI)"
@@ -694,7 +1102,7 @@ interactive_menu() {
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
-            3)
+            4)
                 echo ""
                 read -r -p "Masukkan URL Git atau GitHub repo (contoh: nidhinjs/prompt-master): " git_input
                 if [ -n "$git_input" ]; then
@@ -704,7 +1112,7 @@ interactive_menu() {
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
-            4)
+            5)
                 echo ""
                 read -r -p "Masukkan nama skill yang ingin diaktifkan/dinonaktifkan: " tog_name
                 if [ -n "$tog_name" ]; then
@@ -714,7 +1122,7 @@ interactive_menu() {
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
-            5)
+            6)
                 echo ""
                 read -r -p "Nama skill yang ingin diupdate (kosongkan untuk update semua): " up_name
                 echo ""
@@ -726,7 +1134,7 @@ interactive_menu() {
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
-            6)
+            7)
                 echo ""
                 read -r -p "Masukkan nama skill yang ingin diperiksa: " inf_name
                 if [ -n "$inf_name" ]; then
@@ -736,7 +1144,7 @@ interactive_menu() {
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
-            7)
+            8)
                 echo ""
                 read -r -p "Masukkan nama skill baru yang ingin dibuat (misal: my-automation): " new_name
                 if [ -n "$new_name" ]; then
@@ -746,7 +1154,7 @@ interactive_menu() {
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
-            8)
+            9)
                 echo ""
                 read -r -p "Masukkan nama skill yang ingin dihapus: " del_name
                 if [ -n "$del_name" ]; then
@@ -759,7 +1167,7 @@ interactive_menu() {
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
-            9)
+            10)
                 echo ""
                 run_python_manager "doctor"
                 echo ""
@@ -786,6 +1194,10 @@ case "$1" in
         ;;
     presets|preset|catalog)
         run_python_manager "presets"
+        ;;
+    search|find|cari|claude)
+        shift
+        run_python_manager "search" "$@"
         ;;
     install|add)
         shift
@@ -827,7 +1239,8 @@ case "$1" in
         echo "  aiskill                            Buka menu interaktif TUI"
         echo "  aiskill list                       Tampilkan daftar skill aktif & nonaktif"
         echo "  aiskill presets                    Lihat katalog skill populer siap pasang"
-        echo "  aiskill install <nama|url>         Pasang skill dari preset, GitHub URL, atau lokal"
+        echo "  aiskill search [keyword]           Cari & pasang skill resmi Claude (claude-plugins-official)"
+        echo "  aiskill install <nama|url>         Pasang skill dari preset, Claude, GitHub URL, atau lokal"
         echo "  aiskill toggle <nama>              Aktifkan/nonaktifkan skill untuk hemat token"
         echo "  aiskill enable <nama>              Aktifkan skill yang dinonaktifkan"
         echo "  aiskill disable <nama>             Nonaktifkan skill tanpa menghapus berkas"

@@ -103,6 +103,15 @@ echo -e "\n${BOLD}7. Integrasi Perintah Global 'ai skill':${RESET}"
 assert_output_contains "ai skill list berjalan melalui ai-launcher.sh" "STATUS AI AGENT SKILLS TERPASANG" "$AI_BIN" skill list
 assert_output_contains "ai skill presets berjalan melalui ai-launcher.sh" "KATALOG PRESET" "$AI_BIN" skill presets
 
+# Test 8: Pencarian Skill Resmi Claude (anthropics/claude-plugins-official)
+echo -e "\n${BOLD}8. Pencarian Skill Resmi Claude (claude-plugins-official):${RESET}"
+assert_output_contains "skill.sh search menampilkan katalog skill resmi Claude" "KATALOG SKILL RESMI CLAUDE" "$SKILL_BIN" search
+assert_output_contains "skill.sh search mencantumkan sumber github resmi" "claude-plugins-official" "$SKILL_BIN" search
+assert_output_contains "skill.sh search design menemukan frontend-design" "frontend-design" "$SKILL_BIN" search design
+assert_output_contains "skill.sh search security menemukan claude-security" "claude-security" "$SKILL_BIN" search security
+assert_output_contains "skill.sh cari kata kunci dev berfungsi" "DIDUKUNG" "$SKILL_BIN" cari dev
+assert_output_contains "ai skill search berjalan melalui ai-launcher" "PENCARIAN SKILL RESMI CLAUDE" "$AI_BIN" skill search mcp
+
 # Final Summary
 echo -e "\n${BOLD}==================================================${RESET}"
 echo -e "Total Pengujian: $((PASSED + FAILED))"
