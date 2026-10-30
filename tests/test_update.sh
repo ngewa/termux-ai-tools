@@ -78,13 +78,16 @@ assert_output_contains "Output menandai rilis terbaru dengan badge [latest" "[la
 assert_output_contains "Output menampilkan tabel ringkasan status" "Ringkasan Status di Termux Anda" "$UPDATE_BIN" --check
 
 # Test 8: Interactive version selection menu displays correctly for OpenCode v2
-assert_output_contains "Menu versi v2 menampilkan [latest" "Pilih Versi OpenCode v2" bash -c "printf '2\n0\n' | $UPDATE_BIN"
+assert_output_contains "Menu versi v2 menampilkan [latest dan [aktif" "Pilih / Ganti Versi OpenCode v2" bash -c "printf '2\n0\n' | $UPDATE_BIN"
 
 # Test 9: Interactive version selection menu displays correctly for AGY
-assert_output_contains "Menu versi AGY menampilkan [latest dan stabil" "Pilih Versi Antigravity CLI (AGY)" bash -c "printf '3\n0\n' | $UPDATE_BIN"
+assert_output_contains "Menu versi AGY menampilkan [latest dan stabil" "Pilih / Ganti Versi Antigravity CLI (AGY)" bash -c "printf '3\n0\n' | $UPDATE_BIN"
 
-# Test 10: Exit option 5 exits cleanly
-assert_output_contains "Pilihan 5 keluar dengan selesai" "Selesai." bash -c "printf '5\n' | $UPDATE_BIN"
+# Test 10: Option 5 opens standalone custom version switcher
+assert_output_contains "Opsi 5 membuka custom version switcher" "Ganti Versi Kustom Bebas" bash -c "printf '5\n0\n' | $UPDATE_BIN"
+
+# Test 11: Exit option 6 exits cleanly
+assert_output_contains "Pilihan 6 keluar dengan selesai" "Selesai." bash -c "printf '6\n' | $UPDATE_BIN"
 
 echo ""
 echo -e "${BOLD}Hasil Pengujian:${RESET}"
