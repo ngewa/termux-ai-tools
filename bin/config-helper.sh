@@ -185,10 +185,8 @@ def load_config():
             return {}
     return {}
 
-def save_config_model(model_name):
+def save_config(data):
     os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-    data = load_config()
-    data["model"] = model_name
     if "$schema" not in data:
         data["$schema"] = "https://opencode.ai/config.json"
     
@@ -201,6 +199,45 @@ def save_config_model(model_name):
             pass
     with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
+
+def save_config_model(model_name):
+    data = load_config()
+    data["model"] = model_name
+    save_config(data)
+
+def is_provider_disabled(pid, config_data, auth_data):
+    dis_list = config_data.get("disabled_providers", [])
+    if pid in dis_list:
+        return True
+    entry = auth_data.get(pid, {})
+    if entry.get("disabled") is True:
+        return True
+    return False
+
+def set_provider_disabled(pid, disabled=True):
+    config_data = load_config()
+    auth_data = load_auth()
+    dis_list = list(config_data.get("disabled_providers", []))
+
+    if disabled:
+        if pid not in dis_list:
+            dis_list.append(pid)
+        config_data["disabled_providers"] = dis_list
+        if pid in auth_data:
+            auth_data[pid]["disabled"] = True
+    else:
+        if pid in dis_list:
+            dis_list = [x for x in dis_list if x != pid]
+        if dis_list:
+            config_data["disabled_providers"] = dis_list
+        else:
+            config_data.pop("disabled_providers", None)
+        if pid in auth_data:
+            auth_data[pid].pop("disabled", None)
+
+    save_config(config_data)
+    if pid in auth_data:
+        save_auth(auth_data)
 
 def mask_key(key):
     if not key:
@@ -223,24 +260,36 @@ if cmd in ("list", "status"):
     print("\033[1m              DAFTAR PROVIDER & STATUS API KEY TERPASANG              \033[0m")
     print("\033[1m\033[36m======================================================================\033[0m")
     print(f"\033[1m🎯 Model Aktif (opencode.jsonc):\033[0m \033[32m{current_model}\033[0m\n")
-    print(f"{'PROVIDER':<16} {'NAMA':<20} {'STATUS':<12} {'API KEY (MASKED)':<20}")
+    print(f"{'PROVIDER':<14} {'NAMA':<18} {'STATUS':<12}  {'API KEY (MASKED)':<20}")
     print("-" * 70)
+
+    def format_status(is_dis, has_k):
+        if is_dis:
+            return "\033[31m[ NONAKTIF ]\033[0m"
+        elif has_k:
+            return "\033[32m[ AKTIF ]   \033[0m"
+        else:
+            return "\033[33m[ BELUM ]   \033[0m"
 
     # List known providers first
     for pid, info in KNOWN_PROVIDERS.items():
         entry = auth_data.get(pid, {})
         has_key = bool(entry.get("key"))
         masked = mask_key(entry.get("key", "")) if has_key else "-"
-        status = "\033[32m[ AKTIF ]\033[0m" if has_key else "\033[33m[ BELUM ]\033[0m"
-        print(f"{pid:<16} {info['name']:<20} {status:<21} {masked:<20}")
+        is_dis = is_provider_disabled(pid, config_data, auth_data)
+        st_str = format_status(is_dis, has_key)
+        print(f"{pid:<14} {info['name']:<18} {st_str}  {masked:<20}")
 
-    # Custom providers in auth_data
-    for pid, entry in auth_data.items():
+    # Custom providers in auth_data or disabled_providers
+    custom_pids = set(auth_data.keys()) | set(config_data.get("disabled_providers", []))
+    for pid in sorted(custom_pids):
         if pid not in KNOWN_PROVIDERS:
+            entry = auth_data.get(pid, {})
             has_key = bool(entry.get("key"))
             masked = mask_key(entry.get("key", "")) if has_key else "-"
-            status = "\033[32m[ AKTIF ]\033[0m" if has_key else "\033[33m[ BELUM ]\033[0m"
-            print(f"{pid:<16} {'(Custom)':<20} {status:<21} {masked:<20}")
+            is_dis = is_provider_disabled(pid, config_data, auth_data)
+            st_str = format_status(is_dis, has_key)
+            print(f"{pid:<14} {'(Custom)':<18} {st_str}  {masked:<20}")
     print("-" * 70)
 
 elif cmd == "get":
@@ -249,9 +298,14 @@ elif cmd == "get":
         sys.exit(1)
     provider = sys.argv[2].lower()
     auth_data = load_auth()
+    config_data = load_config()
     if provider in auth_data:
         k = auth_data[provider].get("key", "")
-        print(mask_key(k))
+        m = mask_key(k)
+        if is_provider_disabled(provider, config_data, auth_data):
+            print(f"{m} (NONAKTIF)")
+        else:
+            print(m)
     else:
         print("")
 
@@ -270,6 +324,7 @@ elif cmd == "set":
         "key": key
     }
     save_auth(auth_data)
+    set_provider_disabled(provider, disabled=False)
     print(f"OK:{mask_key(key)}")
 
 elif cmd in ("del", "remove", "rm"):
@@ -278,12 +333,74 @@ elif cmd in ("del", "remove", "rm"):
         sys.exit(1)
     provider = sys.argv[2].lower()
     auth_data = load_auth()
+    found = False
     if provider in auth_data:
         del auth_data[provider]
         save_auth(auth_data)
+        found = True
+    config_data = load_config()
+    dis_list = config_data.get("disabled_providers", [])
+    if provider in dis_list:
+        dis_list = [x for x in dis_list if x != provider]
+        if dis_list:
+            config_data["disabled_providers"] = dis_list
+        else:
+            config_data.pop("disabled_providers", None)
+        save_config(config_data)
+        found = True
+    if found:
         print(f"DELETED:{provider}")
     else:
         print(f"NOT_FOUND:{provider}")
+
+elif cmd == "enable":
+    if len(sys.argv) < 3:
+        print("Usage: enable <provider>")
+        sys.exit(1)
+    provider = sys.argv[2].lower()
+    config_data = load_config()
+    auth_data = load_auth()
+    if not is_provider_disabled(provider, config_data, auth_data):
+        print(f"ALREADY_ENABLED:{provider}")
+    else:
+        set_provider_disabled(provider, disabled=False)
+        print(f"ENABLED:{provider}")
+
+elif cmd == "disable":
+    if len(sys.argv) < 3:
+        print("Usage: disable <provider>")
+        sys.exit(1)
+    provider = sys.argv[2].lower()
+    config_data = load_config()
+    auth_data = load_auth()
+    if is_provider_disabled(provider, config_data, auth_data):
+        print(f"ALREADY_DISABLED:{provider}")
+    else:
+        set_provider_disabled(provider, disabled=True)
+        print(f"DISABLED:{provider}")
+
+elif cmd == "toggle":
+    if len(sys.argv) < 3:
+        print("Usage: toggle <provider>")
+        sys.exit(1)
+    provider = sys.argv[2].lower()
+    config_data = load_config()
+    auth_data = load_auth()
+    if is_provider_disabled(provider, config_data, auth_data):
+        set_provider_disabled(provider, disabled=False)
+        print(f"ENABLED:{provider}")
+    else:
+        set_provider_disabled(provider, disabled=True)
+        print(f"DISABLED:{provider}")
+
+elif cmd == "is_disabled":
+    if len(sys.argv) < 3:
+        print("0")
+        sys.exit(0)
+    provider = sys.argv[2].lower()
+    config_data = load_config()
+    auth_data = load_auth()
+    print("1" if is_provider_disabled(provider, config_data, auth_data) else "0")
 
 elif cmd == "model":
     if len(sys.argv) >= 3:
@@ -296,6 +413,7 @@ elif cmd == "model":
 
 elif cmd == "sync-env":
     auth_data = load_auth()
+    config_data = load_config()
     lines = [
         "# ==============================================================================",
         "# Auto-generated environment variables by Termux AI Tools (config.sh)",
@@ -308,6 +426,9 @@ elif cmd == "sync-env":
         if not k:
             continue
         env_var = KNOWN_PROVIDERS.get(pid, {}).get("env_var", f"{pid.upper()}_API_KEY")
+        if is_provider_disabled(pid, config_data, auth_data):
+            lines.append(f"# export {env_var}=\"{k}\" # (STATUS: NONAKTIF)")
+            continue
         lines.append(f"export {env_var}=\"{k}\"")
         count += 1
     
@@ -319,11 +440,15 @@ elif cmd == "sync-env":
 elif cmd == "test":
     target = sys.argv[2].lower() if len(sys.argv) > 2 else "all"
     auth_data = load_auth()
+    config_data = load_config()
     
     def test_provider(pid):
         entry = auth_data.get(pid)
         if not entry or not entry.get("key"):
             return "SKIPPED: Belum ada API key terpasang"
+        
+        if is_provider_disabled(pid, config_data, auth_data):
+            return "DISABLED: Provider dinonaktifkan (Gunakan 'enable' untuk mengaktifkan)"
         
         info = KNOWN_PROVIDERS.get(pid)
         if not info or not info.get("test_url"):
@@ -376,13 +501,14 @@ wizard_menu() {
         echo ""
         echo -e "${BOLD}Pilihan Menu:${RESET}"
         echo -e "  ${GREEN}1)${RESET} Tambah / Perbarui API Key Provider"
-        echo -e "  ${GREEN}2)${RESET} Pilih Default Model OpenCode"
-        echo -e "  ${CYAN}3)${RESET} Uji Koneksi & Validasi API Key"
-        echo -e "  ${CYAN}4)${RESET} Sinkronkan ke Shell Environment (~/.termux_ai_env)"
-        echo -e "  ${RED}5)${RESET} Hapus API Key Provider"
+        echo -e "  ${CYAN}2)${RESET} Aktifkan / Nonaktifkan Provider (Enable / Disable)"
+        echo -e "  ${GREEN}3)${RESET} Pilih Default Model OpenCode"
+        echo -e "  ${CYAN}4)${RESET} Uji Koneksi & Validasi API Key"
+        echo -e "  ${CYAN}5)${RESET} Sinkronkan ke Shell Environment (~/.termux_ai_env)"
+        echo -e "  ${RED}6)${RESET} Hapus API Key Provider"
         echo -e "  ${YELLOW}0)${RESET} Kembali / Keluar"
         echo ""
-        read -r -p "Pilihan Anda [0-5]: " menu_choice
+        read -r -p "Pilihan Anda [0-6]: " menu_choice
 
         case "$menu_choice" in
             1)
@@ -451,6 +577,68 @@ wizard_menu() {
                 ;;
             2)
                 echo ""
+                echo -e "${BOLD}Pilih Provider untuk mengubah status (Enable / Disable):${RESET}"
+                echo -e "  ${GREEN}1)${RESET} Google Gemini     (google)"
+                echo -e "  ${GREEN}2)${RESET} Anthropic Claude  (anthropic)"
+                echo -e "  ${GREEN}3)${RESET} OpenAI            (openai)"
+                echo -e "  ${GREEN}4)${RESET} DeepSeek          (deepseek)"
+                echo -e "  ${GREEN}5)${RESET} OpenRouter        (openrouter)"
+                echo -e "  ${GREEN}6)${RESET} Groq              (groq)"
+                echo -e "  ${GREEN}7)${RESET} Mistral AI        (mistral)"
+                echo -e "  ${GREEN}8)${RESET} xAI / Grok        (xai)"
+                echo -e "  ${CYAN}9)${RESET} Provider Kustom Lainnya"
+                echo -e "  ${YELLOW}0)${RESET} Batal"
+                echo ""
+                read -r -p "Pilih provider [0-9]: " t_choice
+
+                target_prov=""
+                case "$t_choice" in
+                    1) target_prov="google" ;;
+                    2) target_prov="anthropic" ;;
+                    3) target_prov="openai" ;;
+                    4) target_prov="deepseek" ;;
+                    5) target_prov="openrouter" ;;
+                    6) target_prov="groq" ;;
+                    7) target_prov="mistral" ;;
+                    8) target_prov="xai" ;;
+                    9)
+                        read -r -p "Masukkan ID provider: " target_prov
+                        target_prov=$(echo "$target_prov" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_-')
+                        ;;
+                    *)
+                        target_prov=""
+                        ;;
+                esac
+
+                if [ -n "$target_prov" ]; then
+                    is_dis=$(run_python_helper "is_disabled" "$target_prov")
+                    echo ""
+                    if [ "$is_dis" = "1" ]; then
+                        echo -e "Status saat ini: ${RED}[ NONAKTIF ]${RESET}"
+                        read -r -p "Aktifkan kembali provider '$target_prov'? (Y/n): " confirm_act
+                        if [[ ! "$confirm_act" =~ ^[Nn]$ ]]; then
+                            res=$(run_python_helper "enable" "$target_prov")
+                            log_ok "Provider '$target_prov' berhasil diaktifkan kembali!"
+                        fi
+                    else
+                        echo -e "Status saat ini: ${GREEN}[ AKTIF / SIAP ]${RESET}"
+                        read -r -p "Nonaktifkan provider '$target_prov'? (y/N): " confirm_dis
+                        if [[ "$confirm_dis" =~ ^[Yy]$ ]]; then
+                            res=$(run_python_helper "disable" "$target_prov")
+                            log_ok "Provider '$target_prov' berhasil dinonaktifkan."
+                            cur_mod=$(run_python_helper "model")
+                            if [[ "$cur_mod" == "$target_prov/"* ]]; then
+                                log_warn "Perhatian: Model default aktif saat ini ($cur_mod) menggunakan provider '$target_prov'."
+                                log_warn "Disarankan untuk mengganti default model melalui Menu 3."
+                            fi
+                        fi
+                    fi
+                    echo ""
+                    read -r -p "Tekan ENTER untuk kembali..." _
+                fi
+                ;;
+            3)
+                echo ""
                 echo -e "${BOLD}Pilih Preset Model Default OpenCode:${RESET}"
                 echo -e "  ${GREEN}1)${RESET} google/gemini-2.5-flash       (Cepat & Hemat Token)"
                 echo -e "  ${GREEN}2)${RESET} google/gemini-2.5-pro         (Penalaran Tinggi & Akurat)"
@@ -490,14 +678,14 @@ wizard_menu() {
                     read -r -p "Tekan ENTER untuk kembali..." _
                 fi
                 ;;
-            3)
+            4)
                 echo ""
                 log_info "Memeriksa dan menguji validitas seluruh provider aktif..."
                 run_python_helper "test" "all"
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
-            4)
+            5)
                 echo ""
                 log_info "Mengekspor API Key ke $ENV_FILE..."
                 res=$(run_python_helper "sync-env")
@@ -520,7 +708,7 @@ wizard_menu() {
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
-            5)
+            6)
                 echo ""
                 read -r -p "Masukkan nama provider yang ingin dihapus (contoh: openai): " del_prov
                 del_prov=$(echo "$del_prov" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_-')
@@ -576,6 +764,51 @@ case "$1" in
             exit 1
         fi
         ;;
+    enable)
+        if [ -z "$2" ]; then
+            log_err "Penggunaan: config.sh enable <provider>"
+            exit 1
+        fi
+        res=$(run_python_helper "enable" "$2")
+        if [[ "$res" == ENABLED:* ]]; then
+            log_ok "Provider '${res#ENABLED:}' berhasil diaktifkan"
+        elif [[ "$res" == ALREADY_ENABLED:* ]]; then
+            log_info "Provider '${res#ALREADY_ENABLED:}' sudah dalam status AKTIF"
+        else
+            log_err "Gagal: $res"
+            exit 1
+        fi
+        ;;
+    disable)
+        if [ -z "$2" ]; then
+            log_err "Penggunaan: config.sh disable <provider>"
+            exit 1
+        fi
+        res=$(run_python_helper "disable" "$2")
+        if [[ "$res" == DISABLED:* ]]; then
+            log_ok "Provider '${res#DISABLED:}' berhasil dinonaktifkan"
+        elif [[ "$res" == ALREADY_DISABLED:* ]]; then
+            log_info "Provider '${res#ALREADY_DISABLED:}' sudah dalam status NONAKTIF"
+        else
+            log_err "Gagal: $res"
+            exit 1
+        fi
+        ;;
+    toggle)
+        if [ -z "$2" ]; then
+            log_err "Penggunaan: config.sh toggle <provider>"
+            exit 1
+        fi
+        res=$(run_python_helper "toggle" "$2")
+        if [[ "$res" == ENABLED:* ]]; then
+            log_ok "Provider '${res#ENABLED:}' diaktifkan"
+        elif [[ "$res" == DISABLED:* ]]; then
+            log_ok "Provider '${res#DISABLED:}' dinonaktifkan"
+        else
+            log_err "Gagal: $res"
+            exit 1
+        fi
+        ;;
     remove|del|rm)
         res=$(run_python_helper "remove" "$2")
         if [[ "$res" == DELETED:* ]]; then
@@ -607,6 +840,9 @@ case "$1" in
         echo "  bash config.sh list                Tampilkan status provider & API Key"
         echo "  bash config.sh set <provider> [key]Simpan API key untuk provider"
         echo "  bash config.sh get <provider>      Tampilkan masked key"
+        echo "  bash config.sh enable <provider>   Aktifkan provider (hapus dari disabled_providers)"
+        echo "  bash config.sh disable <provider>  Nonaktifkan provider (tambahkan ke disabled_providers)"
+        echo "  bash config.sh toggle <provider>   Beralih status aktif/nonaktif provider"
         echo "  bash config.sh remove <provider>   Hapus API key dari provider"
         echo "  bash config.sh model [model_id]    Tampilkan atau set default model OpenCode"
         echo "  bash config.sh sync-env            Sinkronkan key ke ~/.termux_ai_env"

@@ -446,6 +446,9 @@ aiconfig
 | Perintah | Deskripsi |
 | :--- | :--- |
 | `config.sh list` (atau `aiconfig`) | Menampilkan tabel status provider aktif, masked API key, dan model aktif |
+| `config.sh enable <provider>` | Mengaktifkan provider (menghapus dari `disabled_providers`) |
+| `config.sh disable <provider>` | Menonaktifkan provider tanpa menghapus API Key (`disabled_providers`) |
+| `config.sh toggle <provider>` | Beralih status aktif / nonaktif provider dengan cepat |
 | `config.sh set <provider> [key]` | Menyimpan / memperbarui API key ke `~/.local/share/opencode/auth.json` |
 | `config.sh get <provider>` | Menampilkan masked API key untuk provider tertentu |
 | `config.sh model [model_id]` | Menampilkan atau mengatur default model di `~/.config/opencode/opencode.jsonc` |
@@ -471,16 +474,16 @@ aiconfig
 ======================================================================
 🎯 Model Aktif (opencode.jsonc): google/gemini-2.5-flash
 
-PROVIDER         NAMA                 STATUS       API KEY (MASKED)    
+PROVIDER       NAMA               STATUS        API KEY (MASKED)    
 ----------------------------------------------------------------------
-google           Google Gemini        [ AKTIF ]    AIzaSyAT...3g4k     
-anthropic        Anthropic Claude     [ BELUM ]    -                   
-openai           OpenAI               [ BELUM ]    -                   
-deepseek         DeepSeek             [ BELUM ]    -                   
-openrouter       OpenRouter           [ BELUM ]    -                   
-groq             Groq                 [ BELUM ]    -                   
-mistral          Mistral AI           [ BELUM ]    -                   
-xai              xAI (Grok)           [ BELUM ]    -                   
+google         Google Gemini      [ AKTIF ]     AIzaSyAT...3g4k     
+anthropic      Anthropic Claude   [ NONAKTIF ]  sk-ant-a...xyz1     
+openai         OpenAI             [ BELUM ]     -                   
+deepseek       DeepSeek           [ BELUM ]     -                   
+openrouter     OpenRouter         [ BELUM ]     -                   
+groq           Groq               [ BELUM ]     -                   
+mistral        Mistral AI         [ BELUM ]     -                   
+xai            xAI (Grok)         [ BELUM ]     -                   
 ----------------------------------------------------------------------
 ```
 
