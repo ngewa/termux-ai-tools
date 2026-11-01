@@ -5,7 +5,7 @@ set -e
 # Termux AI Tools - Plugin & MCP Tool Installer (plugin.sh)
 # Manages:
 #   - MCP Servers for OpenCode (~/.config/opencode/opencode.jsonc)
-#   - MCP Servers for Antigravity CLI (~/.gemini/settings.json)
+#   - MCP Servers for Antigravity CLI (~/.gemini/config/mcp_config.json & settings.json)
 #   - OpenCode Plugins (~/.config/opencode/plugins/ & plugin array in opencode.jsonc)
 #   - Antigravity Plugins (~/.gemini/config/plugins/)
 # ==============================================================================
@@ -17,6 +17,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OPENCODE_CONFIG="$HOME_DIR/.config/opencode/opencode.jsonc"
 OPENCODE_PLUGINS_DIR="$HOME_DIR/.config/opencode/plugins"
 AGY_SETTINGS="$HOME_DIR/.gemini/settings.json"
+AGY_MCP_CONFIG="$HOME_DIR/.gemini/config/mcp_config.json"
 AGY_PLUGINS_DIR="$HOME_DIR/.gemini/config/plugins"
 
 GREEN="\033[32m"
@@ -41,6 +42,7 @@ fi
 
 mkdir -p "$OPENCODE_PLUGINS_DIR"
 mkdir -p "$HOME_DIR/.gemini"
+mkdir -p "$HOME_DIR/.gemini/config"
 mkdir -p "$AGY_PLUGINS_DIR"
 
 # ------------------------------------------------------------------------------
@@ -55,6 +57,7 @@ REPO_DIR = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HOME, "termux-ai-t
 OPENCODE_CONFIG = os.path.join(HOME, ".config/opencode/opencode.jsonc")
 OPENCODE_PLUGINS_DIR = os.path.join(HOME, ".config/opencode/plugins")
 AGY_SETTINGS = os.path.join(HOME, ".gemini/settings.json")
+AGY_MCP_CONFIG = os.path.join(HOME, ".gemini/config/mcp_config.json")
 AGY_PLUGINS_DIR = os.path.join(HOME, ".gemini/config/plugins")
 
 PYTHON_BIN = shutil.which("python3") or "/data/data/com.termux/files/usr/bin/python3"
@@ -195,7 +198,10 @@ def load_json(path):
         return {}
     try:
         with open(path, 'r', encoding='utf-8') as f:
-            return json.loads(strip_jsonc_comments(f.read()))
+            content = f.read().strip()
+            if not content:
+                return {}
+            return json.loads(strip_jsonc_comments(content))
     except Exception:
         return {}
 
@@ -211,14 +217,74 @@ def save_json(path, data):
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
 
+def load_agy_mcp_servers():
+    """Load MCP servers for Antigravity, synchronizing mcp_config.json and settings.json."""
+    servers = {}
+    
+    # 1. Authoritative config for agy /mcp
+    c_data = load_json(AGY_MCP_CONFIG)
+    if "mcpServers" in c_data and isinstance(c_data["mcpServers"], dict):
+        servers.update(c_data["mcpServers"])
+        
+    # 2. Legacy / hooks config
+    s_data = load_json(AGY_SETTINGS)
+    if "mcpServers" in s_data and isinstance(s_data["mcpServers"], dict):
+        for k, v in s_data["mcpServers"].items():
+            if k not in servers:
+                servers[k] = v
+
+    # Auto-repair / sync both files if one was missing entries
+    if servers:
+        need_sync_c = ("mcpServers" not in c_data) or (len(c_data.get("mcpServers", {})) != len(servers))
+        need_sync_s = ("mcpServers" not in s_data) or (len(s_data.get("mcpServers", {})) != len(servers))
+        if need_sync_c:
+            c_data["mcpServers"] = servers
+            save_json(AGY_MCP_CONFIG, c_data)
+        if need_sync_s:
+            s_data["mcpServers"] = servers
+            save_json(AGY_SETTINGS, s_data)
+
+    return servers
+
+def save_agy_mcp_server(name, entry):
+    """Save an MCP server to both ~/.gemini/config/mcp_config.json and settings.json."""
+    # 1. Save to mcp_config.json (Read by agy /mcp)
+    c_data = load_json(AGY_MCP_CONFIG)
+    if "mcpServers" not in c_data or not isinstance(c_data["mcpServers"], dict):
+        c_data["mcpServers"] = {}
+    c_data["mcpServers"][name] = entry
+    save_json(AGY_MCP_CONFIG, c_data)
+
+    # 2. Save to settings.json (For compatibility)
+    s_data = load_json(AGY_SETTINGS)
+    if "mcpServers" not in s_data or not isinstance(s_data["mcpServers"], dict):
+        s_data["mcpServers"] = {}
+    s_data["mcpServers"][name] = entry
+    save_json(AGY_SETTINGS, s_data)
+
+def remove_agy_mcp_server(name):
+    """Remove an MCP server from both ~/.gemini/config/mcp_config.json and settings.json."""
+    removed = False
+    c_data = load_json(AGY_MCP_CONFIG)
+    if "mcpServers" in c_data and isinstance(c_data["mcpServers"], dict) and name in c_data["mcpServers"]:
+        del c_data["mcpServers"][name]
+        save_json(AGY_MCP_CONFIG, c_data)
+        removed = True
+
+    s_data = load_json(AGY_SETTINGS)
+    if "mcpServers" in s_data and isinstance(s_data["mcpServers"], dict) and name in s_data["mcpServers"]:
+        del s_data["mcpServers"][name]
+        save_json(AGY_SETTINGS, s_data)
+        removed = True
+    return removed
+
 # ------------------------------------------------------------------------------
 # Action: LIST STATUS (MCP SERVERS vs PLUGINS)
 # ------------------------------------------------------------------------------
 def action_list():
     opencode_data = load_json(OPENCODE_CONFIG)
-    agy_data = load_json(AGY_SETTINGS)
+    agy_mcp = load_agy_mcp_servers()
 
-    agy_mcp = agy_data.get("mcpServers", {})
     oc_mcp_raw = opencode_data.get("mcp", {})
     oc_mcp = oc_mcp_raw.get("servers", oc_mcp_raw) if isinstance(oc_mcp_raw, dict) else {}
 
@@ -279,7 +345,7 @@ def action_list():
         print()
 
         # Detail AGY
-        print("  \033[1m1.1 Antigravity CLI (~/.gemini/settings.json):\033[0m")
+        print("  \033[1m1.1 Antigravity CLI (~/.gemini/config/mcp_config.json):\033[0m")
         if agy_mcp:
             for name, cfg in agy_mcp.items():
                 cmd = cfg.get("command", "")
@@ -346,7 +412,6 @@ def action_list():
 def action_install_mcp(preset_id, target="all", custom_env=None):
     target = normalize_target(target)
     if preset_id not in PRESETS:
-        # Smart detection: check if it's an Agent Skill!
         skill_presets = ["prompt-master", "antislop", "ui-ux-pro-max", "banner-design"]
         if preset_id in skill_presets or "skill" in preset_id.lower() or preset_id.endswith(".git") or "/" in preset_id:
             print(f"\033[33m[INFO]\033[0m '{preset_id}' terdeteksi sebagai AI Agent Skill (bukan MCP Server).")
@@ -363,11 +428,8 @@ def action_install_mcp(preset_id, target="all", custom_env=None):
     if custom_env:
         env_vars.update(custom_env)
 
-    # 1. Install to Antigravity CLI
+    # 1. Install to Antigravity CLI (mcp_config.json & settings.json)
     if target in ("all", "agy"):
-        agy_data = load_json(AGY_SETTINGS)
-        if "mcpServers" not in agy_data:
-            agy_data["mcpServers"] = {}
         server_entry = {
             "command": cmd,
             "args": args
@@ -376,9 +438,8 @@ def action_install_mcp(preset_id, target="all", custom_env=None):
             server_entry["cwd"] = cwd
         if env_vars:
             server_entry["env"] = env_vars
-        agy_data["mcpServers"][preset_id] = server_entry
-        save_json(AGY_SETTINGS, agy_data)
-        print(f"\033[32m[OK]\033[0m [MCP SERVER] '{preset_id}' berhasil dipasang ke \033[1mAntigravity CLI\033[0m (~/.gemini/settings.json)")
+        save_agy_mcp_server(preset_id, server_entry)
+        print(f"\033[32m[OK]\033[0m [MCP SERVER] '{preset_id}' berhasil dipasang ke \033[1mAntigravity CLI\033[0m (~/.gemini/config/mcp_config.json)")
 
     # 2. Install to OpenCode
     if target in ("all", "opencode"):
@@ -424,18 +485,14 @@ def action_install_custom_mcp(mcp_id, target, command, args_str="", env_str=""):
 
     # 1. Install to Antigravity CLI
     if target in ("all", "agy"):
-        agy_data = load_json(AGY_SETTINGS)
-        if "mcpServers" not in agy_data:
-            agy_data["mcpServers"] = {}
         server_entry = {
             "command": command,
             "args": args
         }
         if env_vars:
             server_entry["env"] = env_vars
-        agy_data["mcpServers"][mcp_id] = server_entry
-        save_json(AGY_SETTINGS, agy_data)
-        print(f"\033[32m[OK]\033[0m [MCP SERVER] Custom '{mcp_id}' berhasil dipasang ke \033[1mAntigravity CLI\033[0m (~/.gemini/settings.json)")
+        save_agy_mcp_server(mcp_id, server_entry)
+        print(f"\033[32m[OK]\033[0m [MCP SERVER] Custom '{mcp_id}' berhasil dipasang ke \033[1mAntigravity CLI\033[0m (~/.gemini/config/mcp_config.json)")
 
     # 2. Install to OpenCode
     if target in ("all", "opencode"):
@@ -500,10 +557,7 @@ def action_remove(name, target="all"):
 
     # Check if removing MCP from AGY
     if target in ("all", "agy"):
-        agy_data = load_json(AGY_SETTINGS)
-        if "mcpServers" in agy_data and name in agy_data["mcpServers"]:
-            del agy_data["mcpServers"][name]
-            save_json(AGY_SETTINGS, agy_data)
+        if remove_agy_mcp_server(name):
             print(f"\033[32m[OK]\033[0m [MCP SERVER] '{name}' dihapus dari \033[1mAntigravity CLI\033[0m")
             removed_any = True
 
@@ -540,12 +594,12 @@ def action_remove(name, target="all"):
 # Action: TEST MCP COMMAND
 # ------------------------------------------------------------------------------
 def action_test(name):
-    agy_data = load_json(AGY_SETTINGS)
+    agy_mcp = load_agy_mcp_servers()
     oc_data = load_json(OPENCODE_CONFIG)
 
     cmd = None
-    if name in agy_data.get("mcpServers", {}):
-        cmd = agy_data["mcpServers"][name].get("command")
+    if name in agy_mcp:
+        cmd = agy_mcp[name].get("command")
     elif "mcp" in oc_data:
         m = oc_data["mcp"]
         cfg = None
@@ -619,7 +673,7 @@ prompt_target() {
     echo -e "  ${GREEN}2)${RESET} ⚡ OpenCode (${BOLD}opencode${RESET})" >&2
     echo -e "  ${GREEN}3)${RESET} 🌐 Kedua-duanya (${BOLD}AGY & OpenCode${RESET}) ${DIM}[Rekomendasi / Default]${RESET}" >&2
     echo "" >&2
-    read -r -p "Pilih target [1-3, default: 3]: " t_choice
+    read -r -p "Pilihan target [1-3, default: 3]: " t_choice
     case "$t_choice" in
         1|agy|AGY|antigravity) echo "agy" ;;
         2|oc|OC|opencode) echo "opencode" ;;
@@ -637,7 +691,7 @@ prompt_remove_target() {
     echo -e "  ${CYAN}2)${RESET} ⚡ OpenCode saja (${BOLD}opencode${RESET})" >&2
     echo -e "  ${CYAN}3)${RESET} 🌐 Kedua-duanya (${BOLD}all${RESET}) ${DIM}[Default]${RESET}" >&2
     echo "" >&2
-    read -r -p "Pilih target [1-3, default: 3]: " r_choice
+    read -r -p "Pilihan target [1-3, default: 3]: " r_choice
     case "$r_choice" in
         1|agy|AGY|antigravity) echo "agy" ;;
         2|oc|OC|opencode) echo "opencode" ;;

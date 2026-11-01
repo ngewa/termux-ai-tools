@@ -13,6 +13,7 @@ PLUGIN_BIN="$TOOLS_DIR/plugin.sh"
 INSTALLER_BIN="$TOOLS_DIR/bin/plugin-installer.sh"
 
 AGY_SETTINGS="$HOME_DIR/.gemini/settings.json"
+AGY_MCP_CONFIG="$HOME_DIR/.gemini/config/mcp_config.json"
 OPENCODE_CONFIG="$HOME_DIR/.config/opencode/opencode.jsonc"
 
 GREEN="\033[32m"
@@ -68,10 +69,12 @@ echo -e "==================================================${RESET}\n"
 TMP_TEST_DIR="$PREFIX/tmp/plugin_test_$$"
 mkdir -p "$TMP_TEST_DIR"
 [ -f "$AGY_SETTINGS" ] && cp "$AGY_SETTINGS" "$TMP_TEST_DIR/settings.json"
+[ -f "$AGY_MCP_CONFIG" ] && cp "$AGY_MCP_CONFIG" "$TMP_TEST_DIR/mcp_config.json"
 [ -f "$OPENCODE_CONFIG" ] && cp "$OPENCODE_CONFIG" "$TMP_TEST_DIR/opencode.jsonc"
 
 cleanup() {
     [ -f "$TMP_TEST_DIR/settings.json" ] && cp "$TMP_TEST_DIR/settings.json" "$AGY_SETTINGS"
+    [ -f "$TMP_TEST_DIR/mcp_config.json" ] && cp "$TMP_TEST_DIR/mcp_config.json" "$AGY_MCP_CONFIG"
     [ -f "$TMP_TEST_DIR/opencode.jsonc" ] && cp "$TMP_TEST_DIR/opencode.jsonc" "$OPENCODE_CONFIG"
     rm -rf "$TMP_TEST_DIR"
 }
@@ -95,7 +98,8 @@ assert_output_contains "Memiliki badge [PLUGIN]" "[PLUGIN]" "$PLUGIN_BIN" status
 echo -e "\n${BOLD}3. Uji Pasang MCP Target: AGY Only, OpenCode Only, Keduanya (All):${RESET}"
 # Install to AGY only
 assert_success "Pasang MCP 'fetch' ke AGY saja" "$PLUGIN_BIN" install fetch agy
-assert_output_contains "fetch terdaftar di AGY settings" "fetch" grep "fetch" "$AGY_SETTINGS"
+assert_output_contains "fetch terdaftar di AGY mcp_config.json" "fetch" grep "fetch" "$AGY_MCP_CONFIG"
+assert_output_contains "fetch terdaftar di AGY settings.json" "fetch" grep "fetch" "$AGY_SETTINGS"
 if grep -q "fetch" "$OPENCODE_CONFIG" 2>/dev/null; then
     echo -e "  [${RED}FAIL${RESET}] fetch tidak boleh terpasang di OpenCode saat target=agy"
     FAILED=$((FAILED + 1))
@@ -107,7 +111,7 @@ fi
 # Install to OpenCode only
 assert_success "Pasang MCP 'sqlite' ke OpenCode saja" "$PLUGIN_BIN" install sqlite oc
 assert_output_contains "sqlite terdaftar di OpenCode config" "sqlite" grep "sqlite" "$OPENCODE_CONFIG"
-if grep -q "sqlite" "$AGY_SETTINGS" 2>/dev/null; then
+if grep -q "sqlite" "$AGY_MCP_CONFIG" 2>/dev/null; then
     echo -e "  [${RED}FAIL${RESET}] sqlite tidak boleh terpasang di AGY saat target=oc"
     FAILED=$((FAILED + 1))
 else
@@ -117,19 +121,19 @@ fi
 
 # Install to Both
 assert_success "Pasang MCP 'filesystem' ke Keduanya (all)" "$PLUGIN_BIN" install filesystem all
-assert_output_contains "filesystem terpasang di AGY" "filesystem" grep "filesystem" "$AGY_SETTINGS"
+assert_output_contains "filesystem terpasang di AGY mcp_config.json" "filesystem" grep "filesystem" "$AGY_MCP_CONFIG"
 assert_output_contains "filesystem terpasang di OpenCode" "filesystem" grep "filesystem" "$OPENCODE_CONFIG"
 
 # Test 4: Custom MCP Installation
 echo -e "\n${BOLD}4. Uji Pasang Custom MCP Server:${RESET}"
 assert_success "Tambah Custom MCP server dummy-test ke AGY" "$PLUGIN_BIN" add-custom dummy-test agy python3 "-c print(1)"
-assert_output_contains "dummy-test terdaftar di AGY" "dummy-test" grep "dummy-test" "$AGY_SETTINGS"
+assert_output_contains "dummy-test terdaftar di AGY mcp_config.json" "dummy-test" grep "dummy-test" "$AGY_MCP_CONFIG"
 
 # Test 5: Target-Specific MCP Removal
 echo -e "\n${BOLD}5. Uji Penghapusan MCP Berdasarkan Target:${RESET}"
 # Remove filesystem from AGY only
 assert_success "Hapus filesystem dari AGY saja" "$PLUGIN_BIN" remove filesystem agy
-if grep -q "filesystem" "$AGY_SETTINGS" 2>/dev/null; then
+if grep -q "filesystem" "$AGY_MCP_CONFIG" 2>/dev/null; then
     echo -e "  [${RED}FAIL${RESET}] filesystem harusnya sudah terhapus dari AGY"
     FAILED=$((FAILED + 1))
 else
