@@ -74,9 +74,8 @@ RESET  = "\033[0m"
 # ── Deteksi skema storage ─────────────────────────────────────────────
 # OpenCode v2 menyimpan pesan di tabel `session_message` (kolom `type`),
 # sedangkan versi lama memakai tabel `message` (role di dalam JSON `data`).
-# Keduanya memakai struktur token yang sama di `data`. Saat migrasi v1→v2,
-# sebagian pesan lama bisa tertinggal di tabel `message`, jadi keduanya
-# digabung dan dideduplikasi berdasarkan message id.
+# Keduanya dilaporkan TERPISAH agar angka v1 dan v2 tidak tercampur.
+# Baris legacy yang sudah ada di v2 dikecualikan supaya total gabungan tetap akurat.
 tables = {r[0] for r in conn.execute(
     "SELECT name FROM sqlite_master WHERE type='table'"
 ).fetchall()}
@@ -84,25 +83,26 @@ tables = {r[0] for r in conn.execute(
 has_v2 = "session_message" in tables
 has_v1 = "message" in tables
 
-if has_v2 and has_v1:
-    SOURCE = """
-    WITH msgs AS (
-        SELECT id, time_created, data FROM session_message WHERE type='assistant'
-        UNION ALL
-        SELECT id, time_created, data FROM message
-         WHERE json_extract(data,'$.role')='assistant'
-           AND id NOT IN (SELECT id FROM session_message WHERE type='assistant')
-    )"""
-    SCHEMA_LABEL = "v2 session_message + legacy message (gabungan)"
-elif has_v2:
-    SOURCE = "WITH msgs AS (SELECT id, time_created, data FROM session_message WHERE type='assistant')"
-    SCHEMA_LABEL = "v2 (session_message)"
-else:
-    SOURCE = "WITH msgs AS (SELECT id, time_created, data FROM message WHERE json_extract(data,'$.role')='assistant')"
-    SCHEMA_LABEL = "v1 (message)"
+V2_SOURCE = ("WITH msgs AS (SELECT id, session_id, time_created, data "
+             "FROM session_message WHERE type='assistant')") if has_v2 else None
 
-MODEL_EXPR = ("COALESCE(json_extract(data,'$.model.providerID'), json_extract(data,'$.providerID')), "
-              "COALESCE(json_extract(data,'$.model.id'), json_extract(data,'$.modelID'))")
+if has_v1 and has_v2:
+    V1_SOURCE = """WITH msgs AS (
+        SELECT id, session_id, time_created, data FROM message
+        WHERE json_extract(data,'$.role')='assistant'
+          AND id NOT IN (SELECT id FROM session_message WHERE type='assistant')
+    )"""
+    V1_NOTE = "hanya pesan yang tidak termigrasi"
+elif has_v1:
+    V1_SOURCE = ("WITH msgs AS (SELECT id, session_id, time_created, data FROM message "
+                 "WHERE json_extract(data,'$.role')='assistant')")
+    V1_NOTE = "seluruh data (belum ada migrasi v2)"
+else:
+    V1_SOURCE = None
+    V1_NOTE = ""
+
+MODEL_EXPR_V2 = "json_extract(data,'$.model.providerID'), json_extract(data,'$.model.id')"
+MODEL_EXPR_V1 = "json_extract(data,'$.providerID'), json_extract(data,'$.modelID')"
 
 def fmt(n):
     if not n: return "0"
@@ -117,91 +117,98 @@ def bar(value, max_value, width=18):
     n = int(round(value / max_value * width))
     return "█" * max(n, 1)
 
-# ── Totals ────────────────────────────────────────────────────────────
-row = conn.execute(f"""{SOURCE}
-    SELECT
-        COUNT(*) as requests,
-        COALESCE(SUM(json_extract(data,'$.tokens.input')),0)     as input_tok,
-        COALESCE(SUM(json_extract(data,'$.tokens.output')),0)    as output_tok,
-        COALESCE(SUM(json_extract(data,'$.tokens.cache.read')),0) as cache_read,
-        COALESCE(SUM(json_extract(data,'$.tokens.cache.write')),0)as cache_write,
-        COALESCE(SUM(json_extract(data,'$.cost')),0)             as cost
-    FROM msgs
-""").fetchone()
+def day_str(ms):
+    if not ms:
+        return "-"
+    return datetime.datetime.fromtimestamp(ms / 1000).strftime("%Y-%m-%d")
 
-total_req, in_tok, out_tok, cache_r, cache_w, cost = row
-total_tok = in_tok + out_tok
+def fetch_totals(source):
+    return conn.execute(f"""{source}
+        SELECT
+            COUNT(*) as requests,
+            COUNT(DISTINCT session_id) as sessions,
+            COALESCE(SUM(json_extract(data,'$.tokens.input')),0)     as input_tok,
+            COALESCE(SUM(json_extract(data,'$.tokens.output')),0)    as output_tok,
+            COALESCE(SUM(json_extract(data,'$.tokens.cache.read')),0) as cache_read,
+            COALESCE(SUM(json_extract(data,'$.tokens.cache.write')),0)as cache_write,
+            COALESCE(SUM(json_extract(data,'$.cost')),0)             as cost,
+            MIN(time_created) as first_ms,
+            MAX(time_created) as last_ms
+        FROM msgs
+    """).fetchone()
 
-print(f"  {BOLD}Total Requests  {RESET}: {CYAN}{fmt(total_req)}{RESET}")
-print(f"  {BOLD}Total Tokens    {RESET}: {GREEN}{fmt(total_tok)}{RESET}")
-print(f"  {BOLD}  ├─ Input      {RESET}: {fmt(in_tok)}")
-print(f"  {BOLD}  ├─ Output     {RESET}: {fmt(out_tok)}")
-print(f"  {BOLD}  ├─ Cache Read {RESET}: {DIM}{fmt(cache_r)}{RESET}")
-print(f"  {BOLD}  └─ Cache Write{RESET}: {DIM}{fmt(cache_w)}{RESET}")
-if cost and float(cost) > 0:
-    print(f"  {BOLD}Total Cost      {RESET}: {YELLOW}${float(cost):.4f}{RESET}")
-else:
-    print(f"  {BOLD}Total Cost      {RESET}: {DIM}Free/No data{RESET}")
+def print_totals(totals):
+    req, sess, in_tok, out_tok, cache_r, cache_w, cost, first_ms, last_ms = totals
+    if req == 0:
+        print(f"  {DIM}(tidak ada data){RESET}")
+        return
+    print(f"  {BOLD}Requests        {RESET}: {CYAN}{fmt(req)}{RESET}  ({fmt(sess)} sesi)")
+    print(f"  {BOLD}Tokens          {RESET}: {GREEN}{fmt(in_tok + out_tok)}{RESET}")
+    print(f"  {BOLD}  ├─ Input      {RESET}: {fmt(in_tok)}")
+    print(f"  {BOLD}  ├─ Output     {RESET}: {fmt(out_tok)}")
+    print(f"  {BOLD}  ├─ Cache Read {RESET}: {DIM}{fmt(cache_r)}{RESET}")
+    print(f"  {BOLD}  └─ Cache Write{RESET}: {DIM}{fmt(cache_w)}{RESET}")
+    if cost and float(cost) > 0:
+        print(f"  {BOLD}Cost            {RESET}: {YELLOW}${float(cost):.4f}{RESET}")
+    else:
+        print(f"  {BOLD}Cost            {RESET}: {DIM}Free/No data{RESET}")
+    print(f"  {BOLD}Rentang Data    {RESET}: {DIM}{day_str(first_ms)} → {day_str(last_ms)}{RESET}")
 
-# ── Session count ─────────────────────────────────────────────────────
-sess_table = "session_v2" if "session_v2" in tables else "session"
-sess_count = conn.execute(f"SELECT COUNT(*) FROM {sess_table}").fetchone()[0]
-print(f"  {BOLD}Sessions        {RESET}: {fmt(sess_count)}")
-print(f"  {DIM}Schema storage  : {SCHEMA_LABEL}{RESET}")
+def print_daily(source, show_empty_table=True):
+    daily = conn.execute(f"""{source}
+        SELECT
+            date(time_created/1000,'unixepoch','localtime') as day,
+            COUNT(*) as reqs,
+            COALESCE(SUM(json_extract(data,'$.tokens.input')),0)  as in_tok,
+            COALESCE(SUM(json_extract(data,'$.tokens.output')),0) as out_tok,
+            COALESCE(SUM(json_extract(data,'$.cost')),0)          as cost
+        FROM msgs
+        WHERE date(time_created/1000,'unixepoch','localtime') >= date('now','localtime',?)
+        GROUP BY day
+        ORDER BY day DESC
+    """, (f"-{days - 1} days",)).fetchall()
 
-# ── Per-day breakdown ─────────────────────────────────────────────────
-daily = conn.execute(f"""{SOURCE}
-    SELECT
-        date(time_created/1000,'unixepoch','localtime') as day,
-        COUNT(*) as reqs,
-        COALESCE(SUM(json_extract(data,'$.tokens.input')),0)  as in_tok,
-        COALESCE(SUM(json_extract(data,'$.tokens.output')),0) as out_tok,
-        COALESCE(SUM(json_extract(data,'$.cost')),0)          as cost
-    FROM msgs
-    WHERE date(time_created/1000,'unixepoch','localtime') >= date('now','localtime',?)
-    GROUP BY day
-    ORDER BY day DESC
-""", (f"-{days - 1} days",)).fetchall()
+    print(f"\n  {BOLD}Per-Hari ({days} hari terakhir):{RESET}")
+    if not daily and not show_empty_table:
+        print(f"  {DIM}(tidak ada aktivitas pada rentang ini){RESET}")
+        return
 
-print(f"\n  {BOLD}Per-Hari ({days} hari terakhir):{RESET}")
-by_day = {r[0]: r for r in daily}
-today = datetime.date.today()
-ordered = []
-for offset in range(days):
-    day = (today - datetime.timedelta(days=offset)).isoformat()
-    row = by_day.get(day)
-    ordered.append(row if row else (day, 0, 0, 0, 0))
-max_total = max((r[2] + r[3]) for r in ordered) or 1
-if not any(r[1] for r in ordered):
-    print(f"  {DIM}(belum ada aktivitas pada rentang ini){RESET}")
-print(f"  {DIM}{'Tanggal':<12} {'Req':>5} {'Input':>9} {'Output':>9} {'Total':>9} {'Cost':>9}{RESET}")
-print(f"  {DIM}{'─'*12} {'─'*5} {'─'*9} {'─'*9} {'─'*9} {'─'*9}{RESET}")
-for day, reqs, in_t, out_t, dcost in ordered:
-    total = in_t + out_t
-    cost_str = f"${float(dcost):.4f}" if dcost and float(dcost) > 0 else "-"
-    print(f"  {day:<12} {CYAN}{fmt(reqs):>5}{RESET} {fmt(in_t):>9} {fmt(out_t):>9} "
-          f"{GREEN}{fmt(total):>9}{RESET} {YELLOW}{cost_str:>9}{RESET} {MAGENTA}{bar(total, max_total)}{RESET}")
-sum_reqs = sum(r[1] for r in ordered)
-sum_total = sum(r[2] + r[3] for r in ordered)
-sum_cost = sum(float(r[4] or 0) for r in ordered)
-cost_total = f"${sum_cost:.4f}" if sum_cost > 0 else "-"
-print(f"  {DIM}{'─'*12} {'─'*5} {'─'*9} {'─'*9} {'─'*9} {'─'*9}{RESET}")
-print(f"  {BOLD}{'SUBTOTAL':<12} {fmt(sum_reqs):>5} {'':>9} {'':>9} {fmt(sum_total):>9} {cost_total:>9}{RESET}")
+    by_day = {r[0]: r for r in daily}
+    today = datetime.date.today()
+    ordered = []
+    for offset in range(days):
+        day = (today - datetime.timedelta(days=offset)).isoformat()
+        row = by_day.get(day)
+        ordered.append(row if row else (day, 0, 0, 0, 0))
+    max_total = max((r[2] + r[3]) for r in ordered) or 1
+    print(f"  {DIM}{'Tanggal':<12} {'Req':>5} {'Input':>9} {'Output':>9} {'Total':>9} {'Cost':>9}{RESET}")
+    print(f"  {DIM}{'─'*12} {'─'*5} {'─'*9} {'─'*9} {'─'*9} {'─'*9}{RESET}")
+    for day, reqs, in_t, out_t, dcost in ordered:
+        total = in_t + out_t
+        cost_str = f"${float(dcost):.4f}" if dcost and float(dcost) > 0 else "-"
+        print(f"  {day:<12} {CYAN}{fmt(reqs):>5}{RESET} {fmt(in_t):>9} {fmt(out_t):>9} "
+              f"{GREEN}{fmt(total):>9}{RESET} {YELLOW}{cost_str:>9}{RESET} {MAGENTA}{bar(total, max_total)}{RESET}")
+    sum_reqs = sum(r[1] for r in ordered)
+    sum_total = sum(r[2] + r[3] for r in ordered)
+    sum_cost = sum(float(r[4] or 0) for r in ordered)
+    cost_total = f"${sum_cost:.4f}" if sum_cost > 0 else "-"
+    print(f"  {DIM}{'─'*12} {'─'*5} {'─'*9} {'─'*9} {'─'*9} {'─'*9}{RESET}")
+    print(f"  {BOLD}{'SUBTOTAL':<12} {fmt(sum_reqs):>5} {'':>9} {'':>9} {fmt(sum_total):>9} {cost_total:>9}{RESET}")
 
-# ── Per-model breakdown ───────────────────────────────────────────────
-rows = conn.execute(f"""{SOURCE}
-    SELECT
-        {MODEL_EXPR},
-        COUNT(*)                          as reqs,
-        COALESCE(SUM(json_extract(data,'$.tokens.input')),0)  as in_tok,
-        COALESCE(SUM(json_extract(data,'$.tokens.output')),0) as out_tok
-    FROM msgs
-    GROUP BY 1, 2
-    ORDER BY reqs DESC
-    LIMIT 10
-""").fetchall()
-
-if rows:
+def print_models(source, model_expr):
+    rows = conn.execute(f"""{source}
+        SELECT
+            {model_expr},
+            COUNT(*)                          as reqs,
+            COALESCE(SUM(json_extract(data,'$.tokens.input')),0)  as in_tok,
+            COALESCE(SUM(json_extract(data,'$.tokens.output')),0) as out_tok
+        FROM msgs
+        GROUP BY 1, 2
+        ORDER BY reqs DESC
+        LIMIT 10
+    """).fetchall()
+    if not rows:
+        return
     print(f"\n  {BOLD}Per-Model Breakdown:{RESET}")
     print(f"  {DIM}{'Model':<35} {'Requests':>10} {'Input':>10} {'Output':>10}{RESET}")
     print(f"  {DIM}{'─'*35} {'─'*10} {'─'*10} {'─'*10}{RESET}")
@@ -210,6 +217,40 @@ if rows:
         label = f"{provider}/{model}" if provider else (model or "unknown")
         label = label[:34]
         print(f"  {label:<35} {CYAN}{fmt(reqs):>10}{RESET} {fmt(in_t):>10} {fmt(out_t):>10}")
+
+# ── v2: session_message ───────────────────────────────────────────────
+totals_v2 = None
+totals_v1 = None
+
+if not V2_SOURCE and not V1_SOURCE:
+    print(f"  {RED}✗ Tidak ada tabel pesan (message/session_message) di database.{RESET}")
+else:
+    if V2_SOURCE:
+        print(f"  {BOLD}{CYAN}── v2 · session_message (aktif) ──{RESET}")
+        totals_v2 = fetch_totals(V2_SOURCE)
+        print_totals(totals_v2)
+        print_daily(V2_SOURCE, show_empty_table=True)
+        print_models(V2_SOURCE, MODEL_EXPR_V2)
+
+    # ── v1: legacy message ────────────────────────────────────────────
+    if V1_SOURCE:
+        if V2_SOURCE:
+            print()
+        print(f"  {BOLD}{YELLOW}── v1 · message (legacy; {V1_NOTE}) ──{RESET}")
+        totals_v1 = fetch_totals(V1_SOURCE)
+        print_totals(totals_v1)
+        if totals_v1[0] > 0:
+            print_daily(V1_SOURCE, show_empty_table=False)
+            print_models(V1_SOURCE, MODEL_EXPR_V1)
+
+# ── Total gabungan (unik, tanpa duplikasi) ────────────────────────────
+if totals_v2 and totals_v1:
+    g_req = totals_v2[0] + totals_v1[0]
+    g_tok = totals_v2[2] + totals_v2[3] + totals_v1[2] + totals_v1[3]
+    g_cost = float(totals_v2[6] or 0) + float(totals_v1[6] or 0)
+    cost_txt = f"${g_cost:.4f}" if g_cost > 0 else "-"
+    print(f"\n  {BOLD}Total Gabungan (unik){RESET}: {CYAN}{fmt(g_req)}{RESET} req · "
+          f"{GREEN}{fmt(g_tok)}{RESET} token · {YELLOW}{cost_txt}{RESET}")
 
 conn.close()
 PYEOF
