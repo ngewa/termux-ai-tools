@@ -74,6 +74,7 @@ Setelah menjalankan `./setup-shortcuts.sh`, alias berikut otomatis aktif di `~/.
 | `aimem` | `memory.sh` | Buka **Knowledge Memory & AI Brain** (Solusi terverifikasi & FTS5) |
 | `aiskill` | `skill.sh` | Buka **AI Agent Skill Manager** (Prompt Master, Antislop, UI/UX) |
 | `aiagent` | `agent.sh` | Buka **AI Persona & Subagent Manager** (Roblox, Toolkit, Reverser) |
+| `ai usage` | `usage-stats.sh` | Tampilkan **Usage Statistics** token & request OpenCode + AGY |
 
 ---
 
@@ -97,6 +98,7 @@ ai doctor [--fix]            # Periksa dan perbaiki kesehatan lingkungan sistem
 ai update                    # Cek versi terpasang vs rilis terbaru GitHub/npm
 ai backup [--full]           # Backup konfigurasi dan token ke .tar.gz
 ai restore [berkas.tar.gz]   # Pulihkan pengaturan dari berkas backup
+ai usage [--opencode|--agy]  # Tampilkan statistik token & request OpenCode + AGY
 ```
 
 ---
@@ -109,7 +111,19 @@ doctor.sh                    # Jalankan 18 pemeriksaan lingkungan & dependensi
 doctor.sh --fix              # Otomatis perbaiki sertifikat TLS, permission, dan dependensi
 ```
 
-#### B. 🔄 Pengecek Versi Rilis Upstream (`update.sh`)
+#### B. 📊 Usage Statistics (`usage-stats.sh`)
+```bash
+ai usage                     # Tampilkan total token & request semua tool (OpenCode + AGY)
+ai usage --opencode          # Hanya statistik OpenCode (per-model breakdown)
+ai usage --agy               # Hanya statistik Antigravity CLI
+ai usage --help              # Panduan lengkap
+```
+
+**Data sumber:**
+- **OpenCode**: Membaca dari `~/.local/share/opencode/opencode.db` — menampilkan total requests, input/output/cache tokens, biaya, dan breakdown per-model.
+- **AGY**: Menghitung API requests dari `~/.gemini/antigravity-cli/conversations/*.db` (gen_metadata).
+
+#### C. 🔄 Pengecek Versi Rilis Upstream (`update.sh`)
 ```bash
 update.sh                    # Periksa rilis resmi GitHub anomalyco/opencode vs versi lokal
 ```
