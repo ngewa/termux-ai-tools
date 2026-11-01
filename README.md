@@ -22,7 +22,7 @@ Perintah di atas akan menampilkan menu interaktif lengkap:
 7. **Manajemen Sesi & Optimasi DB Storage (session.sh)**
 8. **Plugin & MCP Tool Installer (plugin.sh)**
 9. **Knowledge Memory & AI Brain (memory.sh)**
-10. **Manajemen AI Agent Skills (skill.sh)**
+10. **Manajemen AI Agent Skills (skill.sh) — deteksi Global & Workspace**
 11. **Manajemen AI Subagents & Personas (agent.sh)**
 12. **Diagnostik & Health Check Lingkungan (Doctor)**
 13. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
@@ -207,20 +207,34 @@ memory.sh mcp-export         # Ekspor basis pengetahuan ke format entitas MCP Kn
 ```
 
 #### H. 🧠 AI Agent Skill Manager (`skill.sh` / `aiskill` / `ai skill`)
+
+Mendeteksi skill dari **dua cakupan**:
+
+| Cakupan | Lokasi yang dipindai |
+| --- | --- |
+| **Global** (semua proyek) | `~/.agents/skills`, `~/.claude/skills`, `~/.config/opencode/skills`, `~/.gemini/skills` |
+| **Workspace** (proyek aktif) | `./.agents/skills`, `./.claude/skills`, `./.opencode/skills` — walk-up dari cwd sampai git worktree root, sama seperti OpenCode |
+
+Setiap lokasi juga memiliki pasangan `skills-disabled/` untuk toggle hemat token.
+
 ```bash
 skill.sh                     # Menu interaktif TUI Skill Manager
-skill.sh list                # Tampilkan status seluruh skill aktif & nonaktif (~/.agents & ~/.gemini)
+skill.sh list                # Tampilkan skill GLOBAL + WORKSPACE (aktif & nonaktif)
+skill.sh list --global       # Filter hanya skill global
+skill.sh list --workspace    # Filter hanya skill workspace proyek ini
 skill.sh presets             # Lihat katalog skill populer (prompt-master, antislop, ui-ux-pro-max, dll.)
 skill.sh search [keyword]    # Cari skill resmi Claude dari anthropics/claude-plugins-official (hanya yang didukung)
 skill.sh install <nama|url>  # Pasang skill dari katalog preset, Claude, GitHub URL, atau folder lokal
-skill.sh toggle <nama>       # Toggle aktif/nonaktifkan skill untuk menghemat context window & token
+skill.sh install <x> -w      # Pasang skill ke workspace proyek ini (./.agents/skills)
+skill.sh toggle <nama>       # Toggle aktif/nonaktifkan skill (global maupun workspace)
 skill.sh enable <nama>       # Aktifkan skill yang sebelumnya dinonaktifkan
 skill.sh disable <nama>      # Nonaktifkan skill tanpa menghapus berkas (pindah ke skills-disabled)
 skill.sh update [nama]       # Perbarui skill berbasis Git menggunakan git pull
-skill.sh info <nama>         # Tampilkan detail metadata, izin, dan pratinjau SKILL.md
-skill.sh create <nama>       # Buat scaffold template skill baru sesuai standar open SKILL.md
-skill.sh remove <nama>       # Hapus skill dari penyimpanan Termux
-skill.sh doctor              # Audit format YAML frontmatter, validasi duplikasi, & integritas skill
+skill.sh info <nama>         # Detail metadata, scope (global/workspace), & pratinjau SKILL.md
+skill.sh create <nama>       # Buat scaffold template skill baru global
+skill.sh create <nama> -w    # Buat scaffold skill baru di workspace proyek (./.agents/skills)
+skill.sh remove <nama>       # Hapus skill dari penyimpanan (global & workspace)
+skill.sh doctor              # Audit frontmatter, benturan nama antar scope, & integritas skill
 ```
 
 #### I. 🤖 AI Subagents & Personas Manager (`agent.sh` / `aiagent` / `ai agent`)

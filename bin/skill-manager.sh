@@ -5,8 +5,10 @@ set -e
 # Termux AI Tools - AI Agent Skill Manager (skill.sh / aiskill)
 # Manages:
 #   - Agent Skills conforming to the open SKILL.md specification
-#   - Universal agent directory: ~/.agents/skills/ & ~/.agents/skills-disabled/
-#   - Antigravity user directory: ~/.gemini/skills/ & ~/.gemini/skills-disabled/
+#   - Global skills: ~/.agents/skills, ~/.claude/skills, ~/.config/opencode/skills,
+#                    ~/.gemini/skills (+ masing-masing folder skills-disabled)
+#   - Workspace skills: ./.agents/skills, ./.claude/skills, ./.opencode/skills
+#                       (walk-up dari cwd sampai git worktree root, seperti OpenCode)
 #   - Preset catalog (prompt-master, antislop, ui-ux-pro-max, banner-design, etc.)
 #   - Git-based install, update, remove, inspect, enable/disable, and doctor audit
 # ==============================================================================
@@ -34,8 +36,10 @@ if ! command -v python3 >/dev/null 2>&1; then
     exit 1
 fi
 
-# Ensure base directories exist
+# Ensure base directories exist (global scope only; workspace dibuat saat dibutuhkan)
 mkdir -p "$HOME_DIR/.agents/skills" "$HOME_DIR/.agents/skills-disabled"
+mkdir -p "$HOME_DIR/.claude/skills" "$HOME_DIR/.claude/skills-disabled"
+mkdir -p "$HOME_DIR/.config/opencode/skills" "$HOME_DIR/.config/opencode/skills-disabled"
 mkdir -p "$HOME_DIR/.gemini/skills" "$HOME_DIR/.gemini/skills-disabled"
 
 # ------------------------------------------------------------------------------
@@ -48,8 +52,15 @@ import sys, os, shutil, re, subprocess, json
 HOME = os.path.expanduser("~")
 UNIVERSAL_ACTIVE = os.path.join(HOME, ".agents", "skills")
 UNIVERSAL_DISABLED = os.path.join(HOME, ".agents", "skills-disabled")
+CLAUDE_ACTIVE = os.path.join(HOME, ".claude", "skills")
+CLAUDE_DISABLED = os.path.join(HOME, ".claude", "skills-disabled")
+OPENCODE_ACTIVE = os.path.join(HOME, ".config", "opencode", "skills")
+OPENCODE_DISABLED = os.path.join(HOME, ".config", "opencode", "skills-disabled")
 GEMINI_ACTIVE = os.path.join(HOME, ".gemini", "skills")
 GEMINI_DISABLED = os.path.join(HOME, ".gemini", "skills-disabled")
+
+# Direktori skill yang dipindai di dalam workspace/proyek (urutan sesuai OpenCode)
+WORKSPACE_SKILL_DIRS = [".agents", ".claude", ".opencode"]
 
 PRESETS = {
     "prompt-master": {
@@ -392,15 +403,104 @@ def get_git_info(path):
     except Exception:
         return "git-repo"
 
-def scan_skills():
-    results = []
-    locations = [
-        ("Universal (~/.agents/skills)", UNIVERSAL_ACTIVE, True),
-        ("Universal Disabled (~/.agents/skills-disabled)", UNIVERSAL_DISABLED, False),
-        ("Antigravity (~/.gemini/skills)", GEMINI_ACTIVE, True),
-        ("Antigravity Disabled (~/.gemini/skills-disabled)", GEMINI_DISABLED, False)
+def shorten_path(path):
+    """Ringkas path $HOME menjadi '~' agar label lokasi mudah dibaca."""
+    if path == HOME:
+        return "~"
+    if path.startswith(HOME + os.sep):
+        return "~" + path[len(HOME):]
+    return path
+
+def find_workspace_roots():
+    """Kembalikan daftar direktori dari cwd sampai git worktree root.
+
+    Mengikuti perilaku OpenCode: skill proyek dicari dengan berjalan naik dari
+    current working directory sampai menemukan root repo git. Bila bukan repo
+    git, hanya cwd yang dipakai (agar tidak memindai seluruh filesystem).
+    """
+    cwd = os.path.abspath(os.getcwd())
+    roots = []
+    cur = cwd
+    while True:
+        roots.append(cur)
+        if os.path.exists(os.path.join(cur, ".git")):
+            return roots
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            return [cwd]
+        cur = parent
+
+def workspace_locations():
+    """Lokasi skill workspace (aktif & nonaktif) beserta labelnya."""
+    cwd = os.path.abspath(os.getcwd())
+    locations = []
+    for root in find_workspace_roots():
+        for sub in WORKSPACE_SKILL_DIRS:
+            base = os.path.join(root, sub)
+            for folder, is_active in (("skills", True), ("skills-disabled", False)):
+                path = os.path.join(base, folder)
+                if not os.path.isdir(path):
+                    continue
+                if root == cwd:
+                    label = f"Workspace (./{sub}/{folder})"
+                else:
+                    label = f"Workspace ({shorten_path(path)})"
+                locations.append((label, path, is_active, "workspace"))
+    return locations
+
+def global_locations():
+    return [
+        ("Global Universal (~/.agents/skills)", UNIVERSAL_ACTIVE, True, "global"),
+        ("Global Claude (~/.claude/skills)", CLAUDE_ACTIVE, True, "global"),
+        ("Global OpenCode (~/.config/opencode/skills)", OPENCODE_ACTIVE, True, "global"),
+        ("Global Antigravity (~/.gemini/skills)", GEMINI_ACTIVE, True, "global"),
+        ("Global Universal Disabled (~/.agents/skills-disabled)", UNIVERSAL_DISABLED, False, "global"),
+        ("Global Claude Disabled (~/.claude/skills-disabled)", CLAUDE_DISABLED, False, "global"),
+        ("Global OpenCode Disabled (~/.config/opencode/skills-disabled)", OPENCODE_DISABLED, False, "global"),
+        ("Global Antigravity Disabled (~/.gemini/skills-disabled)", GEMINI_DISABLED, False, "global"),
     ]
-    for loc_name, path, is_active in locations:
+
+def all_locations(include_workspace=True):
+    """Gabungan lokasi global + workspace tanpa duplikasi path fisik."""
+    locations = global_locations()
+    if include_workspace:
+        seen = {os.path.realpath(p) for _, p, _, _ in locations}
+        for label, path, is_active, scope in workspace_locations():
+            real = os.path.realpath(path)
+            if real in seen:
+                continue
+            seen.add(real)
+            locations.append((label, path, is_active, scope))
+    return locations
+
+def toggle_pairs():
+    """Pasangan (aktif, nonaktif, label) untuk operasi enable/disable."""
+    pairs = [
+        (UNIVERSAL_ACTIVE, UNIVERSAL_DISABLED, "Global Universal"),
+        (CLAUDE_ACTIVE, CLAUDE_DISABLED, "Global Claude"),
+        (OPENCODE_ACTIVE, OPENCODE_DISABLED, "Global OpenCode"),
+        (GEMINI_ACTIVE, GEMINI_DISABLED, "Global Antigravity"),
+    ]
+    for root in find_workspace_roots():
+        for sub in WORKSPACE_SKILL_DIRS:
+            base = os.path.join(root, sub)
+            pairs.append((
+                os.path.join(base, "skills"),
+                os.path.join(base, "skills-disabled"),
+                f"Workspace ({shorten_path(base)})"
+            ))
+    return pairs
+
+def scan_skills(scope_filter=None):
+    results = []
+    seen_dirs = set()
+    for loc_name, path, is_active, scope in all_locations():
+        if scope_filter and scope != scope_filter:
+            continue
+        real = os.path.realpath(path)
+        if real in seen_dirs:
+            continue
+        seen_dirs.add(real)
         if not os.path.isdir(path):
             continue
         try:
@@ -419,6 +519,7 @@ def scan_skills():
                     "description": meta.get("description", ""),
                     "version": meta.get("version", ""),
                     "location_name": loc_name,
+                    "scope": scope,
                     "dir": full,
                     "is_active": is_active,
                     "is_universal": "agents" in path,
@@ -432,37 +533,55 @@ def scan_skills():
 # ------------------------------------------------------------------------------
 # Action: LIST / STATUS
 # ------------------------------------------------------------------------------
-def action_list():
-    skills = scan_skills()
+def action_list(scope_filter=None):
+    skills = scan_skills(scope_filter)
     print("\033[1m\033[36m========================================================================================\033[0m")
     print("\033[1m                         STATUS AI AGENT SKILLS TERPASANG                               \033[0m")
     print("\033[1m\033[36m========================================================================================\033[0m")
+    print(f"\033[2m  Workspace aktif: {shorten_path(os.path.abspath(os.getcwd()))}\033[0m")
 
     if not skills:
-        print("  \033[33m(Belum ada AI Agent Skill yang terpasang di ~/.agents/skills atau ~/.gemini/skills)\033[0m")
+        print("\n  \033[33m(Belum ada AI Agent Skill yang terdeteksi di global maupun workspace)\033[0m")
+        print("  \033[2mGlobal   : ~/.agents/skills, ~/.claude/skills, ~/.config/opencode/skills, ~/.gemini/skills\033[0m")
+        print("  \033[2mWorkspace: ./.agents/skills, ./.claude/skills, ./.opencode/skills\033[0m")
         print("\n  \033[36mTip:\033[0m Pasang skill siap pakai dengan: \033[1maiskill presets\033[0m atau \033[1maiskill install <nama|url>\033[0m")
         return
 
-    # Group by category
-    categories = {}
-    for s in skills:
-        cat = s["location_name"]
-        categories.setdefault(cat, []).append(s)
+    scope_titles = {
+        "global": "GLOBAL SKILLS (tersedia di semua proyek)",
+        "workspace": "WORKSPACE SKILLS (khusus proyek saat ini)"
+    }
 
-    for cat_name, cat_skills in categories.items():
-        print(f"\n\033[1m{cat_name}:\033[0m")
-        for s in cat_skills:
-            status = "\033[32m[AKTIF]\033[0m" if s["is_active"] else "\033[33m[NONAKTIF]\033[0m"
-            git_badge = " \033[35m[Git]\033[0m" if s["git"] else ""
-            desc = s["description"]
-            if len(desc) > 65:
-                desc = desc[:62] + "..."
-            print(f"  • {status} \033[1m{s['id']:<18}\033[0m ({s['size']}){git_badge}")
-            print(f"      \033[2m{desc}\033[0m")
+    for scope in ("global", "workspace"):
+        if scope_filter and scope != scope_filter:
+            continue
+        scope_skills = [s for s in skills if s["scope"] == scope]
+        print(f"\n\033[1m\033[35m▶ {scope_titles[scope]}\033[0m")
+        if not scope_skills:
+            print("  \033[2m(tidak ada skill terdeteksi di cakupan ini)\033[0m")
+            continue
+
+        categories = {}
+        for s in scope_skills:
+            categories.setdefault(s["location_name"], []).append(s)
+
+        for cat_name, cat_skills in categories.items():
+            print(f"\n  \033[1m{cat_name}:\033[0m")
+            for s in cat_skills:
+                status = "\033[32m[AKTIF]\033[0m" if s["is_active"] else "\033[33m[NONAKTIF]\033[0m"
+                git_badge = " \033[35m[Git]\033[0m" if s["git"] else ""
+                desc = s["description"]
+                if len(desc) > 65:
+                    desc = desc[:62] + "..."
+                print(f"    • {status} \033[1m{s['id']:<18}\033[0m ({s['size']}){git_badge}")
+                print(f"        \033[2m{desc}\033[0m")
 
     active_count = sum(1 for s in skills if s["is_active"])
     disabled_count = len(skills) - active_count
+    global_count = sum(1 for s in skills if s["scope"] == "global")
+    workspace_count = sum(1 for s in skills if s["scope"] == "workspace")
     print(f"\n\033[1mRingkasan:\033[0m Total: \033[1m{len(skills)}\033[0m skill | Aktif: \033[32m{active_count}\033[0m | Nonaktif: \033[33m{disabled_count}\033[0m")
+    print(f"           Global: \033[36m{global_count}\033[0m | Workspace: \033[36m{workspace_count}\033[0m")
 
 # ------------------------------------------------------------------------------
 # Action: PRESETS
@@ -487,6 +606,14 @@ def action_presets():
 # ------------------------------------------------------------------------------
 # Action: SEARCH & CLAUDE OFFICIAL REPOSITORY SUPPORT
 # ------------------------------------------------------------------------------
+def resolve_dest_base(dest_type="universal"):
+    """Direktori tujuan instalasi berdasarkan target scope."""
+    if dest_type == "gemini":
+        return GEMINI_ACTIVE
+    if dest_type == "workspace":
+        return os.path.join(os.getcwd(), ".agents", "skills")
+    return UNIVERSAL_ACTIVE
+
 def install_claude_skill(skill_id, dest_type="universal"):
     skill_id = skill_id.lower().replace("claude:", "").strip()
     if skill_id not in CLAUDE_OFFICIAL_SKILLS:
@@ -499,8 +626,9 @@ def install_claude_skill(skill_id, dest_type="universal"):
             return False
 
     info = CLAUDE_OFFICIAL_SKILLS[skill_id]
-    dest_base = GEMINI_ACTIVE if dest_type == "gemini" else UNIVERSAL_ACTIVE
+    dest_base = resolve_dest_base(dest_type)
     dest_dir = os.path.join(dest_base, skill_id)
+    os.makedirs(dest_base, exist_ok=True)
 
     if os.path.exists(dest_dir):
         print(f"\033[33m[WARN]\033[0m Skill '{skill_id}' sudah terpasang di {dest_dir}.")
@@ -664,8 +792,9 @@ def action_install(target_arg, dest_type="universal"):
         # Local directory
         src_dir = os.path.abspath(target_arg)
         skill_name = os.path.basename(src_dir)
-        dest_base = GEMINI_ACTIVE if dest_type == "gemini" else UNIVERSAL_ACTIVE
+        dest_base = resolve_dest_base(dest_type)
         dest_dir = os.path.join(dest_base, skill_name)
+        os.makedirs(dest_base, exist_ok=True)
         if os.path.exists(dest_dir):
             print(f"\033[33m[WARN]\033[0m Skill '{skill_name}' sudah ada di {dest_dir}. Timpa? (y/N): ", end="", flush=True)
             conf = sys.stdin.readline().strip().lower()
@@ -681,8 +810,9 @@ def action_install(target_arg, dest_type="universal"):
         print("Ketik 'aiskill presets' untuk melihat daftar preset yang tersedia.")
         sys.exit(1)
 
-    dest_base = GEMINI_ACTIVE if dest_type == "gemini" else UNIVERSAL_ACTIVE
+    dest_base = resolve_dest_base(dest_type)
     dest_dir = os.path.join(dest_base, skill_name)
+    os.makedirs(dest_base, exist_ok=True)
 
     if os.path.exists(dest_dir):
         print(f"\033[33m[WARN]\033[0m Skill '{skill_name}' sudah terpasang di {dest_dir}.")
@@ -738,16 +868,11 @@ def action_remove(skill_id):
         print("\033[31m[ERROR]\033[0m Harap masukkan nama skill yang ingin dihapus.")
         sys.exit(1)
 
-    targets = [
-        os.path.join(UNIVERSAL_ACTIVE, skill_id),
-        os.path.join(UNIVERSAL_DISABLED, skill_id),
-        os.path.join(GEMINI_ACTIVE, skill_id),
-        os.path.join(GEMINI_DISABLED, skill_id)
-    ]
+    targets = [os.path.join(path, skill_id) for _, path, _, _ in all_locations()]
     found = [p for p in targets if os.path.isdir(p)]
 
     if not found:
-        print(f"\033[31m[ERROR]\033[0m Skill '{skill_id}' tidak ditemukan di sistem.")
+        print(f"\033[31m[ERROR]\033[0m Skill '{skill_id}' tidak ditemukan di global maupun workspace.")
         return
 
     for p in found:
@@ -765,11 +890,8 @@ def action_toggle(skill_id, explicit_state=None):
         print("\033[31m[ERROR]\033[0m Harap masukkan nama skill.")
         sys.exit(1)
 
-    # Check universal first, then gemini
-    pairs = [
-        (UNIVERSAL_ACTIVE, UNIVERSAL_DISABLED, "Universal"),
-        (GEMINI_ACTIVE, GEMINI_DISABLED, "Antigravity")
-    ]
+    # Check global scope first, lalu workspace (walk-up dari cwd)
+    pairs = toggle_pairs()
 
     for act_dir, dis_dir, label in pairs:
         act_path = os.path.join(act_dir, skill_id)
@@ -794,7 +916,7 @@ def action_toggle(skill_id, explicit_state=None):
             print(f"\033[32m[OK]\033[0m Skill '\033[1m{skill_id}\033[0m' ({label}) diaktifkan (dipindahkan ke {act_path}).")
             return
 
-    print(f"\033[31m[ERROR]\033[0m Skill '{skill_id}' tidak ditemukan.")
+    print(f"\033[31m[ERROR]\033[0m Skill '{skill_id}' tidak ditemukan di global maupun workspace.")
 
 # ------------------------------------------------------------------------------
 # Action: UPDATE
@@ -837,9 +959,10 @@ def action_info(skill_id):
 
     skills = [s for s in scan_skills() if s["id"] == skill_id]
     if not skills:
-        print(f"\033[31m[ERROR]\033[0m Skill '{skill_id}' tidak ditemukan.")
+        print(f"\033[31m[ERROR]\033[0m Skill '{skill_id}' tidak ditemukan di global maupun workspace.")
         return
 
+    skills.sort(key=lambda x: (not x["is_active"], x["scope"] != "global"))
     s = skills[0]
     meta = parse_frontmatter(s["dir"])
     skill_file = meta.get("file")
@@ -850,12 +973,16 @@ def action_info(skill_id):
     print(f"  • Nama Asli       : \033[1m{meta.get('name', s['id'])}\033[0m")
     print(f"  • Status          : {'\033[32m[AKTIF]\033[0m' if s['is_active'] else '\033[33m[NONAKTIF]\033[0m'}")
     print(f"  • Cakupan         : {s['location_name']}")
+    print(f"  • Scope           : {'Global (semua proyek)' if s['scope'] == 'global' else 'Workspace (proyek ini)'}")
     print(f"  • Lokasi Direktori: {s['dir']}")
     print(f"  • Ukuran Disk     : {s['size']} ({s['files']} file)")
     if s["git"]:
         print(f"  • Git Remote      : {s['git']}")
     print(f"  • Versi           : {meta.get('version', 'Tidak tercantum')}")
     print(f"  • Penulis/Author  : {meta.get('author', 'Tidak tercantum')}")
+    if len(skills) > 1:
+        others = ", ".join(o["location_name"] for o in skills[1:])
+        print(f"  • Salinan Lain    : {others}")
     print(f"  • Deskripsi       : {meta.get('description', '')}\n")
 
     if skill_file and os.path.exists(skill_file):
@@ -894,13 +1021,18 @@ def action_info(skill_id):
 # ------------------------------------------------------------------------------
 # Action: CREATE (Scaffold new skill)
 # ------------------------------------------------------------------------------
-def action_create(skill_name):
+def action_create(skill_name, scope="global"):
     if not skill_name:
         print("\033[31m[ERROR]\033[0m Harap masukkan nama skill baru (misal: my-automation).")
         sys.exit(1)
 
     skill_name = re.sub(r"[^a-zA-Z0-9_-]", "-", skill_name).lower()
-    target_dir = os.path.join(UNIVERSAL_ACTIVE, skill_name)
+    if scope == "workspace":
+        target_dir = os.path.join(os.getcwd(), ".agents", "skills", skill_name)
+        scope_label = "Workspace (proyek ini)"
+    else:
+        target_dir = os.path.join(UNIVERSAL_ACTIVE, skill_name)
+        scope_label = "Global (semua proyek)"
 
     if os.path.exists(target_dir):
         print(f"\033[31m[ERROR]\033[0m Direktori skill '{skill_name}' sudah ada di {target_dir}.")
@@ -934,6 +1066,7 @@ Jelaskan aturan utama dan output yang diharapkan saat skill ini aktif.
         f.write(template)
 
     print(f"\033[32m[OK]\033[0m Template skill '\033[1m{skill_name}\033[0m' berhasil dibuat!")
+    print(f"      Scope: \033[36m{scope_label}\033[0m")
     print(f"      File utama: \033[36m{os.path.join(target_dir, 'SKILL.md')}\033[0m")
     print(f"      Folder referensi: \033[36m{os.path.join(target_dir, 'references')}\033[0m")
     print("      Silakan edit SKILL.md untuk mendefinisikan instruksi khusus AI Anda.")
@@ -959,11 +1092,19 @@ def action_doctor():
         meta = parse_frontmatter(s["dir"])
         issues = []
 
-        # Check collision
+        # Check collision (termasuk benturan nama antar global & workspace)
         if skill_id in seen_ids:
-            issues.append(f"Duplikat nama skill terdeteksi di {s['location_name']} dan {seen_ids[skill_id]}")
+            prev_scope, prev_loc = seen_ids[skill_id]
+            if prev_scope != s["scope"]:
+                issues.append(
+                    f"Nama skill bentrok antar cakupan: {prev_loc} vs {s['location_name']} "
+                    f"(OpenCode mengharuskan nama skill unik, salah satu akan tertutup)"
+                )
+            else:
+                issues.append(f"Duplikat nama skill terdeteksi di {s['location_name']} dan {prev_loc}")
+            warnings += 1
         else:
-            seen_ids[skill_id] = s["location_name"]
+            seen_ids[skill_id] = (s["scope"], s["location_name"])
 
         # Check SKILL.md existence
         if not meta.get("file"):
@@ -980,34 +1121,54 @@ def action_doctor():
                 issues.append("Field 'description' terlalu panjang (> 600 karakter), boros context window")
                 warnings += 1
 
+        scope_tag = "G" if s["scope"] == "global" else "W"
         if not issues:
-            print(f"  [\033[32mPASS\033[0m] \033[1m{skill_id:<20}\033[0m ({s['location_name']})")
+            print(f"  [\033[32mPASS\033[0m] \033[1m{skill_id:<20}\033[0m [{scope_tag}] {s['location_name']}")
             passed += 1
         else:
             status_tag = "\033[31mFAIL\033[0m" if any("tidak ditemukan" in i or "hilang" in i for i in issues) else "\033[33mWARN\033[0m"
-            print(f"  [{status_tag}] \033[1m{skill_id:<20}\033[0m ({s['location_name']})")
+            print(f"  [{status_tag}] \033[1m{skill_id:<20}\033[0m [{scope_tag}] {s['location_name']}")
             for iss in issues:
                 print(f"         \033[33m• {iss}\033[0m")
 
-    print(f"\n\033[1mHasil Audit:\033[0m Total: {total} | Pass: \033[32m{passed}\033[0m | Warning: \033[33m{warnings}\033[0m | Error: \033[31m{errors}\033[0m")
+    global_count = sum(1 for s in skills if s["scope"] == "global")
+    workspace_count = sum(1 for s in skills if s["scope"] == "workspace")
+    print(f"\n\033[1mCakupan:\033[0m Global: {global_count} | Workspace: {workspace_count} ({shorten_path(os.path.abspath(os.getcwd()))})")
+    print(f"\033[1mHasil Audit:\033[0m Total: {total} | Pass: \033[32m{passed}\033[0m | Warning: \033[33m{warnings}\033[0m | Error: \033[31m{errors}\033[0m")
 
 # ------------------------------------------------------------------------------
 # Dispatcher for Python engine
 # ------------------------------------------------------------------------------
+def parse_dest(argv):
+    """Target scope instalasi dari flag CLI: --workspace / -w, --gemini, default universal."""
+    if "--workspace" in argv or "-w" in argv:
+        return "workspace"
+    if "--gemini" in argv:
+        return "gemini"
+    return "universal"
+
+def parse_scope_filter(argv):
+    """Filter cakupan untuk perintah list: --global / --workspace."""
+    if "--global" in argv or "-g" in argv:
+        return "global"
+    if "--workspace" in argv or "-w" in argv:
+        return "workspace"
+    return None
+
 cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
 
 if cmd in ["status", "list", "ls"]:
-    action_list()
+    action_list(parse_scope_filter(sys.argv))
 elif cmd == "presets":
     action_presets()
 elif cmd in ["search", "find", "cari", "claude"]:
     kw = sys.argv[2] if len(sys.argv) > 2 else ""
-    dest = "gemini" if "--gemini" in sys.argv else "universal"
+    dest = parse_dest(sys.argv)
     is_interact = "--interactive" in sys.argv
     action_search(kw, dest, is_interact)
 elif cmd in ["install", "add"]:
     target = sys.argv[2] if len(sys.argv) > 2 else ""
-    dest = "gemini" if "--gemini" in sys.argv else "universal"
+    dest = parse_dest(sys.argv)
     action_install(target, dest)
 elif cmd in ["remove", "rm", "del", "uninstall"]:
     target = sys.argv[2] if len(sys.argv) > 2 else ""
@@ -1029,7 +1190,7 @@ elif cmd in ["info", "show"]:
     action_info(target)
 elif cmd in ["create", "new"]:
     target = sys.argv[2] if len(sys.argv) > 2 else ""
-    action_create(target)
+    action_create(target, parse_dest(sys.argv))
 elif cmd in ["doctor", "check", "audit"]:
     action_doctor()
 else:
@@ -1148,8 +1309,13 @@ interactive_menu() {
                 echo ""
                 read -r -p "Masukkan nama skill baru yang ingin dibuat (misal: my-automation): " new_name
                 if [ -n "$new_name" ]; then
+                    read -r -p "Buat di workspace proyek ini (./.agents/skills)? (y/N): " ws_scope
                     echo ""
-                    run_python_manager "create" "$new_name"
+                    if [[ "$ws_scope" =~ ^[Yy]$ ]]; then
+                        run_python_manager "create" "$new_name" "--workspace"
+                    else
+                        run_python_manager "create" "$new_name"
+                    fi
                 fi
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
@@ -1190,7 +1356,8 @@ interactive_menu() {
 # ------------------------------------------------------------------------------
 case "$1" in
     status|list|ls)
-        run_python_manager "status"
+        shift
+        run_python_manager "status" "$@"
         ;;
     presets|preset|catalog)
         run_python_manager "presets"
@@ -1237,16 +1404,16 @@ case "$1" in
     help|--help|-h)
         echo -e "${BOLD}${CYAN}Termux AI Tools - AI Agent Skill Manager Usage:${RESET}"
         echo "  aiskill                            Buka menu interaktif TUI"
-        echo "  aiskill list                       Tampilkan daftar skill aktif & nonaktif"
+        echo "  aiskill list [--global|--workspace] Tampilkan skill global & workspace (aktif/nonaktif)"
         echo "  aiskill presets                    Lihat katalog skill populer siap pasang"
         echo "  aiskill search [keyword]           Cari & pasang skill resmi Claude (claude-plugins-official)"
-        echo "  aiskill install <nama|url>         Pasang skill dari preset, Claude, GitHub URL, atau lokal"
+        echo "  aiskill install <nama|url> [-w]    Pasang skill (tambahkan --workspace untuk proyek ini)"
         echo "  aiskill toggle <nama>              Aktifkan/nonaktifkan skill untuk hemat token"
         echo "  aiskill enable <nama>              Aktifkan skill yang dinonaktifkan"
         echo "  aiskill disable <nama>             Nonaktifkan skill tanpa menghapus berkas"
         echo "  aiskill update [nama]              Perbarui skill berbasis Git (git pull)"
         echo "  aiskill info <nama>                Tampilkan detail metadata & pratinjau SKILL.md"
-        echo "  aiskill create <nama>              Buat template skill baru (scaffold SKILL.md)"
+        echo "  aiskill create <nama> [--workspace] Buat template skill baru (global atau workspace)"
         echo "  aiskill remove <nama>              Hapus skill dari sistem"
         echo "  aiskill doctor                     Audit kepatuhan format & integritas skill"
         exit 0

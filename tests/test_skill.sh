@@ -112,6 +112,33 @@ assert_output_contains "skill.sh search security menemukan claude-security" "cla
 assert_output_contains "skill.sh cari kata kunci dev berfungsi" "DIDUKUNG" "$SKILL_BIN" cari dev
 assert_output_contains "ai skill search berjalan melalui ai-launcher" "PENCARIAN SKILL RESMI CLAUDE" "$AI_BIN" skill search mcp
 
+# Test 9: Deteksi Skill Global vs Workspace
+echo -e "\n${BOLD}9. Deteksi Skill Global & Workspace:${RESET}"
+WS_ROOT="${TMPDIR:-$PREFIX/tmp}/skill-ws-suite-$$"
+mkdir -p "$WS_ROOT/.agents/skills/ws-suite-skill" "$WS_ROOT/.git"
+cat > "$WS_ROOT/.agents/skills/ws-suite-skill/SKILL.md" <<'SKILLEOF'
+---
+name: ws-suite-skill
+description: Skill uji deteksi workspace
+---
+# Workspace Test Skill
+SKILLEOF
+
+assert_output_contains "list menampilkan seksi GLOBAL SKILLS" "GLOBAL SKILLS" "$SKILL_BIN" list
+assert_output_contains "list menampilkan seksi WORKSPACE SKILLS" "WORKSPACE SKILLS" "$SKILL_BIN" list
+assert_output_contains "list mendeteksi skill workspace dari cwd proyek" "ws-suite-skill" bash -c "cd '$WS_ROOT' && '$SKILL_BIN' list"
+assert_output_contains "list menampilkan label lokasi workspace" "Workspace (./.agents/skills)" bash -c "cd '$WS_ROOT' && '$SKILL_BIN' list"
+assert_output_contains "filter --workspace hanya menampilkan cakupan workspace" "Workspace: 1" bash -c "cd '$WS_ROOT' && '$SKILL_BIN' list --workspace"
+assert_output_contains "filter --global menyembunyikan skill workspace" "Workspace: 0" bash -c "cd '$WS_ROOT' && '$SKILL_BIN' list --global"
+assert_output_contains "info menampilkan scope workspace" "Workspace (proyek ini)" bash -c "cd '$WS_ROOT' && '$SKILL_BIN' info ws-suite-skill"
+assert_output_contains "create --workspace membuat skill di proyek" "Scope: Workspace" bash -c "cd '$WS_ROOT' && '$SKILL_BIN' create ws-created --workspace"
+assert_success "SKILL.md skill workspace baru benar-benar dibuat" test -f "$WS_ROOT/.agents/skills/ws-created/SKILL.md"
+assert_success "disable lalu enable skill workspace berhasil" bash -c "cd '$WS_ROOT' && '$SKILL_BIN' disable ws-suite-skill >/dev/null && '$SKILL_BIN' enable ws-suite-skill >/dev/null"
+assert_success "skill workspace kembali aktif setelah enable" test -d "$WS_ROOT/.agents/skills/ws-suite-skill"
+assert_output_contains "remove menghapus skill workspace" "Berhasil menghapus" bash -c "cd '$WS_ROOT' && '$SKILL_BIN' remove ws-suite-skill"
+assert_success "folder skill workspace benar-benar terhapus" test ! -d "$WS_ROOT/.agents/skills/ws-suite-skill"
+rm -rf "$WS_ROOT"
+
 # Final Summary
 echo -e "\n${BOLD}==================================================${RESET}"
 echo -e "Total Pengujian: $((PASSED + FAILED))"
