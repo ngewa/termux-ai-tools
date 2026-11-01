@@ -173,13 +173,17 @@ session.sh resume <id_sesi>  # Lanjutkan percakapan lama langsung di OpenCode
 
 #### F. 🧩 Plugin & MCP Tool Installer (`plugin.sh` / `aiplugin`)
 ```bash
-plugin.sh                    # Menu interaktif Plugin & MCP Installer
-plugin.sh status             # Tampilkan status MCP server & plugin yang aktif di OC & AGY
-plugin.sh install <preset>   # Pasang preset MCP ke kedua platform (OpenCode & Antigravity)
-                             # Pilihan preset: termux-device, fetch, sqlite, filesystem, memory, github
-plugin.sh install notifier   # Pasang plugin notifikasi Android ke OpenCode
-plugin.sh test <nama>        # Uji apakah biner command MCP server dapat dieksekusi di Termux
-plugin.sh remove <nama>      # Hapus MCP server atau plugin dari konfigurasi
+plugin.sh                           # Menu interaktif TUI Plugin & MCP Installer
+plugin.sh status                    # Tampilkan status terperinci: pemisah MCP vs Plugin & matriks sinkronisasi
+plugin.sh install <preset> [target] # Pasang preset MCP ke target tertentu:
+                                    # Target: 'agy' (Antigravity), 'opencode'/'oc', atau 'all' (keduanya)
+                                    # Contoh: plugin.sh install termux-device agy
+                                    #         plugin.sh install sqlite opencode
+                                    #         plugin.sh install fetch all
+plugin.sh add-custom <id> <target> <command> [args] [env] # Pasang Custom MCP Server bebas
+plugin.sh install notifier          # Pasang plugin notifikasi Android ke OpenCode
+plugin.sh test <nama>               # Uji apakah biner command MCP server dapat dieksekusi di Termux
+plugin.sh remove <nama> [target]    # Hapus MCP server atau plugin dari target (agy/opencode/all)
 ```
 
 #### G. 🧠 Knowledge Memory & AI Brain (`memory.sh` / `aimem` / `aisession memory`)
@@ -747,11 +751,13 @@ aiplug
 
 | Perintah | Deskripsi |
 | :--- | :--- |
-| `plugin.sh status` (atau `aiplugin`) | Menampilkan daftar MCP server dan plugin yang aktif di OpenCode & Antigravity |
-| `plugin.sh install <preset> [target]` | Memasang preset MCP (contoh: `termux-device`, `fetch`, `sqlite`, `memory`) |
+| `plugin.sh status` (atau `aiplugin`) | Menampilkan status lengkap dengan pemisah tegas antara **`[MCP SERVER]`** vs **`[PLUGIN]`**, matriks sinkronisasi platform, dan statistik |
+| `plugin.sh install <preset> [target]` | Memasang preset MCP ke target: `agy` (Antigravity), `opencode` / `oc`, atau `all` (keduanya) |
+| `plugin.sh add-custom <id> <target> <cmd> [args] [env]` | Memasang custom MCP server dari npm, python, atau biner lokal ke platform pilihan |
 | `plugin.sh install notifier` | Memasang plugin notifikasi Android ke OpenCode |
+| `plugin.sh install rtk` | Memasang plugin penghemat token & command rewriter ke OpenCode |
 | `plugin.sh test <nama>` | Menguji ketersediaan biner/command MCP server di sistem Termux |
-| `plugin.sh remove <nama> [target]` | Menghapus integrasi MCP server atau plugin |
+| `plugin.sh remove <nama> [target]` | Menghapus integrasi MCP server atau plugin dari target tertentu (`agy`, `opencode`, `all`) |
 
 ---
 
