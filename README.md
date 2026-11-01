@@ -121,7 +121,7 @@ ai usage --help              # Panduan lengkap
 ```
 
 **Data sumber:**
-- **OpenCode**: `~/.local/share/opencode/opencode.db` — total requests, input/output/cache tokens, biaya, **tabel per-hari** (request, token, cost, bar chart), dan breakdown per-model. Tanggal diambil dari kolom `message.time_created`.
+- **OpenCode**: `~/.local/share/opencode/opencode.db` — total requests, input/output/cache tokens, biaya, **tabel per-hari** (request, token, cost, bar chart), dan breakdown per-model. Mendukung skema **v2** (`session_message`, kolom `type`) dan **v1 legacy** (`message`) sekaligus — keduanya digabung & dideduplikasi per message id, sehingga data setelah migrasi v1→v2 tetap terhitung.
 - **AGY**: request dihitung dari `~/.gemini/antigravity-cli/conversations/*.db` (gen_metadata); token & **statistik per-hari** di-parse dari `brain/*/.system_generated/logs/transcript_full.jsonl` (`created_at`, `input_tokens`, `output_tokens`, `cache_read_tokens`).
 
 #### C. 🔄 Pengecek Versi Rilis Upstream (`update.sh`)

@@ -71,6 +71,39 @@ MAGENTA= "\033[35m"
 DIM    = "\033[2m"
 RESET  = "\033[0m"
 
+# ── Deteksi skema storage ─────────────────────────────────────────────
+# OpenCode v2 menyimpan pesan di tabel `session_message` (kolom `type`),
+# sedangkan versi lama memakai tabel `message` (role di dalam JSON `data`).
+# Keduanya memakai struktur token yang sama di `data`. Saat migrasi v1→v2,
+# sebagian pesan lama bisa tertinggal di tabel `message`, jadi keduanya
+# digabung dan dideduplikasi berdasarkan message id.
+tables = {r[0] for r in conn.execute(
+    "SELECT name FROM sqlite_master WHERE type='table'"
+).fetchall()}
+
+has_v2 = "session_message" in tables
+has_v1 = "message" in tables
+
+if has_v2 and has_v1:
+    SOURCE = """
+    WITH msgs AS (
+        SELECT id, time_created, data FROM session_message WHERE type='assistant'
+        UNION ALL
+        SELECT id, time_created, data FROM message
+         WHERE json_extract(data,'$.role')='assistant'
+           AND id NOT IN (SELECT id FROM session_message WHERE type='assistant')
+    )"""
+    SCHEMA_LABEL = "v2 session_message + legacy message (gabungan)"
+elif has_v2:
+    SOURCE = "WITH msgs AS (SELECT id, time_created, data FROM session_message WHERE type='assistant')"
+    SCHEMA_LABEL = "v2 (session_message)"
+else:
+    SOURCE = "WITH msgs AS (SELECT id, time_created, data FROM message WHERE json_extract(data,'$.role')='assistant')"
+    SCHEMA_LABEL = "v1 (message)"
+
+MODEL_EXPR = ("COALESCE(json_extract(data,'$.model.providerID'), json_extract(data,'$.providerID')), "
+              "COALESCE(json_extract(data,'$.model.id'), json_extract(data,'$.modelID'))")
+
 def fmt(n):
     if not n: return "0"
     n = int(n)
@@ -85,7 +118,7 @@ def bar(value, max_value, width=18):
     return "█" * max(n, 1)
 
 # ── Totals ────────────────────────────────────────────────────────────
-row = conn.execute("""
+row = conn.execute(f"""{SOURCE}
     SELECT
         COUNT(*) as requests,
         COALESCE(SUM(json_extract(data,'$.tokens.input')),0)     as input_tok,
@@ -93,8 +126,7 @@ row = conn.execute("""
         COALESCE(SUM(json_extract(data,'$.tokens.cache.read')),0) as cache_read,
         COALESCE(SUM(json_extract(data,'$.tokens.cache.write')),0)as cache_write,
         COALESCE(SUM(json_extract(data,'$.cost')),0)             as cost
-    FROM message
-    WHERE json_extract(data,'$.role')='assistant'
+    FROM msgs
 """).fetchone()
 
 total_req, in_tok, out_tok, cache_r, cache_w, cost = row
@@ -112,20 +144,21 @@ else:
     print(f"  {BOLD}Total Cost      {RESET}: {DIM}Free/No data{RESET}")
 
 # ── Session count ─────────────────────────────────────────────────────
-sess_count = conn.execute("SELECT COUNT(*) FROM session").fetchone()[0]
+sess_table = "session_v2" if "session_v2" in tables else "session"
+sess_count = conn.execute(f"SELECT COUNT(*) FROM {sess_table}").fetchone()[0]
 print(f"  {BOLD}Sessions        {RESET}: {fmt(sess_count)}")
+print(f"  {DIM}Schema storage  : {SCHEMA_LABEL}{RESET}")
 
 # ── Per-day breakdown ─────────────────────────────────────────────────
-daily = conn.execute("""
+daily = conn.execute(f"""{SOURCE}
     SELECT
         date(time_created/1000,'unixepoch','localtime') as day,
         COUNT(*) as reqs,
         COALESCE(SUM(json_extract(data,'$.tokens.input')),0)  as in_tok,
         COALESCE(SUM(json_extract(data,'$.tokens.output')),0) as out_tok,
         COALESCE(SUM(json_extract(data,'$.cost')),0)          as cost
-    FROM message
-    WHERE json_extract(data,'$.role')='assistant'
-      AND date(time_created/1000,'unixepoch','localtime') >= date('now','localtime',?)
+    FROM msgs
+    WHERE date(time_created/1000,'unixepoch','localtime') >= date('now','localtime',?)
     GROUP BY day
     ORDER BY day DESC
 """, (f"-{days - 1} days",)).fetchall()
@@ -156,16 +189,14 @@ print(f"  {DIM}{'─'*12} {'─'*5} {'─'*9} {'─'*9} {'─'*9} {'─'*9}{RESE
 print(f"  {BOLD}{'SUBTOTAL':<12} {fmt(sum_reqs):>5} {'':>9} {'':>9} {fmt(sum_total):>9} {cost_total:>9}{RESET}")
 
 # ── Per-model breakdown ───────────────────────────────────────────────
-rows = conn.execute("""
+rows = conn.execute(f"""{SOURCE}
     SELECT
-        json_extract(data,'$.providerID') as provider,
-        json_extract(data,'$.modelID')    as model,
+        {MODEL_EXPR},
         COUNT(*)                          as reqs,
         COALESCE(SUM(json_extract(data,'$.tokens.input')),0)  as in_tok,
         COALESCE(SUM(json_extract(data,'$.tokens.output')),0) as out_tok
-    FROM message
-    WHERE json_extract(data,'$.role')='assistant'
-    GROUP BY provider, model
+    FROM msgs
+    GROUP BY 1, 2
     ORDER BY reqs DESC
     LIMIT 10
 """).fetchall()
