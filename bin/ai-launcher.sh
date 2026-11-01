@@ -66,6 +66,15 @@ case "$1" in
         fi
         ;;
 
+    usage|stats)
+        shift
+        if [ -f "$TOOLS_DIR/bin/usage-stats.sh" ]; then
+            exec bash "$TOOLS_DIR/bin/usage-stats.sh" "$@"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/bin/usage-stats.sh | bash -s -- "$@"
+        fi
+        ;;
+
     doc|doctor)
         shift
         if [ -f "$TOOLS_DIR/doctor.sh" ]; then
@@ -198,10 +207,11 @@ echo -e "  ${CYAN}11)${RESET} Restore Pengaturan  (Restore dari arsip)"
 echo -e "  ${CYAN}12)${RESET} Knowledge Memory & AI Brain (Solusi terverifikasi & search FTS5)"
 echo -e "  ${CYAN}13)${RESET} AI Agent Skills     (Prompt Master, Antislop, UI/UX Design)"
 echo -e "  ${CYAN}14)${RESET} AI Subagents & Personas (Roblox, Toolkit, Reverser)"
-echo -e "  ${YELLOW}15)${RESET} Keluar"
+echo -e "  ${CYAN}15)${RESET} Usage Statistics    (Token \& request OpenCode + AGY)"
+echo -e "  ${YELLOW}16)${RESET} Keluar"
 echo ""
 
-read -r -p "Masukkan pilihan [1-15]: " choice
+read -r -p "Masukkan pilihan [1-16]: " choice
 
 case "$choice" in
     1)
@@ -303,6 +313,13 @@ case "$choice" in
             exec bash "$TOOLS_DIR/agent.sh"
         else
             exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/agent.sh | bash
+        fi
+        ;;
+    15)
+        if [ -f "$TOOLS_DIR/bin/usage-stats.sh" ]; then
+            exec bash "$TOOLS_DIR/bin/usage-stats.sh"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/bin/usage-stats.sh | bash
         fi
         ;;
     *)
