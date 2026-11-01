@@ -51,10 +51,11 @@ show_opencode_stats() {
         return 1
     fi
 
-    python3 - "$db" << 'PYEOF'
-import sys, sqlite3, json
+    python3 - "$db" "$DAYS" << 'PYEOF'
+import sys, sqlite3, json, datetime
 
-db = sys.argv[1]
+db   = sys.argv[1]
+days = int(sys.argv[2]) if len(sys.argv) > 2 and str(sys.argv[2]).isdigit() else 14
 try:
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
 except Exception as e:
@@ -76,6 +77,12 @@ def fmt(n):
     if n >= 1_000_000: return f"{n/1_000_000:.2f}M"
     if n >= 1_000:     return f"{n/1_000:.1f}K"
     return str(n)
+
+def bar(value, max_value, width=18):
+    if not max_value or value <= 0:
+        return ""
+    n = int(round(value / max_value * width))
+    return "█" * max(n, 1)
 
 # ── Totals ────────────────────────────────────────────────────────────
 row = conn.execute("""
@@ -107,6 +114,46 @@ else:
 # ── Session count ─────────────────────────────────────────────────────
 sess_count = conn.execute("SELECT COUNT(*) FROM session").fetchone()[0]
 print(f"  {BOLD}Sessions        {RESET}: {fmt(sess_count)}")
+
+# ── Per-day breakdown ─────────────────────────────────────────────────
+daily = conn.execute("""
+    SELECT
+        date(time_created/1000,'unixepoch','localtime') as day,
+        COUNT(*) as reqs,
+        COALESCE(SUM(json_extract(data,'$.tokens.input')),0)  as in_tok,
+        COALESCE(SUM(json_extract(data,'$.tokens.output')),0) as out_tok,
+        COALESCE(SUM(json_extract(data,'$.cost')),0)          as cost
+    FROM message
+    WHERE json_extract(data,'$.role')='assistant'
+      AND date(time_created/1000,'unixepoch','localtime') >= date('now','localtime',?)
+    GROUP BY day
+    ORDER BY day DESC
+""", (f"-{days - 1} days",)).fetchall()
+
+print(f"\n  {BOLD}Per-Hari ({days} hari terakhir):{RESET}")
+by_day = {r[0]: r for r in daily}
+today = datetime.date.today()
+ordered = []
+for offset in range(days):
+    day = (today - datetime.timedelta(days=offset)).isoformat()
+    row = by_day.get(day)
+    ordered.append(row if row else (day, 0, 0, 0, 0))
+max_total = max((r[2] + r[3]) for r in ordered) or 1
+if not any(r[1] for r in ordered):
+    print(f"  {DIM}(belum ada aktivitas pada rentang ini){RESET}")
+print(f"  {DIM}{'Tanggal':<12} {'Req':>5} {'Input':>9} {'Output':>9} {'Total':>9} {'Cost':>9}{RESET}")
+print(f"  {DIM}{'─'*12} {'─'*5} {'─'*9} {'─'*9} {'─'*9} {'─'*9}{RESET}")
+for day, reqs, in_t, out_t, dcost in ordered:
+    total = in_t + out_t
+    cost_str = f"${float(dcost):.4f}" if dcost and float(dcost) > 0 else "-"
+    print(f"  {day:<12} {CYAN}{fmt(reqs):>5}{RESET} {fmt(in_t):>9} {fmt(out_t):>9} "
+          f"{GREEN}{fmt(total):>9}{RESET} {YELLOW}{cost_str:>9}{RESET} {MAGENTA}{bar(total, max_total)}{RESET}")
+sum_reqs = sum(r[1] for r in ordered)
+sum_total = sum(r[2] + r[3] for r in ordered)
+sum_cost = sum(float(r[4] or 0) for r in ordered)
+cost_total = f"${sum_cost:.4f}" if sum_cost > 0 else "-"
+print(f"  {DIM}{'─'*12} {'─'*5} {'─'*9} {'─'*9} {'─'*9} {'─'*9}{RESET}")
+print(f"  {BOLD}{'SUBTOTAL':<12} {fmt(sum_reqs):>5} {'':>9} {'':>9} {fmt(sum_total):>9} {cost_total:>9}{RESET}")
 
 # ── Per-model breakdown ───────────────────────────────────────────────
 rows = conn.execute("""
@@ -152,11 +199,12 @@ show_agy_stats() {
         return 1
     fi
 
-    python3 - "$conv_dir" "$brain_dir" << 'PYEOF'
-import sys, os, glob, sqlite3, json
+    python3 - "$conv_dir" "$brain_dir" "$DAYS" << 'PYEOF'
+import sys, os, glob, sqlite3, json, datetime
 
 conv_dir  = sys.argv[1]
 brain_dir = sys.argv[2]
+days      = int(sys.argv[3]) if len(sys.argv) > 3 and str(sys.argv[3]).isdigit() else 14
 
 BOLD    = "\033[1m"
 GREEN   = "\033[32m"
@@ -200,6 +248,39 @@ total_input  = 0
 total_output = 0
 total_cache  = 0
 parsed_convs = 0
+daily        = {}
+cutoff       = datetime.date.today() - datetime.timedelta(days=days - 1)
+
+def bar(value, max_value, width=18):
+    if not max_value or value <= 0:
+        return ""
+    n = int(round(value / max_value * width))
+    return "█" * max(n, 1)
+
+def parse_day(value):
+    if not value:
+        return None
+    try:
+        dt = datetime.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return dt.astimezone().date()
+    except Exception:
+        return None
+
+def add_usage(day, in_tok, out_tok, cache_tok=0):
+    global total_input, total_output, total_cache
+    in_tok    = int(in_tok or 0)
+    out_tok   = int(out_tok or 0)
+    cache_tok = int(cache_tok or 0)
+    total_input  += in_tok
+    total_output += out_tok
+    total_cache  += cache_tok
+    if day is None or day < cutoff:
+        return
+    rec = daily.setdefault(day, {"reqs": 0, "in": 0, "out": 0, "cache": 0})
+    rec["reqs"] += 1
+    rec["in"]   += in_tok
+    rec["out"]  += out_tok
+    rec["cache"] += cache_tok
 
 for tf in transcripts:
     found = False
@@ -208,29 +289,42 @@ for tf in transcripts:
             for line in f:
                 try:
                     d = json.loads(line)
-                    # Tool call responses can contain usage
-                    for tc in d.get("tool_calls", []):
-                        result = tc.get("result", {})
-                        if isinstance(result, dict):
-                            usage = result.get("usage", {})
+                except Exception:
+                    continue
+                day = parse_day(d.get("created_at"))
+
+                # Format utama AGY: token usage langsung di level atas transkrip
+                if d.get("input_tokens") is not None or d.get("output_tokens") is not None:
+                    add_usage(day,
+                              int(d.get("input_tokens") or 0),
+                              int(d.get("output_tokens") or 0),
+                              int(d.get("cache_read_tokens") or 0))
+                    found = True
+                    continue
+
+                # Fallback: tool call responses / content items yang menyertakan usage
+                for tc in d.get("tool_calls", []) or []:
+                    result = tc.get("result", {})
+                    if isinstance(result, dict):
+                        usage = result.get("usage", {})
+                        if usage:
+                            add_usage(day,
+                                      usage.get("input_tokens", 0),
+                                      usage.get("output_tokens", 0),
+                                      usage.get("cache_read_input_tokens", 0))
+                            found = True
+                content = d.get("content", [])
+                if isinstance(content, list):
+                    for item in content:
+                        if isinstance(item, dict):
+                            usage = item.get("usage", {})
                             if usage:
-                                total_input  += usage.get("input_tokens", 0)
-                                total_output += usage.get("output_tokens", 0)
-                                total_cache  += usage.get("cache_read_input_tokens", 0)
+                                add_usage(day,
+                                          usage.get("input_tokens", 0),
+                                          usage.get("output_tokens", 0),
+                                          usage.get("cache_read_input_tokens", 0))
                                 found = True
-                    # Also check content list items
-                    content = d.get("content", [])
-                    if isinstance(content, list):
-                        for item in content:
-                            if isinstance(item, dict):
-                                usage = item.get("usage", {})
-                                if usage:
-                                    total_input  += usage.get("input_tokens", 0)
-                                    total_output += usage.get("output_tokens", 0)
-                                    found = True
-                except:
-                    pass
-    except:
+    except Exception:
         pass
     if found:
         parsed_convs += 1
@@ -247,8 +341,28 @@ if total_tokens > 0:
     if total_cache > 0:
         print(f"  {BOLD}  └─ Cache Read     {RESET}: {DIM}{fmt(total_cache)}{RESET}")
 else:
-    print(f"  {BOLD}Token Details       {RESET}: {DIM}Data tersimpan dalam format protobuf (tidak dapat di-parse){RESET}")
+    print(f"  {BOLD}Token Details       {RESET}: {DIM}Belum ada data token usage pada transcript{RESET}")
     print(f"  {DIM}  Gunakan /usage di dalam sesi AGY untuk melihat token per-sesi{RESET}")
+
+# ── Per-day breakdown ─────────────────────────────────────────────────
+print(f"\n  {BOLD}Per-Hari ({days} hari terakhir):{RESET}")
+ordered = []
+for offset in range(days):
+    day = datetime.date.today() - datetime.timedelta(days=offset)
+    ordered.append((day, daily.get(day, {"reqs": 0, "in": 0, "out": 0, "cache": 0})))
+max_total = max((r["in"] + r["out"]) for _, r in ordered) or 1
+if not any(r["reqs"] for _, r in ordered):
+    print(f"  {DIM}(belum ada data token pada rentang ini){RESET}")
+print(f"  {DIM}{'Tanggal':<12} {'Req':>5} {'Input':>9} {'Output':>9} {'Total':>9}{RESET}")
+print(f"  {DIM}{'─'*12} {'─'*5} {'─'*9} {'─'*9} {'─'*9}{RESET}")
+for day, r in ordered:
+    total = r["in"] + r["out"]
+    print(f"  {day.isoformat():<12} {CYAN}{fmt(r['reqs']):>5}{RESET} {fmt(r['in']):>9} {fmt(r['out']):>9} "
+          f"{GREEN}{fmt(total):>9}{RESET} {MAGENTA}{bar(total, max_total)}{RESET}")
+sum_reqs  = sum(r["reqs"] for _, r in ordered)
+sum_total = sum(r["in"] + r["out"] for _, r in ordered)
+print(f"  {DIM}{'─'*12} {'─'*5} {'─'*9} {'─'*9} {'─'*9}{RESET}")
+print(f"  {BOLD}{'SUBTOTAL':<12} {fmt(sum_reqs):>5} {'':>9} {'':>9} {fmt(sum_total):>9}{RESET}")
 
 # ── History stats ─────────────────────────────────────────────────────
 hist = os.path.join(os.path.dirname(brain_dir), "history.jsonl")
@@ -274,41 +388,53 @@ show_header() {
     echo -e "${BOLD}║         AI Tools Usage Statistics        ║${RESET}"
     echo -e "${BOLD}╚══════════════════════════════════════════╝${RESET}"
     echo -e "${DIM}  Menghitung token & request dari database lokal...${RESET}"
+    echo -e "${DIM}  Statistik harian: ${DAYS} hari terakhir${RESET}"
 }
 
-case "${1:-all}" in
-    --opencode|oc|opencode)
-        show_header
-        show_opencode_stats
-        ;;
-    --agy|agy|antigravity)
-        show_header
-        show_agy_stats
-        ;;
-    --all|all|"")
-        show_header
-        show_opencode_stats
-        show_agy_stats
-        ;;
-    --help|-h|help)
-        echo -e "
+DAYS=14
+TARGET="all"
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --opencode|oc|opencode) TARGET="opencode" ;;
+        --agy|agy|antigravity)  TARGET="agy" ;;
+        --all|all)              TARGET="all" ;;
+        --days)                 shift; DAYS="${1:-14}" ;;
+        --days=*)               DAYS="${1#*=}" ;;
+        --help|-h|help)
+            echo -e "
 ${BOLD}ai usage${RESET} — Lihat statistik pemakaian token & request AI
 
 ${BOLD}Usage:${RESET}
-  ai usage             # Tampilkan semua (OpenCode + AGY)
-  ai usage --opencode  # Hanya OpenCode
-  ai usage --agy       # Hanya Antigravity CLI
+  ai usage                 # Tampilkan semua (OpenCode + AGY), 14 hari terakhir
+  ai usage --opencode      # Hanya OpenCode
+  ai usage --agy           # Hanya Antigravity CLI
+  ai usage --days 7        # Batasi statistik harian ke N hari terakhir
 
 ${BOLD}Data sumber:${RESET}
-  OpenCode : ~/.local/share/opencode/opencode.db
-  AGY      : ~/.gemini/antigravity-cli/conversations/*.db
+  OpenCode : ~/.local/share/opencode/opencode.db (kolom time_created)
+  AGY      : ~/.gemini/antigravity-cli/brain/*/.system_generated/logs/transcript_full.jsonl
 "
-        ;;
-    *)
-        echo -e "${RED}Opsi tidak dikenal: $1${RESET}"
-        echo "Gunakan: ai usage [--opencode|--agy|--all|--help]"
-        exit 1
-        ;;
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Opsi tidak dikenal: $1${RESET}"
+            echo "Gunakan: ai usage [--opencode|--agy|--all] [--days N] [--help]"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+case "$DAYS" in
+    ''|*[!0-9]*|0) DAYS=14 ;;
+esac
+
+show_header
+case "$TARGET" in
+    opencode) show_opencode_stats ;;
+    agy)      show_agy_stats ;;
+    *)        show_opencode_stats; show_agy_stats ;;
 esac
 
 echo ""

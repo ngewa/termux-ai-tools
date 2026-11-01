@@ -207,7 +207,7 @@ echo -e "  ${CYAN}11)${RESET} Restore Pengaturan  (Restore dari arsip)"
 echo -e "  ${CYAN}12)${RESET} Knowledge Memory & AI Brain (Solusi terverifikasi & search FTS5)"
 echo -e "  ${CYAN}13)${RESET} AI Agent Skills     (Prompt Master, Antislop, UI/UX Design)"
 echo -e "  ${CYAN}14)${RESET} AI Subagents & Personas (Roblox, Toolkit, Reverser)"
-echo -e "  ${CYAN}15)${RESET} Usage Statistics    (Token \& request OpenCode + AGY)"
+echo -e "  ${CYAN}15)${RESET} Usage Statistics    (Token, request & statistik harian)"
 echo -e "  ${YELLOW}16)${RESET} Keluar"
 echo ""
 

@@ -98,7 +98,7 @@ ai doctor [--fix]            # Periksa dan perbaiki kesehatan lingkungan sistem
 ai update                    # Cek versi terpasang vs rilis terbaru GitHub/npm
 ai backup [--full]           # Backup konfigurasi dan token ke .tar.gz
 ai restore [berkas.tar.gz]   # Pulihkan pengaturan dari berkas backup
-ai usage [--opencode|--agy]  # Tampilkan statistik token & request OpenCode + AGY
+ai usage [--opencode|--agy] [--days N]  # Statistik token & request OpenCode + AGY (per-hari)
 ```
 
 ---
@@ -113,15 +113,16 @@ doctor.sh --fix              # Otomatis perbaiki sertifikat TLS, permission, dan
 
 #### B. 📊 Usage Statistics (`usage-stats.sh`)
 ```bash
-ai usage                     # Tampilkan total token & request semua tool (OpenCode + AGY)
-ai usage --opencode          # Hanya statistik OpenCode (per-model breakdown)
-ai usage --agy               # Hanya statistik Antigravity CLI
+ai usage                     # Total token & request + statistik per-hari (14 hari terakhir)
+ai usage --opencode          # Hanya OpenCode (per-hari, per-model breakdown)
+ai usage --agy               # Hanya Antigravity CLI
+ai usage --days 7            # Batasi tabel per-hari ke N hari terakhir
 ai usage --help              # Panduan lengkap
 ```
 
 **Data sumber:**
-- **OpenCode**: Membaca dari `~/.local/share/opencode/opencode.db` — menampilkan total requests, input/output/cache tokens, biaya, dan breakdown per-model.
-- **AGY**: Menghitung API requests dari `~/.gemini/antigravity-cli/conversations/*.db` (gen_metadata).
+- **OpenCode**: `~/.local/share/opencode/opencode.db` — total requests, input/output/cache tokens, biaya, **tabel per-hari** (request, token, cost, bar chart), dan breakdown per-model. Tanggal diambil dari kolom `message.time_created`.
+- **AGY**: request dihitung dari `~/.gemini/antigravity-cli/conversations/*.db` (gen_metadata); token & **statistik per-hari** di-parse dari `brain/*/.system_generated/logs/transcript_full.jsonl` (`created_at`, `input_tokens`, `output_tokens`, `cache_read_tokens`).
 
 #### C. 🔄 Pengecek Versi Rilis Upstream (`update.sh`)
 ```bash
