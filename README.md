@@ -479,16 +479,19 @@ aiconfig
 
 | Perintah | Deskripsi |
 | :--- | :--- |
-| `config.sh list` (atau `aiconfig`) | Menampilkan tabel status provider aktif, masked API key, dan model aktif |
+| `config.sh list` (atau `aiconfig`) | Menampilkan tabel status provider aktif, target AI, API mode, masked key, dan model aktif |
+| `config.sh info <provider>` | Menampilkan detail lengkap parameter provider (Target, Base URL, Model, API Mode, Key) |
+| `config.sh set <provider> <key> [target] [baseURL] [model] [apiMode]` | Menyimpan konfigurasi provider lanjutan ke OpenCode v1/v2 dan/atau Antigravity agy |
+| `config.sh set-advanced <provider> <key> [target] [baseURL] [model] [apiMode]` | Alias langsung konfigurasi lanjutan via CLI |
 | `config.sh enable <provider>` | Mengaktifkan provider (menghapus dari `disabled_providers`) |
 | `config.sh disable <provider>` | Menonaktifkan provider tanpa menghapus API Key (`disabled_providers`) |
 | `config.sh toggle <provider>` | Beralih status aktif / nonaktif provider dengan cepat |
-| `config.sh set <provider> [key]` | Menyimpan / memperbarui API key ke `~/.local/share/opencode/auth.json` |
 | `config.sh get <provider>` | Menampilkan masked API key untuk provider tertentu |
 | `config.sh model [model_id]` | Menampilkan atau mengatur default model di `~/.config/opencode/opencode.jsonc` |
+| `config.sh model-agy [model_id]` | Menampilkan atau mengatur default model di `~/.gemini/antigravity-cli/settings.json` |
 | `config.sh test [provider]` | Menguji validitas koneksi & API key secara langsung via HTTP (HTTP 200 OK) |
-| `config.sh sync-env` | Mengekspor API keys ke `~/.termux_ai_env` (bisa di-source oleh `~/.bashrc`) |
-| `config.sh remove <provider>` | Menghapus kredensial provider dari sistem |
+| `config.sh sync-env` | Mengekspor API keys, Base URLs, dan model ke `~/.termux_ai_env` (bisa di-source oleh `~/.bashrc`) |
+| `config.sh remove <provider>` | Menghapus kredensial provider dari sistem (auth.json, opencode.jsonc, settings.json) |
 
 ### Provider yang Didukung Secara Langsung:
 - 🌐 **Google Gemini** (`google`): `google/gemini-2.5-flash`, `google/gemini-2.5-pro`
@@ -499,26 +502,47 @@ aiconfig
 - 🚀 **Groq** (`groq`): `groq/llama-3.3-70b-versatile`, inferensi ultra-cepat
 - 🌪️ **Mistral AI** (`mistral`): `mistral/mistral-large-latest`, `mistral/codestral-latest`
 - 🤖 **xAI (Grok)** (`xai`): `xai/grok-2-latest`, `xai/grok-beta`
-- ⚙️ **Custom Provider**: Masukkan provider atau base URL kustom pilihan Anda.
+- 🌐 **NaraRouter** (`bynara`): `https://router.bynara.id/v1`, rute cepat Claude, GLM, & DeepSeek
+- ⚙️ **Custom Provider**: Masukkan provider ID atau base URL kustom pilihan Anda.
+
+### Target Integrasi AI & Mode Lanjutan:
+- **Target Integrasi**:
+  1. `opencode`: Diterapkan ke **OpenCode v1 & v2** (`~/.config/opencode/opencode.jsonc` & `auth.json`)
+  2. `agy`: Diterapkan ke **Antigravity CLI (agy)** (`~/.gemini/antigravity-cli/settings.json`)
+  3. `all`: **Universal** (Otomatis disinkronkan ke OpenCode v1, v2, dan Antigravity agy)
+- **Parameter Lanjutan**:
+  - **Base URL**: Endpoint kustom (contoh: `https://router.bynara.id/v1`, `http://localhost:11434/v1`)
+  - **Default Model**: Model utama (contoh: `bynara/glm-5.3-flash`, `google/gemini-2.5-flash`)
+  - **API Key**: Kredensial rahasia (disimpan aman dengan `chmod 600`)
+  - **API Mode**:
+    1. `auto` (**Automatic**): Menggunakan default bawaan provider dan model
+    2. `chat_completions` (**Chat Completions**): Endpoint `/chat/completions` standar OpenAI
+    3. `responses` (**Responses**): Endpoint `/responses` untuk provider yang mendukung Responses API
+    4. `responses_compat` (**Responses Compat**): Endpoint `/responses` legacy text chunks untuk strict gateways
 
 ### Contoh Tampilan Status:
 ```text
-======================================================================
-              DAFTAR PROVIDER & STATUS API KEY TERPASANG              
-======================================================================
-🎯 Model Aktif (opencode.jsonc): google/gemini-2.5-flash
+========================================================================================
+                       DAFTAR PROVIDER & STATUS API KEY TERPASANG                       
+========================================================================================
+🎯 Model OpenCode (v1 & v2): bynara/glm-5.3-flash
+🎯 Model Antigravity (agy) : Gemini 3.8 Flash (Medium)
 
-PROVIDER       NAMA               STATUS        API KEY (MASKED)    
-----------------------------------------------------------------------
-google         Google Gemini      [ AKTIF ]     AIzaSyAT...3g4k     
-anthropic      Anthropic Claude   [ NONAKTIF ]  sk-ant-a...xyz1     
-openai         OpenAI             [ BELUM ]     -                   
-deepseek       DeepSeek           [ BELUM ]     -                   
-openrouter     OpenRouter         [ BELUM ]     -                   
-groq           Groq               [ BELUM ]     -                   
-mistral        Mistral AI         [ BELUM ]     -                   
-xai            xAI (Grok)         [ BELUM ]     -                   
-----------------------------------------------------------------------
+PROVIDER     NAMA               STATUS       TARGET       API MODE         API KEY (MASKED)  
+------------------------------------------------------------------------------------------
+google       Google Gemini      [ AKTIF ]    Universal    Automatic        AIzaSyAT...3g4k   
+anthropic    Anthropic Claude   [ NONAKTIF ] OpenCode     Automatic        sk-ant-a...xyz1   
+openai       OpenAI             [ BELUM ]    -            -                -                 
+deepseek     DeepSeek           [ BELUM ]    -            -                -                 
+openrouter   OpenRouter         [ BELUM ]    -            -                -                 
+groq         Groq               [ BELUM ]    -            -                -                 
+mistral      Mistral AI         [ BELUM ]    -            -                -                 
+xai          xAI (Grok)         [ BELUM ]    -            -                -                 
+bynara       NaraRouter         [ AKTIF ]    OpenCode     Chat Compl.      sk-nry-L...Pbuc   
+------------------------------------------------------------------------------------------
+
+🌐 Detail Konfigurasi Endpoint & Parameter Provider:
+  • bynara    : Target=OpenCode | BaseURL=https://router.bynara.id/v1 | Model=glm-5.3-flash | Mode=Chat Completions
 ```
 
 ### Keamanan & Privasi:

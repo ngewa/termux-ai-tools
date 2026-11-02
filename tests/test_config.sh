@@ -105,9 +105,32 @@ assert_output_contains "Status hasil toggle 1 adalah NONAKTIF" "[ NONAKTIF ]" "$
 assert_output_contains "Toggle provider $TEST_PROV (nonaktif -> aktif)" "diaktifkan" "$CONFIG_BIN" toggle "$TEST_PROV"
 assert_output_contains "Status hasil toggle 2 adalah AKTIF" "[ AKTIF ]" "$CONFIG_BIN" list
 
-# Test 8: Cleanup & Remove
-echo -e "\n${BOLD}8. Pembersihan Kredensial Pengujian:${RESET}"
+# Test 8: Advanced Provider Configuration (Target, Base URL, Model, API Mode)
+echo -e "\n${BOLD}8. Konfigurasi Lanjutan Provider (Target, Base URL, Model & API Mode):${RESET}"
+ADV_PROV="testendpoint"
+ADV_KEY="sk-advtest1234567890abcdef"
+ADV_BASE="https://api.testendpoint.ai/v1"
+ADV_MODEL="testendpoint/fast-v1"
+ADV_MODE="responses_compat"
+
+assert_output_contains "Set konfigurasi provider lanjutan" "disimpan" "$CONFIG_BIN" set "$ADV_PROV" "$ADV_KEY" "all" "$ADV_BASE" "$ADV_MODEL" "$ADV_MODE"
+assert_output_contains "Info command memuat Base URL" "BASE_URL:$ADV_BASE" "$CONFIG_BIN" info "$ADV_PROV"
+assert_output_contains "Info command memuat Model" "MODEL:$ADV_MODEL" "$CONFIG_BIN" info "$ADV_PROV"
+assert_output_contains "Info command memuat Mode" "API_MODE:$ADV_MODE" "$CONFIG_BIN" info "$ADV_PROV"
+assert_output_contains "List menampilkan kolom API MODE" "Resp (Compat)" "$CONFIG_BIN" list
+assert_output_contains "List menampilkan target Universal" "Universal" "$CONFIG_BIN" list
+
+# Test 9: Model Settings for Antigravity agy
+echo -e "\n${BOLD}9. Pengaturan Model Antigravity agy:${RESET}"
+assert_output_contains "Set model Antigravity agy" "diatur ke" "$CONFIG_BIN" model-agy "Gemini 3.8 Pro"
+assert_output_contains "Verifikasi model Antigravity agy" "Gemini 3.8 Pro" "$CONFIG_BIN" model-agy
+# Restore model agy
+"$CONFIG_BIN" model-agy "Gemini 3.8 Flash (Medium)" >/dev/null 2>&1
+
+# Test 10: Cleanup & Remove
+echo -e "\n${BOLD}10. Pembersihan Kredensial Pengujian:${RESET}"
 assert_output_contains "Hapus kredensial pengujian $TEST_PROV" "dihapus" "$CONFIG_BIN" remove "$TEST_PROV"
+assert_output_contains "Hapus provider advanced $ADV_PROV" "dihapus" "$CONFIG_BIN" remove "$ADV_PROV"
 assert_output_contains "Status $TEST_PROV kembali BELUM" "[ BELUM ]" "$CONFIG_BIN" list
 
 # Final Summary
