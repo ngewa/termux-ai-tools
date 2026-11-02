@@ -120,15 +120,25 @@ assert_output_contains "Info command memuat Mode" "API_MODE:$ADV_MODE" "$CONFIG_
 assert_output_contains "List menampilkan kolom API MODE" "Resp (Compat)" "$CONFIG_BIN" list
 assert_output_contains "List menampilkan target Universal" "Universal" "$CONFIG_BIN" list
 
-# Test 9: Model Settings for Antigravity agy
-echo -e "\n${BOLD}9. Pengaturan Model Antigravity agy:${RESET}"
+# Test 9: Fitur Edit Konfigurasi Provider (edit & edit-field)
+echo -e "\n${BOLD}9. Fitur Edit Konfigurasi Provider (edit & edit-field):${RESET}"
+assert_output_contains "Edit Base URL via edit-field" "berhasil diubah" "$CONFIG_BIN" edit-field "$ADV_PROV" baseurl "https://api.newurl.com/v1"
+assert_output_contains "Verifikasi perubahan Base URL" "BASE_URL:https://api.newurl.com/v1" "$CONFIG_BIN" info "$ADV_PROV"
+assert_output_contains "Edit API Mode via edit-field" "berhasil diubah" "$CONFIG_BIN" edit-field "$ADV_PROV" mode "chat_completions"
+assert_output_contains "Verifikasi perubahan API Mode" "API_MODE:chat_completions" "$CONFIG_BIN" info "$ADV_PROV"
+assert_output_contains "Edit lengkap via command edit" "berhasil diperbarui" "$CONFIG_BIN" edit "$ADV_PROV" "opencode" "https://api.edited.com/v1" "edited/model-v2" "responses" "__KEEP__"
+assert_output_contains "Verifikasi target hasil edit" "TARGET:opencode" "$CONFIG_BIN" info "$ADV_PROV"
+assert_output_contains "Verifikasi mode hasil edit" "API_MODE:responses" "$CONFIG_BIN" info "$ADV_PROV"
+
+# Test 10: Model Settings for Antigravity agy
+echo -e "\n${BOLD}10. Pengaturan Model Antigravity agy:${RESET}"
 assert_output_contains "Set model Antigravity agy" "diatur ke" "$CONFIG_BIN" model-agy "Gemini 3.8 Pro"
 assert_output_contains "Verifikasi model Antigravity agy" "Gemini 3.8 Pro" "$CONFIG_BIN" model-agy
 # Restore model agy
 "$CONFIG_BIN" model-agy "Gemini 3.8 Flash (Medium)" >/dev/null 2>&1
 
-# Test 10: Cleanup & Remove
-echo -e "\n${BOLD}10. Pembersihan Kredensial Pengujian:${RESET}"
+# Test 11: Cleanup & Remove
+echo -e "\n${BOLD}11. Pembersihan Kredensial Pengujian:${RESET}"
 assert_output_contains "Hapus kredensial pengujian $TEST_PROV" "dihapus" "$CONFIG_BIN" remove "$TEST_PROV"
 assert_output_contains "Hapus provider advanced $ADV_PROV" "dihapus" "$CONFIG_BIN" remove "$ADV_PROV"
 assert_output_contains "Status $TEST_PROV kembali BELUM" "[ BELUM ]" "$CONFIG_BIN" list

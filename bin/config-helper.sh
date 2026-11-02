@@ -589,6 +589,111 @@ elif cmd == "set":
 
     print(f"OK:{mask_key(key)}:{target}:{api_mode}")
 
+elif cmd == "configured-list":
+    auth_data = load_auth()
+    config_data = load_config()
+    agy_data = load_agy_settings()
+    configured = []
+    all_pids = list(KNOWN_PROVIDERS.keys())
+    custom_sources = (
+        set(auth_data.keys()) |
+        set(config_data.get("provider", {}).keys() if isinstance(config_data.get("provider"), dict) else []) |
+        set(agy_data.get("providers", {}).keys() if isinstance(agy_data.get("providers"), dict) else [])
+    )
+    for p in sorted(custom_sources):
+        if p not in all_pids:
+            all_pids.append(p)
+    for pid in all_pids:
+        details = get_provider_details(pid, auth_data, config_data, agy_data)
+        has_k = bool(details["key"])
+        has_cfg = (isinstance(config_data.get("provider"), dict) and pid in config_data["provider"]) or (isinstance(agy_data.get("providers"), dict) and pid in agy_data["providers"])
+        if has_k or has_cfg:
+            mode_lbl = API_MODES.get(details["api_mode"], {}).get("label", details["api_mode"])
+            configured.append(f"{pid}|{details['name']}|{details['target']}|{mode_lbl}|{details['model']}|{details['base_url']}")
+    print("\n".join(configured))
+
+elif cmd == "edit":
+    # Usage: edit <provider> [target] [baseURL] [model] [apiMode] [key]
+    if len(sys.argv) < 3:
+        print("Usage: edit <provider> [target] [baseURL] [model] [apiMode] [key]")
+        sys.exit(1)
+    provider = sys.argv[2].lower()
+    auth_data = load_auth()
+    config_data = load_config()
+    agy_data = load_agy_settings()
+    details = get_provider_details(provider, auth_data, config_data, agy_data)
+
+    target = sys.argv[3].lower() if len(sys.argv) > 3 and sys.argv[3].strip() and sys.argv[3].strip() != "__KEEP__" else details["target"]
+    if target not in TARGET_TOOLS:
+        target = details["target"] or "all"
+
+    base_url = sys.argv[4].strip() if len(sys.argv) > 4 and sys.argv[4].strip() != "__KEEP__" else details["base_url"]
+    model = sys.argv[5].strip() if len(sys.argv) > 5 and sys.argv[5].strip() != "__KEEP__" else details["model"]
+    api_mode = sys.argv[6].lower() if len(sys.argv) > 6 and sys.argv[6].strip() and sys.argv[6].strip() != "__KEEP__" else details["api_mode"]
+    if api_mode not in API_MODES:
+        api_mode = details["api_mode"] or "auto"
+
+    key = sys.argv[7].strip() if len(sys.argv) > 7 and sys.argv[7].strip() != "__KEEP__" else details["key"]
+
+    # 1. Update auth.json
+    auth_entry = auth_data.get(provider, {})
+    auth_entry["type"] = "api"
+    auth_entry["key"] = key
+    auth_entry["target"] = target
+    auth_entry["baseURL"] = base_url
+    auth_entry["model"] = model
+    auth_entry["apiMode"] = api_mode
+    auth_data[provider] = auth_entry
+    save_auth(auth_data)
+
+    # 2. Update opencode.jsonc
+    if target in ("all", "opencode"):
+        providers_dict = config_data.get("provider", {})
+        if not isinstance(providers_dict, dict):
+            providers_dict = {}
+        prov_item = providers_dict.get(provider, {})
+        prov_name = KNOWN_PROVIDERS.get(provider, {}).get("name") or prov_item.get("name") or provider.capitalize()
+        prov_item["name"] = prov_name
+        prov_item["npm"] = "@ai-sdk/openai-compatible"
+        prov_options = prov_item.get("options", {})
+        prov_options["baseURL"] = base_url
+        prov_options["apiKey"] = key
+        prov_options["apiMode"] = api_mode
+        prov_item["options"] = prov_options
+        if model:
+            models_dict = prov_item.get("models", {})
+            if not isinstance(models_dict, dict):
+                models_dict = {}
+            short_model = model.split("/", 1)[-1] if "/" in model else model
+            models_dict[short_model] = {"name": short_model}
+            prov_item["models"] = models_dict
+        providers_dict[provider] = prov_item
+        config_data["provider"] = providers_dict
+    elif target == "agy":
+        if isinstance(config_data.get("provider"), dict) and provider in config_data["provider"] and provider not in KNOWN_PROVIDERS:
+            del config_data["provider"][provider]
+    save_config(config_data)
+
+    # 3. Update agy settings.json
+    if target in ("all", "agy"):
+        agy_providers = agy_data.get("providers", {})
+        if not isinstance(agy_providers, dict):
+            agy_providers = {}
+        agy_entry = agy_providers.get(provider, {})
+        agy_entry["apiKey"] = key
+        agy_entry["baseURL"] = base_url
+        agy_entry["model"] = model
+        agy_entry["apiMode"] = api_mode
+        agy_providers[provider] = agy_entry
+        agy_data["providers"] = agy_providers
+        save_agy_settings(agy_data)
+    elif target == "opencode":
+        if isinstance(agy_data.get("providers"), dict) and provider in agy_data["providers"]:
+            del agy_data["providers"][provider]
+            save_agy_settings(agy_data)
+
+    print(f"OK_EDIT:{mask_key(key)}:{target}:{api_mode}:{model}:{base_url}")
+
 elif cmd in ("del", "remove", "rm"):
     if len(sys.argv) < 3:
         print("Usage: remove <provider>")
@@ -810,6 +915,177 @@ EOF
 # ------------------------------------------------------------------------------
 # Interactive Menu Wizard
 # ------------------------------------------------------------------------------
+edit_provider_menu() {
+    local p_id="$1"
+    while true; do
+        clear 2>/dev/null || true
+        local p_info
+        p_info=$(run_python_helper "info" "$p_id")
+
+        local cur_name cur_status cur_target cur_target_name cur_base cur_model cur_mode cur_mode_name cur_key
+        cur_name=$(echo "$p_info" | grep "^NAMA:" | cut -d':' -f2-)
+        cur_status=$(echo "$p_info" | grep "^STATUS:" | cut -d':' -f2-)
+        cur_target=$(echo "$p_info" | grep "^TARGET:" | cut -d':' -f2)
+        cur_target_name=$(echo "$p_info" | grep "^TARGET:" | cut -d':' -f3)
+        cur_base=$(echo "$p_info" | grep "^BASE_URL:" | cut -d':' -f2-)
+        cur_model=$(echo "$p_info" | grep "^MODEL:" | cut -d':' -f2-)
+        cur_mode=$(echo "$p_info" | grep "^API_MODE:" | cut -d':' -f2)
+        cur_mode_name=$(echo "$p_info" | grep "^API_MODE:" | cut -d':' -f3)
+        cur_key=$(echo "$p_info" | grep "^API_KEY:" | cut -d':' -f2-)
+
+        echo -e "${BOLD}${CYAN}======================================================================${RESET}"
+        echo -e "${BOLD}         ✏️  EDIT KONFIGURASI PROVIDER: ${p_id} (${cur_name:-$p_id})          ${RESET}"
+        echo -e "${BOLD}${CYAN}======================================================================${RESET}"
+        echo -e "  • Status Provider : ${GREEN}${cur_status}${RESET}"
+        echo -e "  • Target Integrasi: ${CYAN}${cur_target_name:-Universal}${RESET} (${cur_target:-all})"
+        echo -e "  • Base URL        : ${YELLOW}${cur_base:-(default bawaan)}${RESET}"
+        echo -e "  • Default Model   : ${GREEN}${cur_model:-(default bawaan)}${RESET}"
+        echo -e "  • API Mode        : ${MAGENTA}${cur_mode_name:-Automatic} (${cur_mode:-auto})${RESET}"
+        echo -e "  • Masked API Key  : ${GREEN}${cur_key:-(belum ada)}${RESET}"
+        echo -e "${BOLD}${CYAN}======================================================================${RESET}"
+        echo ""
+        echo -e "${BOLD}Pilih Bagian yang Ingin Diubah:${RESET}"
+        echo -e "  ${CYAN}1)${RESET} Ubah Target Integrasi (OpenCode v1/v2 / Antigravity agy / Universal)"
+        echo -e "  ${YELLOW}2)${RESET} Ubah Base URL Endpoint"
+        echo -e "  ${GREEN}3)${RESET} Ubah Default Model"
+        echo -e "  ${MAGENTA}4)${RESET} Ubah API Mode (Automatic / Chat Completions / Responses / Compat)"
+        echo -e "  ${GREEN}5)${RESET} Ganti API Key"
+        echo -e "  ${BOLD}${CYAN}6)${RESET} 🔄 Edit Seluruh Konfigurasi (Wizard Lengkap)"
+        echo -e "  ${GREEN}7)${RESET} Uji Koneksi Provider Sekarang"
+        echo -e "  ${YELLOW}0)${RESET} Selesai / Kembali ke Menu Utama"
+        echo ""
+        read -r -p "Pilihan Anda [0-7]: " edit_field_choice
+
+        case "$edit_field_choice" in
+            1)
+                echo ""
+                echo -e "${BOLD}Pilih Target Integrasi AI Baru:${RESET}"
+                echo -e "  ${GREEN}1)${RESET} OpenCode (v1 & v2)      (Simpan ke ~/.config/opencode)"
+                echo -e "  ${GREEN}2)${RESET} Antigravity CLI (agy)   (Simpan ke ~/.gemini/antigravity-cli)"
+                echo -e "  ${GREEN}3)${RESET} Keduanya / Universal    (Disinkronkan ke OpenCode & agy)"
+                read -r -p "Pilih target [1-3, Enter untuk tetap]: " n_t_choice
+                new_tgt=""
+                case "$n_t_choice" in
+                    1) new_tgt="opencode" ;;
+                    2) new_tgt="agy" ;;
+                    3) new_tgt="all" ;;
+                    *) new_tgt="$cur_target" ;;
+                esac
+                run_python_helper "edit" "$p_id" "$new_tgt" "__KEEP__" "__KEEP__" "__KEEP__" "__KEEP__" >/dev/null
+                log_ok "Target integrasi untuk '$p_id' diperbarui ke '$new_tgt'!"
+                sleep 1
+                ;;
+            2)
+                echo ""
+                echo -e "Base URL saat ini: ${YELLOW}${cur_base:-(default)}${RESET}"
+                read -r -p "Masukkan Base URL baru (Tekan Enter untuk tetap): " new_base
+                if [ -n "$new_base" ]; then
+                    run_python_helper "edit" "$p_id" "__KEEP__" "$new_base" "__KEEP__" "__KEEP__" "__KEEP__" >/dev/null
+                    log_ok "Base URL untuk '$p_id' berhasil diubah ke '$new_base'!"
+                    sleep 1
+                fi
+                ;;
+            3)
+                echo ""
+                echo -e "Model saat ini: ${GREEN}${cur_model:-(default)}${RESET}"
+                read -r -p "Masukkan Model ID baru (Tekan Enter untuk tetap): " new_mod
+                if [ -n "$new_mod" ]; then
+                    run_python_helper "edit" "$p_id" "__KEEP__" "__KEEP__" "$new_mod" "__KEEP__" "__KEEP__" >/dev/null
+                    log_ok "Default model untuk '$p_id' berhasil diubah ke '$new_mod'!"
+
+                    read -r -p "Jadikan '$new_mod' sebagai model aktif saat ini? (Y/n): " set_act
+                    if [[ ! "$set_act" =~ ^[Nn]$ ]]; then
+                        run_python_helper "model" "$new_mod" >/dev/null 2>&1 || true
+                        run_python_helper "model-agy" "$new_mod" >/dev/null 2>&1 || true
+                        log_ok "Model aktif OpenCode & AGY diperbarui!"
+                    fi
+                    sleep 1
+                fi
+                ;;
+            4)
+                echo ""
+                echo -e "API Mode saat ini: ${MAGENTA}${cur_mode_name:-Automatic} (${cur_mode:-auto})${RESET}"
+                echo -e "${BOLD}Pilih API Mode Baru:${RESET}"
+                echo -e "  ❯ ${GREEN}1. Automatic ✔${RESET}         Use the provider and model defaults (auto)"
+                echo -e "    ${GREEN}2. Chat Completions${RESET}    Use /chat/completions for broad OpenAI-compatible support"
+                echo -e "    ${GREEN}3. Responses${RESET}           Use /responses for providers that support the Responses API"
+                echo -e "    ${GREEN}4. Responses (Compat)${RESET}  Use /responses with legacy text chunks for strict gateways"
+                read -r -p "Pilihan API mode [1-4, Enter untuk tetap]: " n_m_choice
+                new_mode=""
+                case "$n_m_choice" in
+                    1) new_mode="auto" ;;
+                    2) new_mode="chat_completions" ;;
+                    3) new_mode="responses" ;;
+                    4) new_mode="responses_compat" ;;
+                    *) new_mode="$cur_mode" ;;
+                esac
+                run_python_helper "edit" "$p_id" "__KEEP__" "__KEEP__" "__KEEP__" "$new_mode" "__KEEP__" >/dev/null
+                log_ok "API Mode untuk '$p_id' berhasil diubah ke '$new_mode'!"
+                sleep 1
+                ;;
+            5)
+                echo ""
+                echo -e "Masukkan API Key baru untuk ${BOLD}${CYAN}$p_id${RESET}:"
+                echo -e "${DIM}(Input disembunyikan untuk privasi. Tekan Enter jika batal)${RESET}"
+                read -r -s new_key
+                echo ""
+                if [ -n "$new_key" ]; then
+                    run_python_helper "edit" "$p_id" "__KEEP__" "__KEEP__" "__KEEP__" "__KEEP__" "$new_key" >/dev/null
+                    log_ok "API Key untuk '$p_id' berhasil diperbarui!"
+                    sleep 1
+                fi
+                ;;
+            6)
+                echo ""
+                echo -e "${BOLD}Target saat ini: ${cur_target}${RESET}"
+                echo -e "  [1] OpenCode (v1 & v2)  [2] Antigravity (agy)  [3] Universal"
+                read -r -p "Target baru [1-3, Enter untuk tetap]: " all_t
+                all_target="$cur_target"
+                case "$all_t" in
+                    1) all_target="opencode" ;;
+                    2) all_target="agy" ;;
+                    3) all_target="all" ;;
+                esac
+
+                read -r -p "Base URL baru [Enter untuk tetap '$cur_base']: " all_base
+                [ -z "$all_base" ] && all_base="$cur_base"
+
+                read -r -p "Default Model baru [Enter untuk tetap '$cur_model']: " all_model
+                [ -z "$all_model" ] && all_model="$cur_model"
+
+                echo -e "API Mode: [1] Auto, [2] Chat Completions, [3] Responses, [4] Responses (Compat)"
+                read -r -p "Pilihan mode [1-4, Enter untuk tetap]: " all_m
+                all_mode="$cur_mode"
+                case "$all_m" in
+                    1) all_mode="auto" ;;
+                    2) all_mode="chat_completions" ;;
+                    3) all_mode="responses" ;;
+                    4) all_mode="responses_compat" ;;
+                esac
+
+                echo -e "Ganti API Key? [Enter untuk tetap, ketik key jika ingin ganti]:"
+                read -r -s all_key
+                echo ""
+                [ -z "$all_key" ] && all_key="__KEEP__"
+
+                res=$(run_python_helper "edit" "$p_id" "$all_target" "$all_base" "$all_model" "$all_mode" "$all_key")
+                log_ok "Seluruh konfigurasi '$p_id' berhasil diperbarui!"
+                read -r -p "Tekan ENTER untuk lanjut..." _
+                ;;
+            7)
+                echo ""
+                echo -e "${CYAN}Menguji koneksi ke $p_id...${RESET}"
+                t_res=$(run_python_helper "test" "$p_id")
+                echo -e "Hasil: $t_res"
+                read -r -p "Tekan ENTER untuk lanjut..." _
+                ;;
+            0)
+                break
+                ;;
+        esac
+    done
+}
+
 wizard_menu() {
     while true; do
         clear 2>/dev/null || true
@@ -822,15 +1098,16 @@ wizard_menu() {
         echo -e "${BOLD}Pilihan Menu:${RESET}"
         echo -e "  ${GREEN}1)${RESET} Tambah / Perbarui API Key Provider (Quick Setup)"
         echo -e "  ${MAGENTA}2)${RESET} 🚀 Setup Provider Lanjutan (Target OpenCode/AGY, Base URL, Model, Mode)"
-        echo -e "  ${CYAN}3)${RESET} Aktifkan / Nonaktifkan Provider (Enable / Disable)"
-        echo -e "  ${GREEN}4)${RESET} Pilih Default Model (OpenCode & Antigravity agy)"
-        echo -e "  ${CYAN}5)${RESET} Uji Koneksi & Validasi API Key"
-        echo -e "  ${CYAN}6)${RESET} Detail Lengkap Provider (Inspect Config & Parameter)"
-        echo -e "  ${CYAN}7)${RESET} Sinkronkan ke Shell Environment (~/.termux_ai_env)"
-        echo -e "  ${RED}8)${RESET} Hapus API Key / Konfigurasi Provider"
+        echo -e "  ${CYAN}3)${RESET} ✏️  Edit / Ubah Konfigurasi Provider Terpasang"
+        echo -e "  ${CYAN}4)${RESET} Aktifkan / Nonaktifkan Provider (Enable / Disable)"
+        echo -e "  ${GREEN}5)${RESET} Pilih Default Model (OpenCode & Antigravity agy)"
+        echo -e "  ${CYAN}6)${RESET} Uji Koneksi & Validasi API Key"
+        echo -e "  ${CYAN}7)${RESET} Detail Lengkap Provider (Inspect Config & Parameter)"
+        echo -e "  ${CYAN}8)${RESET} Sinkronkan ke Shell Environment (~/.termux_ai_env)"
+        echo -e "  ${RED}9)${RESET} Hapus API Key / Konfigurasi Provider"
         echo -e "  ${YELLOW}0)${RESET} Kembali / Keluar"
         echo ""
-        read -r -p "Pilihan Anda [0-8]: " menu_choice
+        read -r -p "Pilihan Anda [0-9]: " menu_choice
 
         case "$menu_choice" in
             1)
@@ -1089,6 +1366,49 @@ wizard_menu() {
                 ;;
 
             3)
+                # Edit / Ubah Konfigurasi Provider Terpasang
+                echo ""
+                echo -e "${BOLD}${CYAN}======================================================================${RESET}"
+                echo -e "${BOLD}         ✏️  Edit / Ubah Konfigurasi Provider (OpenCode & AGY)        ${RESET}"
+                echo -e "${BOLD}${CYAN}======================================================================${RESET}"
+                echo ""
+
+                cfg_list=$(run_python_helper "configured-list")
+
+                if [ -z "$cfg_list" ]; then
+                    log_warn "Belum ada provider yang terkonfigurasi. Silakan tambah provider terlebih dahulu melalui Menu 1 atau 2."
+                    read -r -p "Tekan ENTER untuk kembali..." _
+                    continue
+                fi
+
+                echo -e "${BOLD}Pilih Provider yang ingin diubah pengaturannya:${RESET}"
+                i=1
+                declare -A prov_map
+                while IFS='|' read -r p_id p_name p_tgt p_mode p_model p_url; do
+                    [ -z "$p_id" ] && continue
+                    prov_map[$i]="$p_id"
+                    echo -e "  ${GREEN}$i)${RESET} ${BOLD}$p_id${RESET} ($p_name) - [Target: ${CYAN}$p_tgt${RESET}, Mode: ${MAGENTA}$p_mode${RESET}]"
+                    i=$((i + 1))
+                done <<< "$cfg_list"
+                echo -e "  ${CYAN}C)${RESET} Masukkan ID Provider Kustom Lainnya"
+                echo -e "  ${YELLOW}0)${RESET} Batal"
+                echo ""
+                read -r -p "Pilihan Anda [0-$((i-1)) / C]: " e_pick
+
+                selected_edit_prov=""
+                if [[ "$e_pick" =~ ^[0-9]+$ ]] && [ "$e_pick" -gt 0 ] && [ "$e_pick" -lt "$i" ]; then
+                    selected_edit_prov="${prov_map[$e_pick]}"
+                elif [[ "$e_pick" =~ ^[Cc]$ ]]; then
+                    read -r -p "Masukkan ID provider: " selected_edit_prov
+                    selected_edit_prov=$(echo "$selected_edit_prov" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_-')
+                fi
+
+                if [ -n "$selected_edit_prov" ]; then
+                    edit_provider_menu "$selected_edit_prov"
+                fi
+                ;;
+
+            4)
                 echo ""
                 echo -e "${BOLD}Pilih Provider untuk mengubah status (Enable / Disable):${RESET}"
                 echo -e "  ${GREEN}1)${RESET} Google Gemini     (google)"
@@ -1142,7 +1462,7 @@ wizard_menu() {
                             cur_mod=$(run_python_helper "model")
                             if [[ "$cur_mod" == "$target_prov/"* ]]; then
                                 log_warn "Perhatian: Model default aktif OpenCode saat ini ($cur_mod) menggunakan provider '$target_prov'."
-                                log_warn "Disarankan untuk mengganti default model melalui Menu 4."
+                                log_warn "Disarankan untuk mengganti default model melalui Menu 5."
                             fi
                         fi
                     fi
@@ -1151,7 +1471,7 @@ wizard_menu() {
                 fi
                 ;;
 
-            4)
+            5)
                 echo ""
                 echo -e "${BOLD}Pilih Tool yang ingin diatur Default Model-nya:${RESET}"
                 echo -e "  ${GREEN}1)${RESET} OpenCode (v1 & v2)      (opencode.jsonc)"
@@ -1210,7 +1530,7 @@ wizard_menu() {
                 fi
                 ;;
 
-            5)
+            6)
                 echo ""
                 log_info "Memeriksa dan menguji validitas seluruh provider aktif..."
                 run_python_helper "test" "all"
@@ -1218,7 +1538,7 @@ wizard_menu() {
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
 
-            6)
+            7)
                 echo ""
                 read -r -p "Masukkan ID provider yang ingin diinspeksi (contoh: bynara, google, openai): " inspect_prov
                 inspect_prov=$(echo "$inspect_prov" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_-')
@@ -1234,7 +1554,7 @@ wizard_menu() {
                 fi
                 ;;
 
-            7)
+            8)
                 echo ""
                 log_info "Mengekspor API Key & Endpoint ke $ENV_FILE..."
                 res=$(run_python_helper "sync-env")
@@ -1257,7 +1577,7 @@ wizard_menu() {
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
 
-            8)
+            9)
                 echo ""
                 read -r -p "Masukkan nama provider yang ingin dihapus (contoh: openai): " del_prov
                 del_prov=$(echo "$del_prov" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_-')
@@ -1301,6 +1621,47 @@ case "$1" in
         ;;
     info)
         run_python_helper "info" "$2"
+        ;;
+    edit)
+        # Usage: config.sh edit <provider> [target] [baseURL] [model] [apiMode] [key]
+        if [ -z "$2" ]; then
+            log_err "Penggunaan: config.sh edit <provider> [target] [baseURL] [model] [apiMode] [key]"
+            exit 1
+        fi
+        res=$(run_python_helper "edit" "$2" "${3:-__KEEP__}" "${4:-__KEEP__}" "${5:-__KEEP__}" "${6:-__KEEP__}" "${7:-__KEEP__}")
+        if [[ "$res" == OK_EDIT:* ]]; then
+            masked=$(echo "$res" | cut -d':' -f2)
+            tgt=$(echo "$res" | cut -d':' -f3)
+            mode=$(echo "$res" | cut -d':' -f4)
+            log_ok "Konfigurasi provider '$2' berhasil diperbarui ($masked) [Target: $tgt, Mode: $mode]"
+        else
+            log_err "Gagal: $res"
+            exit 1
+        fi
+        ;;
+    edit-field)
+        # Usage: config.sh edit-field <provider> <target|baseurl|model|mode|key> <value>
+        if [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
+            log_err "Penggunaan: config.sh edit-field <provider> <target|baseurl|model|mode|key> <value>"
+            exit 1
+        fi
+        prov="$2"
+        field="$3"
+        val="$4"
+        case "$field" in
+            target) res=$(run_python_helper "edit" "$prov" "$val" "__KEEP__" "__KEEP__" "__KEEP__" "__KEEP__") ;;
+            baseurl|baseURL|url) res=$(run_python_helper "edit" "$prov" "__KEEP__" "$val" "__KEEP__" "__KEEP__" "__KEEP__") ;;
+            model) res=$(run_python_helper "edit" "$prov" "__KEEP__" "__KEEP__" "$val" "__KEEP__" "__KEEP__") ;;
+            mode|apimode|apiMode) res=$(run_python_helper "edit" "$prov" "__KEEP__" "__KEEP__" "__KEEP__" "$val" "__KEEP__") ;;
+            key|apikey|apiKey) res=$(run_python_helper "edit" "$prov" "__KEEP__" "__KEEP__" "__KEEP__" "__KEEP__" "$val") ;;
+            *) log_err "Field tidak valid. Pilih: target, baseurl, model, mode, key"; exit 1 ;;
+        esac
+        if [[ "$res" == OK_EDIT:* ]]; then
+            log_ok "Field '$field' untuk provider '$prov' berhasil diubah!"
+        else
+            log_err "Gagal: $res"
+            exit 1
+        fi
         ;;
     set)
         # Usage: config.sh set <provider> <key> [target] [baseURL] [model] [apiMode]
@@ -1427,6 +1788,10 @@ case "$1" in
         echo "  bash config.sh info <provider>     Tampilkan detail lengkap endpoint & mode provider"
         echo "  bash config.sh set <provider> <key> [target] [baseURL] [model] [apiMode]"
         echo "                                     Simpan API key dan konfigurasi lanjutan"
+        echo "  bash config.sh edit <provider> [target] [baseURL] [model] [apiMode] [key]"
+        echo "                                     Edit konfigurasi provider yang terpasang"
+        echo "  bash config.sh edit-field <provider> <target|baseurl|model|mode|key> <val>"
+        echo "                                     Edit nilai spesifik parameter provider"
         echo "  bash config.sh get <provider>      Tampilkan masked key provider"
         echo "  bash config.sh enable <provider>   Aktifkan provider (hapus dari disabled_providers)"
         echo "  bash config.sh disable <provider>  Nonaktifkan provider (tambahkan ke disabled_providers)"

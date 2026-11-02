@@ -483,6 +483,8 @@ aiconfig
 | `config.sh info <provider>` | Menampilkan detail lengkap parameter provider (Target, Base URL, Model, API Mode, Key) |
 | `config.sh set <provider> <key> [target] [baseURL] [model] [apiMode]` | Menyimpan konfigurasi provider lanjutan ke OpenCode v1/v2 dan/atau Antigravity agy |
 | `config.sh set-advanced <provider> <key> [target] [baseURL] [model] [apiMode]` | Alias langsung konfigurasi lanjutan via CLI |
+| `config.sh edit <provider> [target] [baseURL] [model] [apiMode] [key]` | Mengubah/mengedit konfigurasi provider yang sudah terpasang |
+| `config.sh edit-field <provider> <target\|baseurl\|model\|mode\|key> <val>` | Mengedit nilai spesifik parameter provider secara langsung |
 | `config.sh enable <provider>` | Mengaktifkan provider (menghapus dari `disabled_providers`) |
 | `config.sh disable <provider>` | Menonaktifkan provider tanpa menghapus API Key (`disabled_providers`) |
 | `config.sh toggle <provider>` | Beralih status aktif / nonaktif provider dengan cepat |
