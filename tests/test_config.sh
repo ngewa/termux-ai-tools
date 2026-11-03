@@ -178,8 +178,21 @@ assert_output_contains "Status AGY masih AKTIF" "STATUS_AGY:AKTIF" "$CONFIG_BIN"
 assert_output_contains "Hapus $TGT_PROV dari AGY" "berhasil dihapus [Target: agy]" "$CONFIG_BIN" remove "$TGT_PROV" "agy"
 assert_output_contains "Status $TGT_PROV kembali BELUM" "[ BELUM ]" "$CONFIG_BIN" list
 
-# Test 14: Cleanup & Remove
-echo -e "\n${BOLD}14. Pembersihan Kredensial Pengujian:${RESET}"
+# Test 14: Fitur Tool-List Filter Target (OpenCode vs AGY)
+echo -e "\n${BOLD}14. Fitur Tool-List Filter Target (OpenCode vs AGY):${RESET}"
+TL_PROV_OC="tooloc"
+TL_PROV_AGY="toolagy"
+assert_output_contains "Set provider $TL_PROV_OC ke target opencode" "disimpan" "$CONFIG_BIN" set "$TL_PROV_OC" "sk-test-oc-12345678" "opencode"
+assert_output_contains "Set provider $TL_PROV_AGY ke target agy" "disimpan" "$CONFIG_BIN" set "$TL_PROV_AGY" "sk-test-agy-12345678" "agy"
+
+assert_output_contains "Tool-list opencode menampilkan $TL_PROV_OC" "$TL_PROV_OC" "$CONFIG_BIN" tool-list "opencode"
+assert_output_contains "Tool-list agy menampilkan $TL_PROV_AGY" "$TL_PROV_AGY" "$CONFIG_BIN" tool-list "agy"
+
+assert_output_contains "Hapus provider $TL_PROV_OC" "dihapus" "$CONFIG_BIN" remove "$TL_PROV_OC" "opencode"
+assert_output_contains "Hapus provider $TL_PROV_AGY" "dihapus" "$CONFIG_BIN" remove "$TL_PROV_AGY" "agy"
+
+# Test 15: Cleanup & Remove
+echo -e "\n${BOLD}15. Pembersihan Kredensial Pengujian:${RESET}"
 assert_output_contains "Hapus kredensial pengujian $TEST_PROV" "dihapus" "$CONFIG_BIN" remove "$TEST_PROV"
 assert_output_contains "Hapus provider advanced $ADV_PROV" "dihapus" "$CONFIG_BIN" remove "$ADV_PROV"
 assert_output_contains "Status $TEST_PROV kembali BELUM" "[ BELUM ]" "$CONFIG_BIN" list

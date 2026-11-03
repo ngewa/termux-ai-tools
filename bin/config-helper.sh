@@ -832,6 +832,53 @@ elif cmd == "configured-list":
             configured.append(f"{pid}|{details['name']}|{details['target']}|{mode_lbl}|{details['model']}|{details['base_url']}")
     print("\n".join(configured))
 
+elif cmd in ("tool-list", "tool_list", "list-tool"):
+    if len(sys.argv) < 3:
+        print("Usage: tool-list <opencode|agy>")
+        sys.exit(1)
+    tool = sys.argv[2].lower()
+    auth_data = load_auth()
+    config_data = load_config()
+    agy_data = load_agy_settings()
+
+    all_pids = list(KNOWN_PROVIDERS.keys())
+    custom_sources = (
+        set(auth_data.keys()) |
+        set(config_data.get("provider", {}).keys() if isinstance(config_data.get("provider"), dict) else []) |
+        set(agy_data.get("providers", {}).keys() if isinstance(agy_data.get("providers"), dict) else [])
+    )
+    for p in sorted(custom_sources):
+        if p not in all_pids:
+            all_pids.append(p)
+
+    results = []
+    for pid in all_pids:
+        details = get_provider_details(pid, auth_data, config_data, agy_data)
+        has_k = bool(details["key"])
+
+        is_conn = False
+        if tool == "opencode":
+            has_cfg = isinstance(config_data.get("provider"), dict) and pid in config_data["provider"]
+            is_conn = (details["target"] in ("all", "opencode")) and (has_k or has_cfg)
+            is_dis = is_provider_disabled_opencode(pid, config_data, auth_data)
+        else:  # agy
+            has_agy = isinstance(agy_data.get("providers"), dict) and pid in agy_data["providers"]
+            is_conn = (details["target"] in ("all", "agy")) and (has_k or has_agy)
+            is_dis = is_provider_disabled_agy(pid, agy_data, auth_data)
+
+        if is_conn:
+            st = "NONAKTIF" if is_dis else "AKTIF"
+            mode_lbl = API_MODES.get(details["api_mode"], {}).get("label", details["api_mode"])
+            m_key = mask_key(details["key"]) if has_k else "(belum ada key)"
+            m_mod = details["model"] or "(bawaan)"
+            m_url = details["base_url"] or "(default)"
+            results.append(f"{pid}|{details['name']}|{st}|{details['target']}|{mode_lbl}|{m_key}|{m_mod}|{m_url}")
+
+    if results:
+        print("\n".join(results))
+    else:
+        print("")
+
 elif cmd == "edit":
     # Usage: edit <provider> [target] [baseURL] [model] [apiMode] [key]
     if len(sys.argv) < 3:
@@ -1362,6 +1409,363 @@ edit_provider_menu() {
     done
 }
 
+manage_tool_providers_menu() {
+    local tool="$1"
+    local tool_title
+    local tool_model
+    local tool_loc
+
+    while true; do
+        clear 2>/dev/null || true
+        if [ "$tool" = "opencode" ]; then
+            tool_title="OpenCode (v1 & v2)"
+            tool_model=$(run_python_helper "model")
+            tool_loc="~/.config/opencode/opencode.jsonc & auth.json"
+        else
+            tool_title="Antigravity CLI (agy)"
+            tool_model=$(run_python_helper "model-agy")
+            tool_loc="~/.gemini/antigravity-cli/settings.json"
+        fi
+
+        echo -e "${BOLD}${CYAN}========================================================================================${RESET}"
+        echo -e "${BOLD}         🎛️  MANAJEMEN PROVIDER & KONEKSI: ${tool_title}         ${RESET}"
+        echo -e "${BOLD}${CYAN}========================================================================================${RESET}"
+        echo -e "  🎯 Default Model Aktif : ${GREEN}${tool_model:-Belum diatur}${RESET}"
+        echo -e "  📁 Berkas Konfigurasi  : ${YELLOW}${tool_loc}${RESET}"
+        echo -e "${BOLD}${CYAN}----------------------------------------------------------------------------------------${RESET}"
+        echo -e "${BOLD}Daftar Provider yang Terhubung ke ${tool_title}:${RESET}"
+        echo ""
+
+        local raw_list
+        raw_list=$(run_python_helper "tool-list" "$tool")
+
+        declare -A prov_idx_map
+        declare -A prov_name_map
+        declare -A prov_stat_map
+        declare -A prov_tgt_map
+        local count=0
+
+        if [ -z "$raw_list" ]; then
+            echo -e "  ${YELLOW}(Belum ada provider yang terhubung ke ${tool_title})${RESET}"
+            echo -e "  ${DIM}Gunakan pilihan [1] di bawah untuk menambahkan API Key provider baru ke ${tool_title}.${RESET}"
+        else
+            printf "  ${BOLD}%-4s %-12s %-18s %-14s %-14s %-18s %s${RESET}\n" "NO" "PROVIDER" "NAMA" "STATUS" "API MODE" "KEY (MASKED)" "MODEL"
+            echo "  --------------------------------------------------------------------------------------------"
+            while IFS='|' read -r p_id p_name p_stat p_tgt p_mode p_key p_mod p_url; do
+                [ -z "$p_id" ] && continue
+                count=$((count + 1))
+                prov_idx_map[$count]="$p_id"
+                prov_name_map[$count]="$p_name"
+                prov_stat_map[$count]="$p_stat"
+                prov_tgt_map[$count]="$p_tgt"
+                local st_colored
+                if [ "$p_stat" = "AKTIF" ]; then
+                    st_colored="${GREEN}[ AKTIF ]   ${RESET}"
+                else
+                    st_colored="${RED}[ NONAKTIF ]${RESET}"
+                fi
+                printf "  ${CYAN}%-4s${RESET} %-12s %-18s %b %-14s %-18s %s\n" \
+                    "$count)" "$p_id" "${p_name:0:17}" "$st_colored" "${p_mode:0:13}" "$p_key" "$p_mod"
+            done <<< "$raw_list"
+        fi
+
+        echo ""
+        echo -e "${BOLD}${CYAN}----------------------------------------------------------------------------------------${RESET}"
+        echo -e "${BOLD}Pilihan Aksi untuk ${tool_title}:${RESET}"
+        echo -e "  ${GREEN}1)${RESET} ➕ ${BOLD}Tambah Provider Baru ke ${tool_title}${RESET} (Add Provider)"
+        echo -e "  ${RED}2)${RESET} 🗑️  ${BOLD}Hapus Provider dari ${tool_title}${RESET} (Apus Provider)"
+        echo -e "  ${CYAN}3)${RESET} ⚡ Aktifkan / Nonaktifkan Provider (Enable / Disable)"
+        echo -e "  ${MAGENTA}4)${RESET} 🎯 Ubah Default Model untuk ${tool_title}"
+        echo -e "  ${YELLOW}5)${RESET} ✏️  Edit Detail Parameter Provider (Base URL, Key, Mode)"
+        echo -e "  ${GREEN}6)${RESET} 🔍 Uji Koneksi Provider di ${tool_title}"
+        echo -e "  ${YELLOW}0)${RESET} ↩️  Kembali"
+        echo ""
+        read -r -p "Pilihan Anda [0-6]: " act_choice
+
+        case "$act_choice" in
+            1)
+                echo ""
+                echo -e "${BOLD}${GREEN}======================================================================${RESET}"
+                echo -e "${BOLD}         ➕ Tambah Provider Baru ke ${tool_title}                      ${RESET}"
+                echo -e "${BOLD}${GREEN}======================================================================${RESET}"
+                echo -e "Pilih Provider yang ingin dikoneksikan ke ${tool_title}:"
+                echo -e "  ${GREEN}1)${RESET} Google Gemini     (google)"
+                echo -e "  ${GREEN}2)${RESET} Anthropic Claude  (anthropic)"
+                echo -e "  ${GREEN}3)${RESET} OpenAI            (openai)"
+                echo -e "  ${GREEN}4)${RESET} DeepSeek          (deepseek)"
+                echo -e "  ${GREEN}5)${RESET} OpenRouter        (openrouter)"
+                echo -e "  ${GREEN}6)${RESET} Groq              (groq)"
+                echo -e "  ${GREEN}7)${RESET} Mistral AI        (mistral)"
+                echo -e "  ${GREEN}8)${RESET} xAI / Grok        (xai)"
+                echo -e "  ${CYAN}9)${RESET} NaraRouter        (bynara)"
+                echo -e "  ${CYAN}10)${RESET} Provider Kustom Lainnya"
+                echo -e "  ${YELLOW}0)${RESET} Batal"
+                echo ""
+                read -r -p "Pilih provider [0-10]: " add_p_choice
+
+                new_pid=""
+                case "$add_p_choice" in
+                    1) new_pid="google" ;;
+                    2) new_pid="anthropic" ;;
+                    3) new_pid="openai" ;;
+                    4) new_pid="deepseek" ;;
+                    5) new_pid="openrouter" ;;
+                    6) new_pid="groq" ;;
+                    7) new_pid="mistral" ;;
+                    8) new_pid="xai" ;;
+                    9) new_pid="bynara" ;;
+                    10)
+                        read -r -p "Masukkan ID provider (contoh: together, ollama, cohere): " new_pid
+                        new_pid=$(echo "$new_pid" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_-')
+                        ;;
+                    *) new_pid="" ;;
+                esac
+
+                if [ -n "$new_pid" ]; then
+                    cur_key=$(run_python_helper "get" "$new_pid")
+                    echo ""
+                    echo -e "Masukkan API Key untuk ${BOLD}${CYAN}$new_pid${RESET}:"
+                    if [ -n "$cur_key" ]; then
+                        echo -e "Key tersimpan saat ini: ${GREEN}$cur_key${RESET}"
+                        echo -e "${DIM}(Tekan Enter langsung jika ingin menggunakan key ini, atau ketik key baru)${RESET}"
+                    else
+                        echo -e "${DIM}(Input disembunyikan untuk privasi. Tekan Enter jika selesai)${RESET}"
+                    fi
+                    read -r -s in_key
+                    echo ""
+                    if [ -z "$in_key" ] && [ -n "$cur_key" ]; then
+                        in_key=$(python3 -c "import json, os; p=os.path.expanduser('~/.local/share/opencode/auth.json'); d=json.load(open(p)) if os.path.exists(p) else {}; print(d.get('$new_pid', {}).get('key', ''))")
+                    fi
+
+                    if [ -z "$in_key" ]; then
+                        log_warn "Penambahan dibatalkan (API key kosong)."
+                        sleep 1
+                        continue
+                    fi
+
+                    echo ""
+                    echo -e "${BOLD}Target Penerapan Provider:${RESET}"
+                    echo -e "  ${GREEN}1)${RESET} ${tool_title} saja (Hanya aktif di tool ini)"
+                    echo -e "  ${CYAN}2)${RESET} Keduanya / Universal (OpenCode & Antigravity agy)"
+                    read -r -p "Pilih target [1-2, default 1]: " in_tgt_pick
+                    target_to_save="$tool"
+                    [ "$in_tgt_pick" = "2" ] && target_to_save="all"
+
+                    res=$(run_python_helper "set" "$new_pid" "$in_key" "$target_to_save")
+                    if [[ "$res" == OK:* ]]; then
+                        log_ok "Provider '$new_pid' berhasil ditambahkan ke ${tool_title}!"
+                        read -r -p "Uji koneksi API key sekarang? (y/N): " t_now
+                        if [[ "$t_now" =~ ^[Yy]$ ]]; then
+                            echo -e "${CYAN}Menguji koneksi ke $new_pid...${RESET}"
+                            run_python_helper "test" "$new_pid"
+                            echo ""
+                        fi
+                    else
+                        log_err "Gagal menambahkan provider: $res"
+                    fi
+                    sleep 1
+                fi
+                ;;
+
+            2)
+                # Apus / Hapus Provider dari Tool ini
+                if [ "$count" -eq 0 ]; then
+                    echo ""
+                    log_warn "Belum ada provider yang terhubung ke ${tool_title} untuk dihapus."
+                    read -r -p "Tekan ENTER untuk kembali..." _
+                else
+                    echo ""
+                    echo -e "${BOLD}${RED}======================================================================${RESET}"
+                    echo -e "${BOLD}         🗑️  Hapus Provider dari ${tool_title}                        ${RESET}"
+                    echo -e "${BOLD}${RED}======================================================================${RESET}"
+                    echo -e "Pilih Provider yang ingin dihapus dari ${tool_title}:"
+                    for idx in $(seq 1 "$count"); do
+                        local p_item="${prov_idx_map[$idx]}"
+                        local p_name_item="${prov_name_map[$idx]}"
+                        local p_tgt_item="${prov_tgt_map[$idx]}"
+                        echo -e "  ${RED}$idx)${RESET} ${BOLD}$p_item${RESET} ($p_name_item) - Target: ${CYAN}$p_tgt_item${RESET}"
+                    done
+                    echo -e "  ${YELLOW}0)${RESET} Batal"
+                    echo ""
+                    read -r -p "Pilih nomor provider [0-$count]: " del_pick_num
+
+                    if [[ "$del_pick_num" =~ ^[0-9]+$ ]] && [ "$del_pick_num" -gt 0 ] && [ "$del_pick_num" -le "$count" ]; then
+                        local target_del_pid="${prov_idx_map[$del_pick_num]}"
+                        echo ""
+                        echo -e "Provider terpilih: ${BOLD}${CYAN}$target_del_pid${RESET}"
+                        read -r -p "Yakin ingin menghapus '$target_del_pid' dari ${tool_title}? (y/N): " confirm_del_tool
+                        if [[ "$confirm_del_tool" =~ ^[Yy]$ ]]; then
+                            res=$(run_python_helper "remove" "$target_del_pid" "$tool")
+                            if [[ "$res" == DELETED:* ]]; then
+                                log_ok "Provider '$target_del_pid' berhasil dihapus dari ${tool_title}!"
+                            else
+                                log_warn "Gagal menghapus provider: $res"
+                            fi
+                            sleep 1
+                        fi
+                    fi
+                fi
+                ;;
+
+            3)
+                # Toggle / Enable / Disable Provider
+                if [ "$count" -eq 0 ]; then
+                    echo ""
+                    log_warn "Belum ada provider yang terhubung ke ${tool_title}."
+                    read -r -p "Tekan ENTER untuk kembali..." _
+                else
+                    echo ""
+                    echo -e "${BOLD}${CYAN}Pilih Provider untuk beralih status (Aktif <-> Nonaktif) di ${tool_title}:${RESET}"
+                    for idx in $(seq 1 "$count"); do
+                        local p_item="${prov_idx_map[$idx]}"
+                        local st_item="${prov_stat_map[$idx]}"
+                        echo -e "  ${CYAN}$idx)${RESET} ${BOLD}$p_item${RESET} (Status: $st_item)"
+                    done
+                    echo -e "  ${YELLOW}0)${RESET} Batal"
+                    echo ""
+                    read -r -p "Pilih nomor [0-$count]: " tog_pick_num
+
+                    if [[ "$tog_pick_num" =~ ^[0-9]+$ ]] && [ "$tog_pick_num" -gt 0 ] && [ "$tog_pick_num" -le "$count" ]; then
+                        local target_tog_pid="${prov_idx_map[$tog_pick_num]}"
+                        res=$(run_python_helper "toggle" "$target_tog_pid" "$tool")
+                        log_ok "Status '$target_tog_pid' di ${tool_title} berhasil diubah: $res"
+                        sleep 1
+                    fi
+                fi
+                ;;
+
+            4)
+                # Ubah Default Model
+                echo ""
+                echo -e "${BOLD}Pilih Preset Model Rekomendasi untuk ${tool_title}:${RESET}"
+                echo -e "  ${GREEN}1)${RESET} bynara/glm-5.3-flash          (NaraRouter / Cepat & Terjangkau)"
+                echo -e "  ${GREEN}2)${RESET} google/gemini-2.5-flash       (Cepat & Hemat Token)"
+                echo -e "  ${GREEN}3)${RESET} google/gemini-2.5-pro         (Penalaran Tinggi & Akurat)"
+                echo -e "  ${GREEN}4)${RESET} anthropic/claude-3-7-sonnet   (Paling Andal Coding & Refactoring)"
+                echo -e "  ${GREEN}5)${RESET} anthropic/claude-3-5-sonnet   (Andal & Stabil)"
+                echo -e "  ${GREEN}6)${RESET} deepseek/deepseek-chat        (Sangat Murah & Cerdas)"
+                echo -e "  ${GREEN}7)${RESET} deepseek/deepseek-reasoner    (Model Berpikir / R1)"
+                echo -e "  ${GREEN}8)${RESET} openai/gpt-4o                 (Multimodal Cepat)"
+                echo -e "  ${GREEN}9)${RESET} openrouter/auto               (Rute Otomatis Model Terbaik)"
+                echo -e "  ${CYAN}10)${RESET} Input Manual ID Model Kustom"
+                echo -e "  ${YELLOW}0)${RESET} Batal"
+                echo ""
+                read -r -p "Pilihan model [0-10]: " mod_choice
+
+                sel_m=""
+                case "$mod_choice" in
+                    1) sel_m="bynara/glm-5.3-flash" ;;
+                    2) sel_m="google/gemini-2.5-flash" ;;
+                    3) sel_m="google/gemini-2.5-pro" ;;
+                    4) sel_m="anthropic/claude-3-7-sonnet" ;;
+                    5) sel_m="anthropic/claude-3-5-sonnet" ;;
+                    6) sel_m="deepseek/deepseek-chat" ;;
+                    7) sel_m="deepseek/deepseek-reasoner" ;;
+                    8) sel_m="openai/gpt-4o" ;;
+                    9) sel_m="openrouter/auto" ;;
+                    10)
+                        read -r -p "Masukkan model ID lengkap (contoh: provider/model-name): " sel_m
+                        ;;
+                    *) sel_m="" ;;
+                esac
+
+                if [ -n "$sel_m" ]; then
+                    if [ "$tool" = "opencode" ]; then
+                        run_python_helper "model" "$sel_m" >/dev/null
+                        log_ok "Default model OpenCode berhasil diatur ke '$sel_m'!"
+                    else
+                        run_python_helper "model-agy" "$sel_m" >/dev/null
+                        log_ok "Default model Antigravity (agy) berhasil diatur ke '$sel_m'!"
+                    fi
+                    sleep 1
+                fi
+                ;;
+
+            5)
+                # Edit Detail Provider
+                if [ "$count" -eq 0 ]; then
+                    echo ""
+                    log_warn "Belum ada provider yang terhubung ke ${tool_title}."
+                    read -r -p "Tekan ENTER untuk kembali..." _
+                else
+                    echo ""
+                    echo -e "${BOLD}Pilih Provider yang ingin diedit parameternya:${RESET}"
+                    for idx in $(seq 1 "$count"); do
+                        local p_item="${prov_idx_map[$idx]}"
+                        echo -e "  ${CYAN}$idx)${RESET} $p_item"
+                    done
+                    echo -e "  ${YELLOW}0)${RESET} Batal"
+                    echo ""
+                    read -r -p "Pilih nomor [0-$count]: " ed_pick_num
+
+                    if [[ "$ed_pick_num" =~ ^[0-9]+$ ]] && [ "$ed_pick_num" -gt 0 ] && [ "$ed_pick_num" -le "$count" ]; then
+                        local target_ed_pid="${prov_idx_map[$ed_pick_num]}"
+                        edit_provider_menu "$target_ed_pid"
+                    fi
+                fi
+                ;;
+
+            6)
+                # Uji Koneksi
+                if [ "$count" -eq 0 ]; then
+                    echo ""
+                    log_warn "Belum ada provider yang terhubung ke ${tool_title}."
+                    read -r -p "Tekan ENTER untuk kembali..." _
+                else
+                    echo ""
+                    echo -e "${CYAN}Menguji koneksi seluruh provider aktif di ${tool_title}...${RESET}"
+                    for idx in $(seq 1 "$count"); do
+                        local test_pid="${prov_idx_map[$idx]}"
+                        echo -e "• Menguji $test_pid..."
+                        run_python_helper "test" "$test_pid"
+                    done
+                    echo ""
+                    read -r -p "Tekan ENTER untuk kembali..." _
+                fi
+                ;;
+
+            0)
+                break
+                ;;
+
+            *)
+                echo -e "${RED}Pilihan tidak valid!${RESET}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+select_tool_menu() {
+    while true; do
+        clear 2>/dev/null || true
+        echo -e "${BOLD}${CYAN}======================================================================${RESET}"
+        echo -e "${BOLD}         🎛️  PILIH TOOL AI UNTUK MENGELOLA PROVIDER & API KEY          ${RESET}"
+        echo -e "${BOLD}${CYAN}======================================================================${RESET}"
+        echo ""
+        echo -e "Silakan pilih Tool AI yang ingin Anda kelola provider-nya:"
+        echo ""
+        echo -e "  ${GREEN}1)${RESET} 🤖 ${BOLD}OpenCode (v1 & v2)${RESET}"
+        echo -e "      Kelola provider yang terhubung ke OpenCode CLI & Web"
+        echo -e "      (Berkas: ~/.config/opencode/opencode.jsonc & auth.json)"
+        echo ""
+        echo -e "  ${MAGENTA}2)${RESET} 🪐 ${BOLD}Antigravity CLI (agy)${RESET}"
+        echo -e "      Kelola provider yang terhubung ke Antigravity CLI"
+        echo -e "      (Berkas: ~/.gemini/antigravity-cli/settings.json)"
+        echo ""
+        echo -e "  ${YELLOW}0)${RESET} ↩️  Kembali ke Menu Utama"
+        echo ""
+        read -r -p "Pilihan Anda [0-2]: " tool_choice
+
+        case "$tool_choice" in
+            1) manage_tool_providers_menu "opencode" ;;
+            2) manage_tool_providers_menu "agy" ;;
+            0) break ;;
+            *) echo -e "${RED}Pilihan tidak valid!${RESET}"; sleep 1 ;;
+        esac
+    done
+}
+
 wizard_menu() {
     while true; do
         clear 2>/dev/null || true
@@ -1372,22 +1776,32 @@ wizard_menu() {
         run_python_helper "status"
         echo ""
         echo -e "${BOLD}Pilihan Menu:${RESET}"
-        echo -e "  ${GREEN}1)${RESET} Tambah / Perbarui API Key Provider (Quick Setup)"
-        echo -e "  ${MAGENTA}2)${RESET} 🚀 Setup Provider Lanjutan (Target OpenCode/AGY, Base URL, Model, Mode)"
-        echo -e "  ${CYAN}3)${RESET} ✏️  Edit / Ubah Konfigurasi Provider Terpasang"
-        echo -e "  ${CYAN}4)${RESET} ⚡ Aktifkan / Nonaktifkan Provider (Enable / Disable per Target / Keduanya)"
-        echo -e "  ${GREEN}5)${RESET} Pilih Default Model (OpenCode & Antigravity agy)"
-        echo -e "  ${CYAN}6)${RESET} Uji Koneksi & Validasi API Key"
-        echo -e "  ${CYAN}7)${RESET} Detail Lengkap Provider (Inspect Config & Parameter)"
-        echo -e "  ${CYAN}8)${RESET} Sinkronkan ke Shell Environment (~/.termux_ai_env)"
-        echo -e "  ${RED}9)${RESET} 🗑️  Hapus API Key / Provider (OpenCode saja / AGY saja / Keduanya)"
-        echo -e "  ${BOLD}${CYAN}10)${RESET} 🔀 Atur Target Integrasi Provider (Terapkan ke OpenCode / AGY / Keduanya)"
+        echo -e "  ${BOLD}${GREEN}1)${RESET} 🎛️  ${BOLD}Kelola Provider per Tool AI${RESET} (Pilih OpenCode atau AGY -> Cek Konek, Add, Apus)"
+        echo -e "  ${GREEN}2)${RESET} 🔑 Tambah / Perbarui API Key Provider (Quick Setup)"
+        echo -e "  ${MAGENTA}3)${RESET} 🚀 Setup Provider Lanjutan (Target OpenCode/AGY, Base URL, Model, Mode)"
+        echo -e "  ${CYAN}4)${RESET} ✏️  Edit / Ubah Konfigurasi Provider Terpasang"
+        echo -e "  ${CYAN}5)${RESET} ⚡ Aktifkan / Nonaktifkan Provider (Enable / Disable per Target / Keduanya)"
+        echo -e "  ${GREEN}6)${RESET} 🎯 Pilih Default Model (OpenCode & Antigravity agy)"
+        echo -e "  ${CYAN}7)${RESET} 🧪 Uji Koneksi & Validasi API Key"
+        echo -e "  ${CYAN}8)${RESET} 🔍 Detail Lengkap Provider (Inspect Config & Parameter)"
+        echo -e "  ${CYAN}9)${RESET} 🔄 Sinkronkan ke Shell Environment (~/.termux_ai_env)"
+        echo -e "  ${RED}10)${RESET} 🗑️  Hapus API Key / Provider (OpenCode saja / AGY saja / Keduanya)"
+        echo -e "  ${BOLD}${CYAN}11)${RESET} 🔀 Atur Target Integrasi Provider (Terapkan ke OpenCode / AGY / Keduanya)"
         echo -e "  ${YELLOW}0)${RESET} Kembali / Keluar"
         echo ""
-        read -r -p "Pilihan Anda [0-10]: " menu_choice
+        read -r -p "Pilihan Anda [0-11, oc, agy]: " menu_choice
 
         case "$menu_choice" in
-            1)
+            1|tool|tools|t)
+                select_tool_menu
+                ;;
+            oc|opencode)
+                manage_tool_providers_menu "opencode"
+                ;;
+            agy|antigravity)
+                manage_tool_providers_menu "agy"
+                ;;
+            2)
                 echo ""
                 echo -e "${BOLD}Pilih Provider yang ingin dikonfigurasi:${RESET}"
                 echo -e "  ${GREEN}1)${RESET} Google Gemini     (Dapatkan di: https://aistudio.google.com/app/apikey)"
@@ -1464,7 +1878,7 @@ wizard_menu() {
                 fi
                 ;;
 
-            2)
+            3)
                 # Advanced Provider Setup: Target, Base URL, Model, API Mode
                 echo ""
                 echo -e "${BOLD}${MAGENTA}======================================================================${RESET}"
@@ -1642,7 +2056,7 @@ wizard_menu() {
                 fi
                 ;;
 
-            3)
+            4)
                 # Edit / Ubah Konfigurasi Provider Terpasang
                 echo ""
                 echo -e "${BOLD}${CYAN}======================================================================${RESET}"
@@ -1653,7 +2067,7 @@ wizard_menu() {
                 cfg_list=$(run_python_helper "configured-list")
 
                 if [ -z "$cfg_list" ]; then
-                    log_warn "Belum ada provider yang terkonfigurasi. Silakan tambah provider terlebih dahulu melalui Menu 1 atau 2."
+                    log_warn "Belum ada provider yang terkonfigurasi. Silakan tambah provider terlebih dahulu melalui Menu 1, 2, atau 3."
                     read -r -p "Tekan ENTER untuk kembali..." _
                     continue
                 fi
@@ -1685,7 +2099,7 @@ wizard_menu() {
                 fi
                 ;;
 
-            4)
+            5)
                 echo ""
                 echo -e "${BOLD}Pilih Provider untuk mengubah status (Enable / Disable):${RESET}"
                 echo -e "  ${GREEN}1)${RESET} Google Gemini     (google)"
@@ -1766,7 +2180,7 @@ wizard_menu() {
                                 cur_mod=$(run_python_helper "model")
                                 if [[ "$cur_mod" == "$target_prov/"* ]] && [ "$target_scope" != "agy" ]; then
                                     log_warn "Perhatian: Model default aktif OpenCode saat ini ($cur_mod) menggunakan provider '$target_prov'."
-                                    log_warn "Disarankan untuk mengganti default model melalui Menu 5."
+                                    log_warn "Disarankan untuk mengganti default model melalui Menu 6."
                                 fi
                             fi
                         fi
@@ -1776,7 +2190,7 @@ wizard_menu() {
                 fi
                 ;;
 
-            5)
+            6)
                 echo ""
                 echo -e "${BOLD}Pilih Tool yang ingin diatur Default Model-nya:${RESET}"
                 echo -e "  ${GREEN}1)${RESET} OpenCode (v1 & v2)      (opencode.jsonc)"
@@ -1835,7 +2249,7 @@ wizard_menu() {
                 fi
                 ;;
 
-            6)
+            7)
                 echo ""
                 log_info "Memeriksa dan menguji validitas seluruh provider aktif..."
                 run_python_helper "test" "all"
@@ -1843,7 +2257,7 @@ wizard_menu() {
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
 
-            7)
+            8)
                 echo ""
                 read -r -p "Masukkan ID provider yang ingin diinspeksi (contoh: bynara, google, openai): " inspect_prov
                 inspect_prov=$(echo "$inspect_prov" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_-')
@@ -1859,7 +2273,7 @@ wizard_menu() {
                 fi
                 ;;
 
-            8)
+            9)
                 echo ""
                 log_info "Mengekspor API Key & Endpoint ke $ENV_FILE..."
                 res=$(run_python_helper "sync-env")
@@ -1882,7 +2296,7 @@ wizard_menu() {
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
 
-            9)
+            10)
                 echo ""
                 read -r -p "Masukkan nama provider yang ingin dihapus (contoh: openai): " del_prov
                 del_prov=$(echo "$del_prov" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_-')
@@ -1922,7 +2336,7 @@ wizard_menu() {
                 read -r -p "Tekan ENTER untuk kembali..." _
                 ;;
 
-            10)
+            11)
                 echo ""
                 echo -e "${BOLD}${CYAN}======================================================================${RESET}"
                 echo -e "${BOLD}     🔀 Atur Target Integrasi Provider (OpenCode / AGY / Keduanya)    ${RESET}"
@@ -1996,6 +2410,18 @@ wizard_menu() {
 # CLI Dispatcher
 # ------------------------------------------------------------------------------
 case "$1" in
+    tool|tools|select-tool)
+        select_tool_menu
+        ;;
+    opencode|oc)
+        manage_tool_providers_menu "opencode"
+        ;;
+    agy|antigravity)
+        manage_tool_providers_menu "agy"
+        ;;
+    tool-list|list-tool)
+        run_python_helper "tool-list" "${2:-opencode}"
+        ;;
     list|status|ls)
         run_python_helper "list"
         ;;
@@ -2200,6 +2626,10 @@ case "$1" in
     help|--help|-h)
         echo -e "${BOLD}${CYAN}Termux AI Tools - Config Helper Usage:${RESET}"
         echo "  bash config.sh                     Buka Wizard interaktif (OpenCode & AGY)"
+        echo "  bash config.sh tool                Pilih Tool AI (OpenCode/AGY) untuk kelola provider"
+        echo "  bash config.sh opencode            Kelola langsung provider yang konek ke OpenCode"
+        echo "  bash config.sh agy                 Kelola langsung provider yang konek ke Antigravity CLI"
+        echo "  bash config.sh tool-list [tool]    Daftar provider yang konek ke target (opencode/agy)"
         echo "  bash config.sh list                Tampilkan status provider, target & API Key"
         echo "  bash config.sh info <provider>     Tampilkan detail lengkap endpoint & mode provider"
         echo "  bash config.sh set <provider> <key> [target] [baseURL] [model] [apiMode]"

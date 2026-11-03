@@ -145,12 +145,16 @@ service.sh open v2           # Buka kembali halaman Web UI di browser Android
 
 #### D. 🔑 Wizard Setup API Key & Provider (`config.sh` / `aiconfig`)
 ```bash
-config.sh                    # Buka wizard konfigurasi interaktif
+config.sh                    # Buka wizard konfigurasi interaktif (Menu 1: Selector OpenCode / AGY)
+config.sh tool               # Pilih Tool AI (OpenCode atau AGY) -> Cek Konek, Add, Apus
+config.sh opencode           # Kelola langsung provider yang konek ke OpenCode
+config.sh agy                # Kelola langsung provider yang konek ke Antigravity CLI
+config.sh tool-list [tool]   # Daftar provider yang konek ke target (opencode/agy)
 config.sh list               # Tampilkan tabel status provider aktif, masked key, dan model
 config.sh set <provider>     # Simpan API key (input disembunyikan untuk privasi)
 config.sh set <prov> <key>   # Simpan API key secara langsung
 config.sh get <provider>     # Tampilkan masked key untuk provider tertentu
-config.sh remove <provider>  # Hapus kredensial API key provider dari auth.json
+config.sh remove <provider>  # Hapus kredensial API key provider (opencode, agy, atau all)
 config.sh model              # Tampilkan model default OpenCode yang aktif saat ini
 config.sh model <model_id>   # Atur model default OpenCode (misal: google/gemini-2.5-flash)
 config.sh test [provider]    # Uji validitas API key via HTTPS (HTTP 200 OK)
@@ -479,6 +483,10 @@ aiconfig
 
 | Perintah | Deskripsi |
 | :--- | :--- |
+| `config.sh tool` | Membuka interactive selector untuk memilih Tool AI (`OpenCode` atau `AGY`), melihat daftar provider yang terkoneksi, menambah (Add) provider baru, atau menghapus (Apus) provider |
+| `config.sh opencode` (atau `oc`) | Langsung membuka dashboard provider yang terhubung ke OpenCode (v1 & v2) |
+| `config.sh agy` (atau `antigravity`) | Langsung membuka dashboard provider yang terhubung ke Antigravity CLI (agy) |
+| `config.sh tool-list [opencode\|agy]` | Menampilkan daftar provider yang terkoneksi khusus pada tool target |
 | `config.sh list` (atau `aiconfig`) | Menampilkan tabel status provider aktif, target AI (OpenCode/AGY/Universal), API mode, masked key, dan model aktif |
 | `config.sh info <provider>` | Menampilkan detail lengkap parameter provider (Target, Base URL, Model, API Mode, Status OpenCode, Status AGY, Key) |
 | `config.sh target <provider> <opencode\|agy\|all>` | Mengatur target penerapan provider ke OpenCode saja, Antigravity (agy) saja, atau keduanya (Universal) |
