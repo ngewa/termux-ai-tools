@@ -659,6 +659,25 @@ if cmd in ("list", "status"):
         for cd in custom_details:
             print(cd)
 
+    rel_auth = AUTH_PATH.replace(HOME, "~")
+    rel_config = CONFIG_PATH.replace(HOME, "~")
+    rel_agy = AGY_SETTINGS_PATH.replace(HOME, "~")
+    rel_env = ENV_PATH.replace(HOME, "~")
+
+    print("\n\033[1m📁 Lokasi Berkas & Panduan Setting Manual:\033[0m")
+    print(f"  • \033[1mOpenCode Auth (API Key)\033[0m        : \033[33m{rel_auth}\033[0m (chmod 600)")
+    print("    Format: {\"<provider>\": {\"type\": \"api\", \"key\": \"<API_KEY>\"}}")
+    print(f"  • \033[1mOpenCode Config (Model/Endpoint)\033[0m : \033[33m{rel_config}\033[0m")
+    print("    Format: {\"model\": \"provider/model\", \"provider\": {\"<id>\": {\"options\": {\"baseURL\": \"...\", \"apiKey\": \"...\"}}}}")
+    print(f"  • \033[1mAntigravity CLI (agy Settings)\033[0m   : \033[33m{rel_agy}\033[0m")
+    print("    Format: {\"model\": \"...\", \"providers\": {\"<id>\": {\"apiKey\": \"...\", \"baseURL\": \"...\"}}}")
+    print(f"  • \033[1mShell Env Fallback (Global)\033[0m      : \033[33m{rel_env}\033[0m (source di ~/.bashrc)")
+    print("    Format: export GEMINI_API_KEY=\"...\" | export OPENAI_API_KEY=\"...\" | dll.")
+    print("  • \033[1mPerintah Edit Berkas Manual\033[0m      : \033[36mnano ~/.local/share/opencode/auth.json\033[0m")
+    print("                                     \033[36mnano ~/.config/opencode/opencode.jsonc\033[0m")
+    print("                                     \033[36mnano ~/.gemini/antigravity-cli/settings.json\033[0m")
+    print("  • \033[1mPanduan Lengkap CLI\033[0m              : \033[32mconfig.sh manual\033[0m (atau menu pilihan [12])")
+
 elif cmd == "get":
     if len(sys.argv) < 3:
         print("Usage: get <provider> [target]")
@@ -1766,6 +1785,116 @@ select_tool_menu() {
     done
 }
 
+show_manual_config_guide() {
+    while true; do
+        clear 2>/dev/null || true
+        echo -e "${BOLD}${CYAN}========================================================================================${RESET}"
+        echo -e "${BOLD}              📁 PANDUAN & LOKASI BERKAS SETTING MANUAL PROVIDER & API KEY             ${RESET}"
+        echo -e "${BOLD}${CYAN}========================================================================================${RESET}"
+        echo ""
+        echo -e "${BOLD}1. OpenCode Auth (API Key Per Provider):${RESET}"
+        echo -e "   • Lokasi Berkas : ${YELLOW}$AUTH_FILE${RESET}"
+        echo -e "   • Izin Berkas   : ${CYAN}chmod 600 ~/.local/share/opencode/auth.json${RESET} (wajib privat)"
+        echo -e "   • Contoh JSON   :"
+        echo -e "     ${DIM}{${RESET}"
+        echo -e "     ${DIM}  \"google\": { \"type\": \"api\", \"key\": \"AIzaSy...\" },${RESET}"
+        echo -e "     ${DIM}  \"anthropic\": { \"type\": \"api\", \"key\": \"sk-ant-...\" },${RESET}"
+        echo -e "     ${DIM}  \"bynara\": { \"type\": \"api\", \"key\": \"sk-nry-...\", \"baseURL\": \"https://router.bynara.id/v1\", \"apiMode\": \"chat_completions\" }${RESET}"
+        echo -e "     ${DIM}}${RESET}"
+        echo ""
+        echo -e "${BOLD}2. OpenCode Config (Model Default & Custom Provider Endpoint):${RESET}"
+        echo -e "   • Lokasi Berkas : ${YELLOW}$CONFIG_FILE${RESET}"
+        echo -e "   • Contoh JSONC  :"
+        echo -e "     ${DIM}{${RESET}"
+        echo -e "     ${DIM}  \"\$schema\": \"https://opencode.ai/config.json\",${RESET}"
+        echo -e "     ${DIM}  \"model\": \"bynara/glm-5.3-flash\",${RESET}"
+        echo -e "     ${DIM}  \"provider\": {${RESET}"
+        echo -e "     ${DIM}    \"bynara\": {${RESET}"
+        echo -e "     ${DIM}      \"name\": \"NaraRouter\",${RESET}"
+        echo -e "     ${DIM}      \"npm\": \"@ai-sdk/openai-compatible\",${RESET}"
+        echo -e "     ${DIM}      \"options\": {${RESET}"
+        echo -e "     ${DIM}        \"baseURL\": \"https://router.bynara.id/v1\",${RESET}"
+        echo -e "     ${DIM}        \"apiKey\": \"sk-nry-...\",${RESET}"
+        echo -e "     ${DIM}        \"apiMode\": \"chat_completions\"${RESET}"
+        echo -e "     ${DIM}      },${RESET}"
+        echo -e "     ${DIM}      \"models\": { \"glm-5.3-flash\": { \"name\": \"glm-5.3-flash\" } }${RESET}"
+        echo -e "     ${DIM}    }${RESET}"
+        echo -e "     ${DIM}  },${RESET}"
+        echo -e "     ${DIM}  \"disabled_providers\": [\"deepseek\"]${RESET}"
+        echo -e "     ${DIM}}${RESET}"
+        echo ""
+        echo -e "${BOLD}3. Antigravity CLI (agy Settings & Provider):${RESET}"
+        echo -e "   • Lokasi Berkas : ${YELLOW}$AGY_SETTINGS_FILE${RESET}"
+        echo -e "   • Contoh JSON   :"
+        echo -e "     ${DIM}{${RESET}"
+        echo -e "     ${DIM}  \"model\": \"Gemini 3.8 Flash (Medium)\",${RESET}"
+        echo -e "     ${DIM}  \"providers\": {${RESET}"
+        echo -e "     ${DIM}    \"google\": { \"apiKey\": \"AIzaSy...\" },${RESET}"
+        echo -e "     ${DIM}    \"bynara\": {${RESET}"
+        echo -e "     ${DIM}      \"apiKey\": \"sk-nry-...\",${RESET}"
+        echo -e "     ${DIM}      \"baseURL\": \"https://router.bynara.id/v1\",${RESET}"
+        echo -e "     ${DIM}      \"model\": \"bynara/glm-5.3-flash\",${RESET}"
+        echo -e "     ${DIM}      \"apiMode\": \"chat_completions\"${RESET}"
+        echo -e "     ${DIM}    }${RESET}"
+        echo -e "     ${DIM}  },${RESET}"
+        echo -e "     ${DIM}  \"disabled_providers\": [\"anthropic\"]${RESET}"
+        echo -e "     ${DIM}}${RESET}"
+        echo ""
+        echo -e "${BOLD}4. Shell Environment Variables (Terminal Global / Fallback):${RESET}"
+        echo -e "   • Lokasi Berkas : ${YELLOW}$ENV_FILE${RESET} (atau ~/.bashrc / ~/.zshrc)"
+        echo -e "   • Contoh Baris  :"
+        echo -e "     ${DIM}export GEMINI_API_KEY=\"AIzaSy...\"${RESET}"
+        echo -e "     ${DIM}export ANTHROPIC_API_KEY=\"sk-ant-...\"${RESET}"
+        echo -e "     ${DIM}export OPENAI_API_KEY=\"sk-...\"${RESET}"
+        echo -e "     ${DIM}export DEEPSEEK_API_KEY=\"sk-...\"${RESET}"
+        echo -e "     ${DIM}export OPENROUTER_API_KEY=\"sk-or-...\"${RESET}"
+        echo -e "     ${DIM}export GROQ_API_KEY=\"gsk_...\"${RESET}"
+        echo -e "     ${DIM}export BYNARA_API_KEY=\"sk-nry-...\"${RESET}"
+        echo -e "   • Cara Muat     : ${CYAN}source ~/.termux_ai_env${RESET} atau jalankan ${CYAN}config.sh sync-env${RESET}"
+        echo ""
+        echo -e "${BOLD}${CYAN}----------------------------------------------------------------------------------------${RESET}"
+        echo -e "${BOLD}Opsi Edit Berkas Langsung:${RESET}"
+        echo -e "  ${GREEN}1)${RESET} 📝 Buka ${YELLOW}auth.json${RESET} (OpenCode API Keys)"
+        echo -e "  ${GREEN}2)${RESET} 📝 Buka ${YELLOW}opencode.jsonc${RESET} (OpenCode Config & Models)"
+        echo -e "  ${GREEN}3)${RESET} 📝 Buka ${YELLOW}settings.json${RESET} (Antigravity agy Settings)"
+        echo -e "  ${GREEN}4)${RESET} 📝 Buka ${YELLOW}.termux_ai_env${RESET} (Shell Environment Variables)"
+        echo -e "  ${YELLOW}0)${RESET} ↩️  Kembali"
+        echo ""
+        if [ ! -t 0 ]; then
+            break
+        fi
+        read -r -p "Pilihan Anda [0-4]: " ed_choice
+        case "$ed_choice" in
+            1)
+                mkdir -p "$(dirname "$AUTH_FILE")"
+                [ ! -f "$AUTH_FILE" ] && echo "{}" > "$AUTH_FILE" && chmod 600 "$AUTH_FILE"
+                ${EDITOR:-nano} "$AUTH_FILE"
+                ;;
+            2)
+                mkdir -p "$(dirname "$CONFIG_FILE")"
+                [ ! -f "$CONFIG_FILE" ] && echo '{"$schema": "https://opencode.ai/config.json"}' > "$CONFIG_FILE"
+                ${EDITOR:-nano} "$CONFIG_FILE"
+                ;;
+            3)
+                mkdir -p "$(dirname "$AGY_SETTINGS_FILE")"
+                [ ! -f "$AGY_SETTINGS_FILE" ] && echo "{}" > "$AGY_SETTINGS_FILE"
+                ${EDITOR:-nano} "$AGY_SETTINGS_FILE"
+                ;;
+            4)
+                touch "$ENV_FILE" && chmod 600 "$ENV_FILE"
+                ${EDITOR:-nano} "$ENV_FILE"
+                ;;
+            0|q|exit)
+                break
+                ;;
+            *)
+                echo -e "${RED}Pilihan tidak valid!${RESET}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
 wizard_menu() {
     while true; do
         clear 2>/dev/null || true
@@ -1787,9 +1916,10 @@ wizard_menu() {
         echo -e "  ${CYAN}9)${RESET} 🔄 Sinkronkan ke Shell Environment (~/.termux_ai_env)"
         echo -e "  ${RED}10)${RESET} 🗑️  Hapus API Key / Provider (OpenCode saja / AGY saja / Keduanya)"
         echo -e "  ${BOLD}${CYAN}11)${RESET} 🔀 Atur Target Integrasi Provider (Terapkan ke OpenCode / AGY / Keduanya)"
+        echo -e "  ${BOLD}${CYAN}12)${RESET} 📖 ${BOLD}Info & Lokasi Berkas Setting Manual${RESET} (JSON templates & buka di editor)"
         echo -e "  ${YELLOW}0)${RESET} Kembali / Keluar"
         echo ""
-        read -r -p "Pilihan Anda [0-11, oc, agy]: " menu_choice
+        read -r -p "Pilihan Anda [0-12, oc, agy]: " menu_choice
 
         case "$menu_choice" in
             1|tool|tools|t)
@@ -2393,6 +2523,10 @@ wizard_menu() {
                 fi
                 ;;
 
+            12|manual|loc|lokasi|paths)
+                show_manual_config_guide
+                ;;
+
             0)
                 echo "Keluar dari wizard."
                 break
@@ -2424,6 +2558,9 @@ case "$1" in
         ;;
     list|status|ls)
         run_python_helper "list"
+        ;;
+    manual|paths|locations|lokasi|seting-manual)
+        show_manual_config_guide
         ;;
     get)
         run_python_helper "get" "$2"
@@ -2631,6 +2768,7 @@ case "$1" in
         echo "  bash config.sh agy                 Kelola langsung provider yang konek ke Antigravity CLI"
         echo "  bash config.sh tool-list [tool]    Daftar provider yang konek ke target (opencode/agy)"
         echo "  bash config.sh list                Tampilkan status provider, target & API Key"
+        echo "  bash config.sh manual              Panduan & lokasi berkas untuk setting manual"
         echo "  bash config.sh info <provider>     Tampilkan detail lengkap endpoint & mode provider"
         echo "  bash config.sh set <provider> <key> [target] [baseURL] [model] [apiMode]"
         echo "                                     Simpan API key dan konfigurasi lanjutan"

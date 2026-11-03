@@ -487,7 +487,8 @@ aiconfig
 | `config.sh opencode` (atau `oc`) | Langsung membuka dashboard provider yang terhubung ke OpenCode (v1 & v2) |
 | `config.sh agy` (atau `antigravity`) | Langsung membuka dashboard provider yang terhubung ke Antigravity CLI (agy) |
 | `config.sh tool-list [opencode\|agy]` | Menampilkan daftar provider yang terkoneksi khusus pada tool target |
-| `config.sh list` (atau `aiconfig`) | Menampilkan tabel status provider aktif, target AI (OpenCode/AGY/Universal), API mode, masked key, dan model aktif |
+| `config.sh list` (atau `aiconfig`) | Menampilkan tabel status provider aktif, target AI (OpenCode/AGY/Universal), API mode, masked key, model aktif, dan lokasi berkas setting manual |
+| `config.sh manual` (atau `paths`) | Menampilkan panduan komprehensif, struktur JSON, izin berkas (chmod), dan menu buka berkas konfigurasi di terminal text editor |
 | `config.sh info <provider>` | Menampilkan detail lengkap parameter provider (Target, Base URL, Model, API Mode, Status OpenCode, Status AGY, Key) |
 | `config.sh target <provider> <opencode\|agy\|all>` | Mengatur target penerapan provider ke OpenCode saja, Antigravity (agy) saja, atau keduanya (Universal) |
 | `config.sh set <provider> <key> [target] [baseURL] [model] [apiMode]` | Menyimpan konfigurasi provider lanjutan ke OpenCode v1/v2 dan/atau Antigravity agy |
@@ -553,8 +554,96 @@ bynara       NaraRouter         [ AKTIF ]    OpenCode     Chat Compl.      sk-nr
 ------------------------------------------------------------------------------------------
 
 🌐 Detail Konfigurasi Endpoint & Parameter Provider:
-  • bynara    : Target=OpenCode | BaseURL=https://router.bynara.id/v1 | Model=glm-5.3-flash | Mode=Chat Completions
+  • bynara    : Target=OpenCode [OC:AKTIF|AGY:AKTIF] | BaseURL=https://router.bynara.id/v1 | Model=glm-5.3-flash | Mode=Chat Completions
+
+📁 Lokasi Berkas & Panduan Setting Manual:
+  • OpenCode Auth (API Key)        : ~/.local/share/opencode/auth.json (chmod 600)
+    Format: {"<provider>": {"type": "api", "key": "<API_KEY>"}}
+  • OpenCode Config (Model/Endpoint) : ~/.config/opencode/opencode.jsonc
+    Format: {"model": "provider/model", "provider": {"<id>": {"options": {"baseURL": "...", "apiKey": "..."}}}}
+  • Antigravity CLI (agy Settings)   : ~/.gemini/antigravity-cli/settings.json
+    Format: {"model": "...", "providers": {"<id>": {"apiKey": "...", "baseURL": "..."}}}
+  • Shell Env Fallback (Global)      : ~/.termux_ai_env (source di ~/.bashrc)
+    Format: export GEMINI_API_KEY="..." | export OPENAI_API_KEY="..." | dll.
+  • Perintah Edit Berkas Manual      : nano ~/.local/share/opencode/auth.json
+                                     nano ~/.config/opencode/opencode.jsonc
+                                     nano ~/.gemini/antigravity-cli/settings.json
+  • Panduan Lengkap CLI              : config.sh manual (atau menu pilihan [12])
 ```
+
+### 📁 Lokasi Berkas Konfigurasi & Setting Manual:
+
+Bagi pengguna yang ingin mengatur provider, API key, endpoint proxy, atau default model secara langsung melalui text editor (seperti `nano` atau `vim`):
+
+1. **OpenCode Auth (API Keys)**:
+   - **Path**: `~/.local/share/opencode/auth.json`
+   - **Izin Berkas**: Wajib privat `chmod 600 ~/.local/share/opencode/auth.json`
+   - **Format JSON**:
+     ```json
+     {
+       "google": { "type": "api", "key": "AIzaSy..." },
+       "anthropic": { "type": "api", "key": "sk-ant-..." },
+       "bynara": { "type": "api", "key": "sk-nry-...", "baseURL": "https://router.bynara.id/v1", "apiMode": "chat_completions" }
+     }
+     ```
+
+2. **OpenCode Configuration (Model & Provider Endpoints)**:
+   - **Path**: `~/.config/opencode/opencode.jsonc`
+   - **Format JSONC**:
+     ```jsonc
+     {
+       "$schema": "https://opencode.ai/config.json",
+       "model": "bynara/glm-5.3-flash",
+       "provider": {
+         "bynara": {
+           "name": "NaraRouter",
+           "npm": "@ai-sdk/openai-compatible",
+           "options": {
+             "baseURL": "https://router.bynara.id/v1",
+             "apiKey": "sk-nry-...",
+             "apiMode": "chat_completions"
+           },
+           "models": {
+             "glm-5.3-flash": { "name": "glm-5.3-flash" }
+           }
+         }
+       },
+       "disabled_providers": ["deepseek"]
+     }
+     ```
+
+3. **Antigravity CLI (agy Settings & Provider)**:
+   - **Path**: `~/.gemini/antigravity-cli/settings.json`
+   - **Format JSON**:
+     ```json
+     {
+       "model": "Gemini 3.8 Flash (Medium)",
+       "providers": {
+         "google": { "apiKey": "AIzaSy..." },
+         "bynara": {
+           "apiKey": "sk-nry-...",
+           "baseURL": "https://router.bynara.id/v1",
+           "model": "bynara/glm-5.3-flash",
+           "apiMode": "chat_completions"
+         }
+       },
+       "disabled_providers": ["anthropic"]
+     }
+     ```
+
+4. **Shell Environment Variables (Fallback Global)**:
+   - **Path**: `~/.termux_ai_env` (otomatis dimuat jika di-source di `~/.bashrc` atau `~/.zshrc`)
+   - **Contoh baris**:
+     ```bash
+     export GEMINI_API_KEY="AIzaSy..."
+     export ANTHROPIC_API_KEY="sk-ant-..."
+     export OPENAI_API_KEY="sk-..."
+     export DEEPSEEK_API_KEY="sk-..."
+     export OPENROUTER_API_KEY="sk-or-..."
+     export GROQ_API_KEY="gsk_..."
+     export BYNARA_API_KEY="sk-nry-..."
+     ```
+   - **Sinkronisasi Otomatis**: Jalankan `config.sh sync-env` untuk mengekspor kredensial dari `auth.json` ke file environment ini secara otomatis.
 
 ### Keamanan & Privasi:
 - Input API key menggunakan mode silent input (`read -s`) sehingga tidak tercatat di history bash.

@@ -70,6 +70,16 @@ assert_success "config-helper.sh dapat dieksekusi" test -x "$HELPER_BIN"
 echo -e "\n${BOLD}2. Pemeriksaan Output Status & Header:${RESET}"
 assert_output_contains "config.sh list memuat header DAFTAR PROVIDER" "DAFTAR PROVIDER & STATUS API KEY TERPASANG" "$CONFIG_BIN" list
 assert_output_contains "config.sh list menampilkan kolom STATUS" "STATUS" "$CONFIG_BIN" list
+assert_output_contains "config.sh list menampilkan info lokasi setting manual" "Lokasi Berkas & Panduan Setting Manual" "$CONFIG_BIN" list
+assert_output_contains "config.sh list memuat path auth.json" ".local/share/opencode/auth.json" "$CONFIG_BIN" list
+assert_output_contains "config.sh list memuat path opencode.jsonc" ".config/opencode/opencode.jsonc" "$CONFIG_BIN" list
+assert_output_contains "config.sh list memuat path settings.json" ".gemini/antigravity-cli/settings.json" "$CONFIG_BIN" list
+
+# Test 2b: Manual Config Guide Command
+echo -e "\n${BOLD}2b. Pemeriksaan Perintah Panduan Setting Manual (config.sh manual):${RESET}"
+assert_output_contains "config.sh manual memuat judul panduan setting manual" "PANDUAN & LOKASI BERKAS SETTING MANUAL" bash -c "$CONFIG_BIN manual < /dev/null"
+assert_output_contains "config.sh manual memuat panduan auth.json" "OpenCode Auth (API Key Per Provider)" bash -c "$CONFIG_BIN manual < /dev/null"
+assert_output_contains "config.sh manual memuat panduan settings.json" "Antigravity CLI (agy Settings & Provider)" bash -c "$CONFIG_BIN manual < /dev/null"
 
 # Test 3: Set & Get Dummy Provider
 echo -e "\n${BOLD}3. Penambahan Kredensial Provider Pengujian:${RESET}"
