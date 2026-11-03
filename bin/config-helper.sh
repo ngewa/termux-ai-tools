@@ -287,39 +287,238 @@ def save_agy_model(model_name):
     data["model"] = model_name
     save_agy_settings(data)
 
-def is_provider_disabled(pid, config_data, auth_data):
-    dis_list = config_data.get("disabled_providers", [])
-    if pid in dis_list:
+def is_provider_disabled_opencode(pid, config_data, auth_data):
+    if pid in config_data.get("disabled_providers", []):
         return True
     entry = auth_data.get(pid, {})
-    if entry.get("disabled") is True:
+    if entry.get("disabled") is True or entry.get("disabled_opencode") is True:
         return True
     return False
 
-def set_provider_disabled(pid, disabled=True):
+def is_provider_disabled_agy(pid, agy_data, auth_data):
+    if pid in agy_data.get("disabled_providers", []):
+        return True
+    agy_prov = agy_data.get("providers", {}).get(pid, {})
+    if agy_prov.get("disabled") is True:
+        return True
+    entry = auth_data.get(pid, {})
+    if entry.get("disabled") is True or entry.get("disabled_agy") is True:
+        return True
+    return False
+
+def is_provider_disabled(pid, config_data, auth_data, agy_data=None, target="auto"):
+    if agy_data is None:
+        agy_data = load_agy_settings()
+    entry = auth_data.get(pid, {})
+    prov_target = entry.get("target", "all")
+
+    if target == "opencode":
+        return is_provider_disabled_opencode(pid, config_data, auth_data)
+    elif target == "agy":
+        return is_provider_disabled_agy(pid, agy_data, auth_data)
+    elif target == "all":
+        dis_oc = is_provider_disabled_opencode(pid, config_data, auth_data)
+        dis_agy = is_provider_disabled_agy(pid, agy_data, auth_data)
+        return dis_oc and dis_agy
+    else:  # auto based on prov_target
+        if prov_target == "opencode":
+            return is_provider_disabled_opencode(pid, config_data, auth_data)
+        elif prov_target == "agy":
+            return is_provider_disabled_agy(pid, agy_data, auth_data)
+        else:
+            dis_oc = is_provider_disabled_opencode(pid, config_data, auth_data)
+            dis_agy = is_provider_disabled_agy(pid, agy_data, auth_data)
+            return dis_oc and dis_agy
+
+def set_provider_disabled(pid, disabled=True, target="all"):
     config_data = load_config()
     auth_data = load_auth()
-    dis_list = list(config_data.get("disabled_providers", []))
+    agy_data = load_agy_settings()
+    entry = auth_data.get(pid, {})
 
-    if disabled:
-        if pid not in dis_list:
-            dis_list.append(pid)
-        config_data["disabled_providers"] = dis_list
-        if pid in auth_data:
-            auth_data[pid]["disabled"] = True
-    else:
-        if pid in dis_list:
-            dis_list = [x for x in dis_list if x != pid]
-        if dis_list:
+    if target in ("all", "opencode"):
+        dis_list = list(config_data.get("disabled_providers", []))
+        if disabled:
+            if pid not in dis_list:
+                dis_list.append(pid)
             config_data["disabled_providers"] = dis_list
+            if pid in auth_data:
+                if target == "all":
+                    auth_data[pid]["disabled"] = True
+                else:
+                    auth_data[pid]["disabled_opencode"] = True
         else:
-            config_data.pop("disabled_providers", None)
-        if pid in auth_data:
-            auth_data[pid].pop("disabled", None)
+            if pid in dis_list:
+                dis_list = [x for x in dis_list if x != pid]
+            if dis_list:
+                config_data["disabled_providers"] = dis_list
+            else:
+                config_data.pop("disabled_providers", None)
+            if pid in auth_data:
+                auth_data[pid].pop("disabled_opencode", None)
+                if target == "all":
+                    auth_data[pid].pop("disabled", None)
+        save_config(config_data)
 
-    save_config(config_data)
+    if target in ("all", "agy"):
+        agy_dis_list = list(agy_data.get("disabled_providers", []))
+        if disabled:
+            if pid not in agy_dis_list:
+                agy_dis_list.append(pid)
+            agy_data["disabled_providers"] = agy_dis_list
+            if isinstance(agy_data.get("providers"), dict) and pid in agy_data["providers"]:
+                agy_data["providers"][pid]["disabled"] = True
+            if pid in auth_data:
+                if target == "all":
+                    auth_data[pid]["disabled"] = True
+                else:
+                    auth_data[pid]["disabled_agy"] = True
+        else:
+            if pid in agy_dis_list:
+                agy_dis_list = [x for x in agy_dis_list if x != pid]
+            if agy_dis_list:
+                agy_data["disabled_providers"] = agy_dis_list
+            else:
+                agy_data.pop("disabled_providers", None)
+            if isinstance(agy_data.get("providers"), dict) and pid in agy_data["providers"]:
+                agy_data["providers"][pid].pop("disabled", None)
+            if pid in auth_data:
+                auth_data[pid].pop("disabled_agy", None)
+                if target == "all":
+                    auth_data[pid].pop("disabled", None)
+        save_agy_settings(agy_data)
+
     if pid in auth_data:
         save_auth(auth_data)
+
+def set_provider_target(pid, target):
+    auth_data = load_auth()
+    config_data = load_config()
+    agy_data = load_agy_settings()
+
+    details = get_provider_details(pid, auth_data, config_data, agy_data)
+    key = details["key"]
+    base_url = details["base_url"]
+    model = details["model"]
+    api_mode = details["api_mode"]
+    name = details["name"]
+
+    if target not in TARGET_TOOLS:
+        target = "all"
+
+    # 1. Update auth.json
+    auth_entry = auth_data.get(pid, {})
+    auth_entry["type"] = "api"
+    auth_entry["key"] = key
+    auth_entry["target"] = target
+    auth_entry["baseURL"] = base_url
+    auth_entry["model"] = model
+    auth_entry["apiMode"] = api_mode
+    auth_data[pid] = auth_entry
+    save_auth(auth_data)
+
+    # 2. Update opencode.jsonc
+    providers_dict = config_data.get("provider", {})
+    if not isinstance(providers_dict, dict):
+        providers_dict = {}
+
+    if target in ("all", "opencode"):
+        prov_item = providers_dict.get(pid, {})
+        prov_item["name"] = name
+        prov_item["npm"] = "@ai-sdk/openai-compatible"
+        prov_options = prov_item.get("options", {})
+        prov_options["baseURL"] = base_url
+        prov_options["apiKey"] = key
+        prov_options["apiMode"] = api_mode
+        prov_item["options"] = prov_options
+        if model:
+            models_dict = prov_item.get("models", {})
+            if not isinstance(models_dict, dict):
+                models_dict = {}
+            short_model = model.split("/", 1)[-1] if "/" in model else model
+            models_dict[short_model] = {"name": short_model}
+            prov_item["models"] = models_dict
+        providers_dict[pid] = prov_item
+        config_data["provider"] = providers_dict
+    else:  # target == "agy", remove from opencode config
+        if pid in providers_dict:
+            del providers_dict[pid]
+            config_data["provider"] = providers_dict
+        if pid in config_data.get("disabled_providers", []):
+            config_data["disabled_providers"] = [x for x in config_data["disabled_providers"] if x != pid]
+            if not config_data["disabled_providers"]:
+                config_data.pop("disabled_providers", None)
+    save_config(config_data)
+
+    # 3. Update agy settings.json
+    agy_providers = agy_data.get("providers", {})
+    if not isinstance(agy_providers, dict):
+        agy_providers = {}
+
+    if target in ("all", "agy"):
+        agy_entry = agy_providers.get(pid, {})
+        agy_entry["apiKey"] = key
+        agy_entry["baseURL"] = base_url
+        agy_entry["model"] = model
+        agy_entry["apiMode"] = api_mode
+        agy_providers[pid] = agy_entry
+        agy_data["providers"] = agy_providers
+    else:  # target == "opencode", remove from agy
+        if pid in agy_providers:
+            del agy_providers[pid]
+            agy_data["providers"] = agy_providers
+        if pid in agy_data.get("disabled_providers", []):
+            agy_data["disabled_providers"] = [x for x in agy_data["disabled_providers"] if x != pid]
+            if not agy_data["disabled_providers"]:
+                agy_data.pop("disabled_providers", None)
+    save_agy_settings(agy_data)
+
+def remove_provider(pid, target="all"):
+    auth_data = load_auth()
+    config_data = load_config()
+    agy_data = load_agy_settings()
+    found = False
+
+    if target in ("all", "opencode"):
+        if isinstance(config_data.get("provider"), dict) and pid in config_data["provider"]:
+            del config_data["provider"][pid]
+            found = True
+        dis_list = config_data.get("disabled_providers", [])
+        if pid in dis_list:
+            config_data["disabled_providers"] = [x for x in dis_list if x != pid]
+            if not config_data["disabled_providers"]:
+                config_data.pop("disabled_providers", None)
+            found = True
+        save_config(config_data)
+
+    if target in ("all", "agy"):
+        if isinstance(agy_data.get("providers"), dict) and pid in agy_data["providers"]:
+            del agy_data["providers"][pid]
+            found = True
+        agy_dis_list = agy_data.get("disabled_providers", [])
+        if pid in agy_dis_list:
+            agy_data["disabled_providers"] = [x for x in agy_dis_list if x != pid]
+            if not agy_data["disabled_providers"]:
+                agy_data.pop("disabled_providers", None)
+            found = True
+        save_agy_settings(agy_data)
+
+    if pid in auth_data:
+        cur_target = auth_data[pid].get("target", "all")
+        if target == "all" or cur_target == target:
+            del auth_data[pid]
+            found = True
+        elif target == "opencode" and cur_target == "all":
+            auth_data[pid]["target"] = "agy"
+            auth_data[pid].pop("disabled_opencode", None)
+            found = True
+        elif target == "agy" and cur_target == "all":
+            auth_data[pid]["target"] = "opencode"
+            auth_data[pid].pop("disabled_agy", None)
+            found = True
+        save_auth(auth_data)
+
+    return found
 
 def mask_key(key):
     if not key:
@@ -424,7 +623,9 @@ if cmd in ("list", "status"):
     for pid in all_pids:
         details = get_provider_details(pid, auth_data, config_data, agy_data)
         has_key = bool(details["key"])
-        is_dis = is_provider_disabled(pid, config_data, auth_data)
+        is_dis_oc = is_provider_disabled_opencode(pid, config_data, auth_data)
+        is_dis_agy = is_provider_disabled_agy(pid, agy_data, auth_data)
+        is_dis = is_provider_disabled(pid, config_data, auth_data, agy_data, target=details["target"])
         st_str = format_status(is_dis, has_key)
 
         if not has_key and not is_dis and pid in KNOWN_PROVIDERS:
@@ -448,7 +649,9 @@ if cmd in ("list", "status"):
             base_show = details["base_url"] or "(bawaan provider)"
             mod_show = details["model"] or "(bawaan provider)"
             mode_full = API_MODES.get(details["api_mode"], {}).get("label", details["api_mode"])
-            custom_details.append(f"  • \033[1m{pid:<10}\033[0m: Target=\033[36m{tgt_display}\033[0m | BaseURL=\033[33m{base_show}\033[0m | Model=\033[32m{mod_show}\033[0m | Mode=\033[35m{mode_full}\033[0m")
+            st_oc_txt = "\033[31mNONAKTIF\033[0m" if is_dis_oc else "\033[32mAKTIF\033[0m"
+            st_agy_txt = "\033[31mNONAKTIF\033[0m" if is_dis_agy else "\033[32mAKTIF\033[0m"
+            custom_details.append(f"  • \033[1m{pid:<10}\033[0m: Target=\033[36m{tgt_display}\033[0m [OC:{st_oc_txt}|AGY:{st_agy_txt}] | BaseURL=\033[33m{base_show}\033[0m | Model=\033[32m{mod_show}\033[0m | Mode=\033[35m{mode_full}\033[0m")
 
     print("-" * 90)
     if custom_details:
@@ -458,16 +661,17 @@ if cmd in ("list", "status"):
 
 elif cmd == "get":
     if len(sys.argv) < 3:
-        print("Usage: get <provider>")
+        print("Usage: get <provider> [target]")
         sys.exit(1)
     provider = sys.argv[2].lower()
+    target = sys.argv[3].lower() if len(sys.argv) > 3 and sys.argv[3].strip() else "auto"
     auth_data = load_auth()
     config_data = load_config()
     agy_data = load_agy_settings()
     details = get_provider_details(provider, auth_data, config_data, agy_data)
     if details["key"]:
         m = mask_key(details["key"])
-        if is_provider_disabled(provider, config_data, auth_data):
+        if is_provider_disabled(provider, config_data, auth_data, agy_data, target=target):
             print(f"{m} (NONAKTIF)")
         else:
             print(m)
@@ -483,14 +687,20 @@ elif cmd == "info":
     config_data = load_config()
     agy_data = load_agy_settings()
     details = get_provider_details(provider, auth_data, config_data, agy_data)
-    is_dis = is_provider_disabled(provider, config_data, auth_data)
+    is_dis_oc = is_provider_disabled_opencode(provider, config_data, auth_data)
+    is_dis_agy = is_provider_disabled_agy(provider, agy_data, auth_data)
+    is_dis = is_provider_disabled(provider, config_data, auth_data, agy_data, target=details["target"])
     status_str = "NONAKTIF" if is_dis else ("AKTIF" if details["key"] else "BELUM_DIATUR")
+    status_oc_str = "NONAKTIF" if is_dis_oc else ("AKTIF" if details["key"] else "BELUM_DIATUR")
+    status_agy_str = "NONAKTIF" if is_dis_agy else ("AKTIF" if details["key"] else "BELUM_DIATUR")
     mode_info = API_MODES.get(details["api_mode"], {"label": details["api_mode"], "desc": ""})
     target_name = TARGET_TOOLS.get(details["target"], details["target"])
 
     print(f"ID:{details['id']}")
     print(f"NAMA:{details['name']}")
     print(f"STATUS:{status_str}")
+    print(f"STATUS_OPENCODE:{status_oc_str}")
+    print(f"STATUS_AGY:{status_agy_str}")
     print(f"TARGET:{details['target']}:{target_name}")
     print(f"BASE_URL:{details['base_url']}")
     print(f"MODEL:{details['model']}")
@@ -540,6 +750,8 @@ elif cmd == "set":
     auth_entry["model"] = model
     auth_entry["apiMode"] = api_mode
     auth_entry.pop("disabled", None)
+    auth_entry.pop("disabled_opencode", None)
+    auth_entry.pop("disabled_agy", None)
     auth_data[provider] = auth_entry
     save_auth(auth_data)
 
@@ -567,6 +779,10 @@ elif cmd == "set":
             prov_item["models"] = models_dict
         providers_dict[provider] = prov_item
         config_data["provider"] = providers_dict
+    elif target == "agy":
+        if isinstance(config_data.get("provider"), dict) and provider in config_data["provider"]:
+            del config_data["provider"][provider]
+    save_config(config_data)
 
     # 3. Update agy settings if target is all or agy
     agy_data = load_agy_settings()
@@ -579,13 +795,17 @@ elif cmd == "set":
         agy_entry["baseURL"] = base_url
         agy_entry["model"] = model
         agy_entry["apiMode"] = api_mode
+        agy_entry.pop("disabled", None)
         agy_providers[provider] = agy_entry
         agy_data["providers"] = agy_providers
         save_agy_settings(agy_data)
+    elif target == "opencode":
+        if isinstance(agy_data.get("providers"), dict) and provider in agy_data["providers"]:
+            del agy_data["providers"][provider]
+            save_agy_settings(agy_data)
 
-    # 4. Enable provider
-    set_provider_disabled(provider, disabled=False)
-    save_config(config_data)
+    # 4. Enable provider for target
+    set_provider_disabled(provider, disabled=False, target=target)
 
     print(f"OK:{mask_key(key)}:{target}:{api_mode}")
 
@@ -670,7 +890,7 @@ elif cmd == "edit":
         providers_dict[provider] = prov_item
         config_data["provider"] = providers_dict
     elif target == "agy":
-        if isinstance(config_data.get("provider"), dict) and provider in config_data["provider"] and provider not in KNOWN_PROVIDERS:
+        if isinstance(config_data.get("provider"), dict) and provider in config_data["provider"]:
             del config_data["provider"][provider]
     save_config(config_data)
 
@@ -694,95 +914,101 @@ elif cmd == "edit":
 
     print(f"OK_EDIT:{mask_key(key)}:{target}:{api_mode}:{model}:{base_url}")
 
-elif cmd in ("del", "remove", "rm"):
-    if len(sys.argv) < 3:
-        print("Usage: remove <provider>")
+elif cmd == "target":
+    # Usage: target <provider> <opencode|agy|all>
+    if len(sys.argv) < 4:
+        print("Usage: target <provider> <opencode|agy|all>")
         sys.exit(1)
     provider = sys.argv[2].lower()
-    found = False
+    target = sys.argv[3].lower()
+    if target not in TARGET_TOOLS:
+        print(f"Error: Target tidak valid '{target}'. Pilih: opencode, agy, all")
+        sys.exit(1)
+    set_provider_target(provider, target)
+    print(f"TARGET_SET:{provider}:{target}")
 
-    # Remove from auth.json
-    auth_data = load_auth()
-    if provider in auth_data:
-        del auth_data[provider]
-        save_auth(auth_data)
-        found = True
-
-    # Remove from opencode.jsonc
-    config_data = load_config()
-    dis_list = config_data.get("disabled_providers", [])
-    if provider in dis_list:
-        dis_list = [x for x in dis_list if x != provider]
-        if dis_list:
-            config_data["disabled_providers"] = dis_list
-        else:
-            config_data.pop("disabled_providers", None)
-        found = True
-    if isinstance(config_data.get("provider"), dict) and provider in config_data["provider"]:
-        del config_data["provider"][provider]
-        found = True
-    save_config(config_data)
-
-    # Remove from agy settings.json
-    agy_data = load_agy_settings()
-    if isinstance(agy_data.get("providers"), dict) and provider in agy_data["providers"]:
-        del agy_data["providers"][provider]
-        save_agy_settings(agy_data)
-        found = True
-
+elif cmd in ("del", "remove", "rm"):
+    if len(sys.argv) < 3:
+        print("Usage: remove <provider> [target]")
+        sys.exit(1)
+    provider = sys.argv[2].lower()
+    target = sys.argv[3].lower() if len(sys.argv) > 3 and sys.argv[3].strip() else "all"
+    if target not in TARGET_TOOLS:
+        target = "all"
+    found = remove_provider(provider, target)
     if found:
-        print(f"DELETED:{provider}")
+        print(f"DELETED:{provider}:{target}")
     else:
         print(f"NOT_FOUND:{provider}")
 
 elif cmd == "enable":
     if len(sys.argv) < 3:
-        print("Usage: enable <provider>")
+        print("Usage: enable <provider> [target]")
         sys.exit(1)
     provider = sys.argv[2].lower()
-    config_data = load_config()
     auth_data = load_auth()
-    if not is_provider_disabled(provider, config_data, auth_data):
-        print(f"ALREADY_ENABLED:{provider}")
+    config_data = load_config()
+    agy_data = load_agy_settings()
+    details = get_provider_details(provider, auth_data, config_data, agy_data)
+    target = sys.argv[3].lower() if len(sys.argv) > 3 and sys.argv[3].strip() else details["target"]
+    if target not in TARGET_TOOLS:
+        target = details["target"] or "all"
+
+    if not is_provider_disabled(provider, config_data, auth_data, agy_data, target=target):
+        print(f"ALREADY_ENABLED:{provider}:{target}")
     else:
-        set_provider_disabled(provider, disabled=False)
-        print(f"ENABLED:{provider}")
+        set_provider_disabled(provider, disabled=False, target=target)
+        print(f"ENABLED:{provider}:{target}")
 
 elif cmd == "disable":
     if len(sys.argv) < 3:
-        print("Usage: disable <provider>")
+        print("Usage: disable <provider> [target]")
         sys.exit(1)
     provider = sys.argv[2].lower()
-    config_data = load_config()
     auth_data = load_auth()
-    if is_provider_disabled(provider, config_data, auth_data):
-        print(f"ALREADY_DISABLED:{provider}")
+    config_data = load_config()
+    agy_data = load_agy_settings()
+    details = get_provider_details(provider, auth_data, config_data, agy_data)
+    target = sys.argv[3].lower() if len(sys.argv) > 3 and sys.argv[3].strip() else details["target"]
+    if target not in TARGET_TOOLS:
+        target = details["target"] or "all"
+
+    if is_provider_disabled(provider, config_data, auth_data, agy_data, target=target):
+        print(f"ALREADY_DISABLED:{provider}:{target}")
     else:
-        set_provider_disabled(provider, disabled=True)
-        print(f"DISABLED:{provider}")
+        set_provider_disabled(provider, disabled=True, target=target)
+        print(f"DISABLED:{provider}:{target}")
 
 elif cmd == "toggle":
     if len(sys.argv) < 3:
-        print("Usage: toggle <provider>")
+        print("Usage: toggle <provider> [target]")
         sys.exit(1)
     provider = sys.argv[2].lower()
-    config_data = load_config()
     auth_data = load_auth()
-    if is_provider_disabled(provider, config_data, auth_data):
-        set_provider_disabled(provider, disabled=False)
-        print(f"ENABLED:{provider}")
+    config_data = load_config()
+    agy_data = load_agy_settings()
+    details = get_provider_details(provider, auth_data, config_data, agy_data)
+    target = sys.argv[3].lower() if len(sys.argv) > 3 and sys.argv[3].strip() else details["target"]
+    if target not in TARGET_TOOLS:
+        target = details["target"] or "all"
+
+    if is_provider_disabled(provider, config_data, auth_data, agy_data, target=target):
+        set_provider_disabled(provider, disabled=False, target=target)
+        print(f"ENABLED:{provider}:{target}")
     else:
-        set_provider_disabled(provider, disabled=True)
-        print(f"DISABLED:{provider}")
+        set_provider_disabled(provider, disabled=True, target=target)
+        print(f"DISABLED:{provider}:{target}")
 
 elif cmd == "is_disabled":
     if len(sys.argv) < 3:
         print("0")
         sys.exit(0)
     provider = sys.argv[2].lower()
-    config_data = load_config()
     auth_data = load_auth()
-    print("1" if is_provider_disabled(provider, config_data, auth_data) else "0")
+    config_data = load_config()
+    agy_data = load_agy_settings()
+    target = sys.argv[3].lower() if len(sys.argv) > 3 and sys.argv[3].strip() else "auto"
+    print("1" if is_provider_disabled(provider, config_data, auth_data, agy_data, target=target) else "0")
 
 elif cmd == "model":
     if len(sys.argv) >= 3:
@@ -823,7 +1049,7 @@ elif cmd == "sync-env":
         base_url = details["base_url"]
         mode = details["api_mode"]
         model = details["model"]
-        is_dis = is_provider_disabled(pid, config_data, auth_data)
+        is_dis = is_provider_disabled(pid, config_data, auth_data, agy_data, target=details["target"])
 
         if is_dis:
             lines.append(f"# export {env_var}=\"{k}\" # (STATUS: NONAKTIF)")
@@ -866,7 +1092,7 @@ elif cmd == "test":
         if not key:
             return "SKIPPED: Belum ada API key terpasang"
 
-        if is_provider_disabled(pid, config_data, auth_data):
+        if is_provider_disabled(pid, config_data, auth_data, agy_data, target=details["target"]):
             return "DISABLED: Provider dinonaktifkan (Gunakan 'enable' untuk mengaktifkan)"
 
         info = KNOWN_PROVIDERS.get(pid)
@@ -922,9 +1148,11 @@ edit_provider_menu() {
         local p_info
         p_info=$(run_python_helper "info" "$p_id")
 
-        local cur_name cur_status cur_target cur_target_name cur_base cur_model cur_mode cur_mode_name cur_key
+        local cur_name cur_status cur_st_oc cur_st_agy cur_target cur_target_name cur_base cur_model cur_mode cur_mode_name cur_key
         cur_name=$(echo "$p_info" | grep "^NAMA:" | cut -d':' -f2-)
         cur_status=$(echo "$p_info" | grep "^STATUS:" | cut -d':' -f2-)
+        cur_st_oc=$(echo "$p_info" | grep "^STATUS_OPENCODE:" | cut -d':' -f2)
+        cur_st_agy=$(echo "$p_info" | grep "^STATUS_AGY:" | cut -d':' -f2)
         cur_target=$(echo "$p_info" | grep "^TARGET:" | cut -d':' -f2)
         cur_target_name=$(echo "$p_info" | grep "^TARGET:" | cut -d':' -f3)
         cur_base=$(echo "$p_info" | grep "^BASE_URL:" | cut -d':' -f2-)
@@ -936,7 +1164,7 @@ edit_provider_menu() {
         echo -e "${BOLD}${CYAN}======================================================================${RESET}"
         echo -e "${BOLD}         ✏️  EDIT KONFIGURASI PROVIDER: ${p_id} (${cur_name:-$p_id})          ${RESET}"
         echo -e "${BOLD}${CYAN}======================================================================${RESET}"
-        echo -e "  • Status Provider : ${GREEN}${cur_status}${RESET}"
+        echo -e "  • Status Provider : ${GREEN}${cur_status}${RESET} (OpenCode: ${CYAN}${cur_st_oc}${RESET}, Antigravity agy: ${MAGENTA}${cur_st_agy}${RESET})"
         echo -e "  • Target Integrasi: ${CYAN}${cur_target_name:-Universal}${RESET} (${cur_target:-all})"
         echo -e "  • Base URL        : ${YELLOW}${cur_base:-(default bawaan)}${RESET}"
         echo -e "  • Default Model   : ${GREEN}${cur_model:-(default bawaan)}${RESET}"
@@ -952,17 +1180,19 @@ edit_provider_menu() {
         echo -e "  ${GREEN}5)${RESET} Ganti API Key"
         echo -e "  ${BOLD}${CYAN}6)${RESET} 🔄 Edit Seluruh Konfigurasi (Wizard Lengkap)"
         echo -e "  ${GREEN}7)${RESET} Uji Koneksi Provider Sekarang"
+        echo -e "  ${CYAN}8)${RESET} ⚡ Aktifkan / Nonaktifkan Provider Ini (OpenCode / AGY / Keduanya)"
+        echo -e "  ${RED}9)${RESET} 🗑️  Hapus Provider Ini (OpenCode saja / AGY saja / Keduanya)"
         echo -e "  ${YELLOW}0)${RESET} Selesai / Kembali ke Menu Utama"
         echo ""
-        read -r -p "Pilihan Anda [0-7]: " edit_field_choice
+        read -r -p "Pilihan Anda [0-9]: " edit_field_choice
 
         case "$edit_field_choice" in
             1)
                 echo ""
-                echo -e "${BOLD}Pilih Target Integrasi AI Baru:${RESET}"
-                echo -e "  ${GREEN}1)${RESET} OpenCode (v1 & v2)      (Simpan ke ~/.config/opencode)"
-                echo -e "  ${GREEN}2)${RESET} Antigravity CLI (agy)   (Simpan ke ~/.gemini/antigravity-cli)"
-                echo -e "  ${GREEN}3)${RESET} Keduanya / Universal    (Disinkronkan ke OpenCode & agy)"
+                echo -e "${BOLD}Pilih Target Integrasi AI Baru untuk '$p_id':${RESET}"
+                echo -e "  ${GREEN}1)${RESET} OpenCode saja (v1 & v2)      (Terapkan ke ~/.config/opencode, hapus dari agy)"
+                echo -e "  ${MAGENTA}2)${RESET} Antigravity CLI saja (agy)   (Terapkan ke ~/.gemini/antigravity-cli, hapus dari opencode)"
+                echo -e "  ${CYAN}3)${RESET} Keduanya / Universal         (Disinkronkan ke OpenCode & agy)"
                 read -r -p "Pilih target [1-3, Enter untuk tetap]: " n_t_choice
                 new_tgt=""
                 case "$n_t_choice" in
@@ -971,7 +1201,7 @@ edit_provider_menu() {
                     3) new_tgt="all" ;;
                     *) new_tgt="$cur_target" ;;
                 esac
-                run_python_helper "edit" "$p_id" "$new_tgt" "__KEEP__" "__KEEP__" "__KEEP__" "__KEEP__" >/dev/null
+                run_python_helper "target" "$p_id" "$new_tgt" >/dev/null
                 log_ok "Target integrasi untuk '$p_id' diperbarui ke '$new_tgt'!"
                 sleep 1
                 ;;
@@ -1079,6 +1309,52 @@ edit_provider_menu() {
                 echo -e "Hasil: $t_res"
                 read -r -p "Tekan ENTER untuk lanjut..." _
                 ;;
+            8)
+                echo ""
+                echo -e "${BOLD}Pilih Lingkup untuk Mengubah Status (Enable / Disable):${RESET}"
+                echo -e "  ${GREEN}1)${RESET} OpenCode saja"
+                echo -e "  ${MAGENTA}2)${RESET} Antigravity CLI (agy) saja"
+                echo -e "  ${CYAN}3)${RESET} Keduanya (Semua)"
+                echo -e "  ${YELLOW}0)${RESET} Batal"
+                read -r -p "Pilihan target [0-3]: " tog_tgt_pick
+                t_scope=""
+                case "$tog_tgt_pick" in
+                    1) t_scope="opencode" ;;
+                    2) t_scope="agy" ;;
+                    3) t_scope="all" ;;
+                    *) t_scope="" ;;
+                esac
+                if [ -n "$t_scope" ]; then
+                    res=$(run_python_helper "toggle" "$p_id" "$t_scope")
+                    log_ok "Status '$p_id' berhasil diubah: $res"
+                    sleep 1
+                fi
+                ;;
+            9)
+                echo ""
+                echo -e "${BOLD}${RED}Pilih Lingkup Penghapusan Provider '$p_id':${RESET}"
+                echo -e "  ${YELLOW}1)${RESET} Hapus dari OpenCode saja (Tetap ada di Antigravity agy)"
+                echo -e "  ${YELLOW}2)${RESET} Hapus dari Antigravity (agy) saja (Tetap ada di OpenCode)"
+                echo -e "  ${RED}3)${RESET} Hapus dari Keduanya / Seluruhnya (Hapus Total)"
+                echo -e "  ${GREEN}0)${RESET} Batal"
+                read -r -p "Pilihan penghapusan [0-3]: " del_pick
+                del_tgt=""
+                case "$del_pick" in
+                    1) del_tgt="opencode" ;;
+                    2) del_tgt="agy" ;;
+                    3) del_tgt="all" ;;
+                    *) del_tgt="" ;;
+                esac
+                if [ -n "$del_tgt" ]; then
+                    read -r -p "Yakin ingin menghapus provider '$p_id' [Target: $del_tgt]? (y/N): " c_del
+                    if [[ "$c_del" =~ ^[Yy]$ ]]; then
+                        res=$(run_python_helper "remove" "$p_id" "$del_tgt")
+                        log_ok "Provider '$p_id' berhasil dihapus [Target: $del_tgt]"
+                        sleep 1
+                        break
+                    fi
+                fi
+                ;;
             0)
                 break
                 ;;
@@ -1099,15 +1375,16 @@ wizard_menu() {
         echo -e "  ${GREEN}1)${RESET} Tambah / Perbarui API Key Provider (Quick Setup)"
         echo -e "  ${MAGENTA}2)${RESET} 🚀 Setup Provider Lanjutan (Target OpenCode/AGY, Base URL, Model, Mode)"
         echo -e "  ${CYAN}3)${RESET} ✏️  Edit / Ubah Konfigurasi Provider Terpasang"
-        echo -e "  ${CYAN}4)${RESET} Aktifkan / Nonaktifkan Provider (Enable / Disable)"
+        echo -e "  ${CYAN}4)${RESET} ⚡ Aktifkan / Nonaktifkan Provider (Enable / Disable per Target / Keduanya)"
         echo -e "  ${GREEN}5)${RESET} Pilih Default Model (OpenCode & Antigravity agy)"
         echo -e "  ${CYAN}6)${RESET} Uji Koneksi & Validasi API Key"
         echo -e "  ${CYAN}7)${RESET} Detail Lengkap Provider (Inspect Config & Parameter)"
         echo -e "  ${CYAN}8)${RESET} Sinkronkan ke Shell Environment (~/.termux_ai_env)"
-        echo -e "  ${RED}9)${RESET} Hapus API Key / Konfigurasi Provider"
+        echo -e "  ${RED}9)${RESET} 🗑️  Hapus API Key / Provider (OpenCode saja / AGY saja / Keduanya)"
+        echo -e "  ${BOLD}${CYAN}10)${RESET} 🔀 Atur Target Integrasi Provider (Terapkan ke OpenCode / AGY / Keduanya)"
         echo -e "  ${YELLOW}0)${RESET} Kembali / Keluar"
         echo ""
-        read -r -p "Pilihan Anda [0-9]: " menu_choice
+        read -r -p "Pilihan Anda [0-10]: " menu_choice
 
         case "$menu_choice" in
             1)
@@ -1444,25 +1721,53 @@ wizard_menu() {
                 esac
 
                 if [ -n "$target_prov" ]; then
-                    is_dis=$(run_python_helper "is_disabled" "$target_prov")
+                    local p_stat_info cur_st_oc cur_st_agy cur_tgt_info
+                    p_stat_info=$(run_python_helper "info" "$target_prov")
+                    cur_st_oc=$(echo "$p_stat_info" | grep "^STATUS_OPENCODE:" | cut -d':' -f2)
+                    cur_st_agy=$(echo "$p_stat_info" | grep "^STATUS_AGY:" | cut -d':' -f2)
+                    cur_tgt_info=$(echo "$p_stat_info" | grep "^TARGET:" | cut -d':' -f2)
+
                     echo ""
-                    if [ "$is_dis" = "1" ]; then
-                        echo -e "Status saat ini: ${RED}[ NONAKTIF ]${RESET}"
-                        read -r -p "Aktifkan kembali provider '$target_prov'? (Y/n): " confirm_act
-                        if [[ ! "$confirm_act" =~ ^[Nn]$ ]]; then
-                            res=$(run_python_helper "enable" "$target_prov")
-                            log_ok "Provider '$target_prov' berhasil diaktifkan kembali!"
-                        fi
-                    else
-                        echo -e "Status saat ini: ${GREEN}[ AKTIF / SIAP ]${RESET}"
-                        read -r -p "Nonaktifkan provider '$target_prov'? (y/N): " confirm_dis
-                        if [[ "$confirm_dis" =~ ^[Yy]$ ]]; then
-                            res=$(run_python_helper "disable" "$target_prov")
-                            log_ok "Provider '$target_prov' berhasil dinonaktifkan."
-                            cur_mod=$(run_python_helper "model")
-                            if [[ "$cur_mod" == "$target_prov/"* ]]; then
-                                log_warn "Perhatian: Model default aktif OpenCode saat ini ($cur_mod) menggunakan provider '$target_prov'."
-                                log_warn "Disarankan untuk mengganti default model melalui Menu 5."
+                    echo -e "${BOLD}Status Provider '$target_prov' (Target saat ini: ${CYAN}${cur_tgt_info}${RESET}):${RESET}"
+                    echo -e "  • OpenCode (v1/v2)       : ${cur_st_oc:-BELUM_DIATUR}"
+                    echo -e "  • Antigravity CLI (agy)  : ${cur_st_agy:-BELUM_DIATUR}"
+                    echo ""
+                    echo -e "${BOLD}Pilih Lingkup Aksi Status:${RESET}"
+                    echo -e "  ${GREEN}1)${RESET} OpenCode saja"
+                    echo -e "  ${MAGENTA}2)${RESET} Antigravity CLI (agy) saja"
+                    echo -e "  ${CYAN}3)${RESET} Keduanya (Universal)"
+                    echo -e "  ${YELLOW}0)${RESET} Batal"
+                    read -r -p "Pilihan lingkup [0-3, default 3]: " l_choice
+                    target_scope="all"
+                    case "$l_choice" in
+                        1) target_scope="opencode" ;;
+                        2) target_scope="agy" ;;
+                        3) target_scope="all" ;;
+                        0) target_scope="" ;;
+                        *) target_scope="all" ;;
+                    esac
+
+                    if [ -n "$target_scope" ]; then
+                        is_dis=$(run_python_helper "is_disabled" "$target_prov" "$target_scope")
+                        echo ""
+                        if [ "$is_dis" = "1" ]; then
+                            echo -e "Status [$target_scope]: ${RED}[ NONAKTIF ]${RESET}"
+                            read -r -p "Aktifkan provider '$target_prov' untuk [$target_scope]? (Y/n): " confirm_act
+                            if [[ ! "$confirm_act" =~ ^[Nn]$ ]]; then
+                                res=$(run_python_helper "enable" "$target_prov" "$target_scope")
+                                log_ok "Provider '$target_prov' berhasil diaktifkan [Target: $target_scope]!"
+                            fi
+                        else
+                            echo -e "Status [$target_scope]: ${GREEN}[ AKTIF / SIAP ]${RESET}"
+                            read -r -p "Nonaktifkan provider '$target_prov' untuk [$target_scope]? (y/N): " confirm_dis
+                            if [[ "$confirm_dis" =~ ^[Yy]$ ]]; then
+                                res=$(run_python_helper "disable" "$target_prov" "$target_scope")
+                                log_ok "Provider '$target_prov' berhasil dinonaktifkan [Target: $target_scope]."
+                                cur_mod=$(run_python_helper "model")
+                                if [[ "$cur_mod" == "$target_prov/"* ]] && [ "$target_scope" != "agy" ]; then
+                                    log_warn "Perhatian: Model default aktif OpenCode saat ini ($cur_mod) menggunakan provider '$target_prov'."
+                                    log_warn "Disarankan untuk mengganti default model melalui Menu 5."
+                                fi
                             fi
                         fi
                     fi
@@ -1582,18 +1887,96 @@ wizard_menu() {
                 read -r -p "Masukkan nama provider yang ingin dihapus (contoh: openai): " del_prov
                 del_prov=$(echo "$del_prov" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_-')
                 if [ -n "$del_prov" ]; then
-                    read -r -p "Apakah Anda yakin ingin menghapus konfigurasi provider '$del_prov'? (y/N): " confirm_del
-                    if [[ "$confirm_del" =~ ^[Yy]$ ]]; then
-                        res=$(run_python_helper "remove" "$del_prov")
-                        if [[ "$res" == DELETED:* ]]; then
-                            log_ok "Provider '$del_prov' berhasil dihapus dari sistem (auth.json, opencode.jsonc, settings.json)"
-                        else
-                            log_warn "Provider '$del_prov' tidak ditemukan dalam sistem"
+                    local p_del_info cur_del_target
+                    p_del_info=$(run_python_helper "info" "$del_prov")
+                    cur_del_target=$(echo "$p_del_info" | grep "^TARGET:" | cut -d':' -f2)
+                    echo ""
+                    echo -e "${BOLD}Target integrasi saat ini untuk '$del_prov': ${CYAN}${cur_del_target:-Universal}${RESET}"
+                    echo -e "${BOLD}Pilih Lingkup Penghapusan Provider:${RESET}"
+                    echo -e "  ${YELLOW}1)${RESET} Hapus dari OpenCode saja (Tetap ada di Antigravity agy)"
+                    echo -e "  ${YELLOW}2)${RESET} Hapus dari Antigravity (agy) saja (Tetap ada di OpenCode)"
+                    echo -e "  ${RED}3)${RESET} Hapus dari Keduanya / Seluruhnya (Hapus Total)"
+                    echo -e "  ${GREEN}0)${RESET} Batal"
+                    read -r -p "Pilihan penghapusan [0-3, default 3]: " del_scope_pick
+                    del_scope="all"
+                    case "$del_scope_pick" in
+                        1) del_scope="opencode" ;;
+                        2) del_scope="agy" ;;
+                        3) del_scope="all" ;;
+                        0) del_scope="" ;;
+                        *) del_scope="all" ;;
+                    esac
+                    if [ -n "$del_scope" ]; then
+                        read -r -p "Apakah Anda yakin ingin menghapus provider '$del_prov' [Lingkup: $del_scope]? (y/N): " confirm_del
+                        if [[ "$confirm_del" =~ ^[Yy]$ ]]; then
+                            res=$(run_python_helper "remove" "$del_prov" "$del_scope")
+                            if [[ "$res" == DELETED:* ]]; then
+                                log_ok "Provider '$del_prov' berhasil dihapus [Target: $del_scope]"
+                            else
+                                log_warn "Provider '$del_prov' tidak ditemukan dalam sistem"
+                            fi
                         fi
                     fi
                 fi
                 echo ""
                 read -r -p "Tekan ENTER untuk kembali..." _
+                ;;
+
+            10)
+                echo ""
+                echo -e "${BOLD}${CYAN}======================================================================${RESET}"
+                echo -e "${BOLD}     🔀 Atur Target Integrasi Provider (OpenCode / AGY / Keduanya)    ${RESET}"
+                echo -e "${BOLD}${CYAN}======================================================================${RESET}"
+                echo ""
+                cfg_list=$(run_python_helper "configured-list")
+                if [ -z "$cfg_list" ]; then
+                    log_warn "Belum ada provider yang terkonfigurasi. Tambah provider terlebih dahulu via Menu 1 atau 2."
+                    read -r -p "Tekan ENTER untuk kembali..." _
+                    continue
+                fi
+                echo -e "${BOLD}Pilih Provider yang ingin diatur target penerapannya:${RESET}"
+                i=1
+                declare -A tgt_prov_map
+                while IFS='|' read -r p_id p_name p_tgt p_mode p_model p_url; do
+                    [ -z "$p_id" ] && continue
+                    tgt_prov_map[$i]="$p_id"
+                    echo -e "  ${GREEN}$i)${RESET} ${BOLD}$p_id${RESET} ($p_name) - Target saat ini: ${CYAN}$p_tgt${RESET}"
+                    i=$((i + 1))
+                done <<< "$cfg_list"
+                echo -e "  ${CYAN}C)${RESET} Masukkan ID Provider Kustom Lainnya"
+                echo -e "  ${YELLOW}0)${RESET} Batal"
+                echo ""
+                read -r -p "Pilihan Anda [0-$((i-1)) / C]: " t_pick
+                sel_tgt_prov=""
+                if [[ "$t_pick" =~ ^[0-9]+$ ]] && [ "$t_pick" -gt 0 ] && [ "$t_pick" -lt "$i" ]; then
+                    sel_tgt_prov="${tgt_prov_map[$t_pick]}"
+                elif [[ "$t_pick" =~ ^[Cc]$ ]]; then
+                    read -r -p "Masukkan ID provider: " sel_tgt_prov
+                    sel_tgt_prov=$(echo "$sel_tgt_prov" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_-')
+                fi
+
+                if [ -n "$sel_tgt_prov" ]; then
+                    echo ""
+                    echo -e "${BOLD}Pilih Target Integrasi Baru untuk '$sel_tgt_prov':${RESET}"
+                    echo -e "  ${GREEN}1)${RESET} OpenCode saja (v1 & v2)      (Terapkan ke ~/.config/opencode, hapus dari agy)"
+                    echo -e "  ${MAGENTA}2)${RESET} Antigravity CLI saja (agy)   (Terapkan ke ~/.gemini/antigravity-cli, hapus dari opencode)"
+                    echo -e "  ${CYAN}3)${RESET} Keduanya / Universal         (Disinkronkan ke OpenCode & agy)"
+                    echo -e "  ${YELLOW}0)${RESET} Batal"
+                    read -r -p "Pilihan target baru [0-3]: " n_tgt_choice
+                    n_tgt=""
+                    case "$n_tgt_choice" in
+                        1) n_tgt="opencode" ;;
+                        2) n_tgt="agy" ;;
+                        3) n_tgt="all" ;;
+                        *) n_tgt="" ;;
+                    esac
+                    if [ -n "$n_tgt" ]; then
+                        run_python_helper "target" "$sel_tgt_prov" "$n_tgt" >/dev/null
+                        log_ok "Target integrasi untuk '$sel_tgt_prov' berhasil diatur ke '$n_tgt'!"
+                    fi
+                    echo ""
+                    read -r -p "Tekan ENTER untuk kembali..." _
+                fi
                 ;;
 
             0)
@@ -1702,14 +2085,32 @@ case "$1" in
             exit 1
         fi
         ;;
-    enable)
-        if [ -z "$2" ]; then
-            log_err "Penggunaan: config.sh enable <provider>"
+    target|set-target)
+        # Usage: config.sh target <provider> <opencode|agy|all>
+        if [ -z "$2" ] || [ -z "$3" ]; then
+            log_err "Penggunaan: config.sh target <provider> <opencode|agy|all>"
             exit 1
         fi
-        res=$(run_python_helper "enable" "$2")
+        res=$(run_python_helper "target" "$2" "$3")
+        if [[ "$res" == TARGET_SET:* ]]; then
+            p_tgt=$(echo "$res" | cut -d':' -f3)
+            log_ok "Target integrasi provider '$2' berhasil diatur ke '$p_tgt'"
+        else
+            log_err "Gagal mengatur target: $res"
+            exit 1
+        fi
+        ;;
+    enable)
+        if [ -z "$2" ]; then
+            log_err "Penggunaan: config.sh enable <provider> [opencode|agy|all]"
+            exit 1
+        fi
+        target="${3:-}"
+        res=$(run_python_helper "enable" "$2" "$target")
         if [[ "$res" == ENABLED:* ]]; then
-            log_ok "Provider '${res#ENABLED:}' berhasil diaktifkan"
+            p_name=$(echo "$res" | cut -d':' -f2)
+            p_tgt=$(echo "$res" | cut -d':' -f3)
+            log_ok "Provider '$p_name' berhasil diaktifkan [Target: ${p_tgt:-all}]"
         elif [[ "$res" == ALREADY_ENABLED:* ]]; then
             log_info "Provider '${res#ALREADY_ENABLED:}' sudah dalam status AKTIF"
         else
@@ -1719,12 +2120,15 @@ case "$1" in
         ;;
     disable)
         if [ -z "$2" ]; then
-            log_err "Penggunaan: config.sh disable <provider>"
+            log_err "Penggunaan: config.sh disable <provider> [opencode|agy|all]"
             exit 1
         fi
-        res=$(run_python_helper "disable" "$2")
+        target="${3:-}"
+        res=$(run_python_helper "disable" "$2" "$target")
         if [[ "$res" == DISABLED:* ]]; then
-            log_ok "Provider '${res#DISABLED:}' berhasil dinonaktifkan"
+            p_name=$(echo "$res" | cut -d':' -f2)
+            p_tgt=$(echo "$res" | cut -d':' -f3)
+            log_ok "Provider '$p_name' berhasil dinonaktifkan [Target: ${p_tgt:-all}]"
         elif [[ "$res" == ALREADY_DISABLED:* ]]; then
             log_info "Provider '${res#ALREADY_DISABLED:}' sudah dalam status NONAKTIF"
         else
@@ -1734,23 +2138,35 @@ case "$1" in
         ;;
     toggle)
         if [ -z "$2" ]; then
-            log_err "Penggunaan: config.sh toggle <provider>"
+            log_err "Penggunaan: config.sh toggle <provider> [opencode|agy|all]"
             exit 1
         fi
-        res=$(run_python_helper "toggle" "$2")
+        target="${3:-}"
+        res=$(run_python_helper "toggle" "$2" "$target")
         if [[ "$res" == ENABLED:* ]]; then
-            log_ok "Provider '${res#ENABLED:}' diaktifkan"
+            p_name=$(echo "$res" | cut -d':' -f2)
+            p_tgt=$(echo "$res" | cut -d':' -f3)
+            log_ok "Provider '$p_name' diaktifkan [Target: ${p_tgt:-all}]"
         elif [[ "$res" == DISABLED:* ]]; then
-            log_ok "Provider '${res#DISABLED:}' dinonaktifkan"
+            p_name=$(echo "$res" | cut -d':' -f2)
+            p_tgt=$(echo "$res" | cut -d':' -f3)
+            log_ok "Provider '$p_name' dinonaktifkan [Target: ${p_tgt:-all}]"
         else
             log_err "Gagal: $res"
             exit 1
         fi
         ;;
     remove|del|rm)
-        res=$(run_python_helper "remove" "$2")
+        if [ -z "$2" ]; then
+            log_err "Penggunaan: config.sh remove <provider> [opencode|agy|all]"
+            exit 1
+        fi
+        target="${3:-all}"
+        res=$(run_python_helper "remove" "$2" "$target")
         if [[ "$res" == DELETED:* ]]; then
-            log_ok "Provider '$2' berhasil dihapus"
+            p_name=$(echo "$res" | cut -d':' -f2)
+            p_tgt=$(echo "$res" | cut -d':' -f3)
+            log_ok "Provider '$p_name' berhasil dihapus [Target: ${p_tgt:-all}]"
         else
             log_warn "Provider '$2' tidak ditemukan"
         fi
@@ -1788,15 +2204,22 @@ case "$1" in
         echo "  bash config.sh info <provider>     Tampilkan detail lengkap endpoint & mode provider"
         echo "  bash config.sh set <provider> <key> [target] [baseURL] [model] [apiMode]"
         echo "                                     Simpan API key dan konfigurasi lanjutan"
+        echo "  bash config.sh target <provider> <opencode|agy|all>"
+        echo "                                     Terapkan provider ke OpenCode aja, AGY aja, atau keduanya"
         echo "  bash config.sh edit <provider> [target] [baseURL] [model] [apiMode] [key]"
         echo "                                     Edit konfigurasi provider yang terpasang"
         echo "  bash config.sh edit-field <provider> <target|baseurl|model|mode|key> <val>"
         echo "                                     Edit nilai spesifik parameter provider"
-        echo "  bash config.sh get <provider>      Tampilkan masked key provider"
-        echo "  bash config.sh enable <provider>   Aktifkan provider (hapus dari disabled_providers)"
-        echo "  bash config.sh disable <provider>  Nonaktifkan provider (tambahkan ke disabled_providers)"
-        echo "  bash config.sh toggle <provider>   Beralih status aktif/nonaktif provider"
-        echo "  bash config.sh remove <provider>   Hapus konfigurasi provider dari sistem"
+        echo "  bash config.sh get <provider> [target]"
+        echo "                                     Tampilkan masked key provider"
+        echo "  bash config.sh enable <provider> [opencode|agy|all]"
+        echo "                                     Aktifkan provider (spesifik OpenCode, AGY, atau keduanya)"
+        echo "  bash config.sh disable <provider> [opencode|agy|all]"
+        echo "                                     Nonaktifkan provider (spesifik OpenCode, AGY, atau keduanya)"
+        echo "  bash config.sh toggle <provider> [opencode|agy|all]"
+        echo "                                     Beralih status aktif/nonaktif provider pada target"
+        echo "  bash config.sh remove <provider> [opencode|agy|all]"
+        echo "                                     Hapus provider dari OpenCode saja, AGY saja, atau keduanya"
         echo "  bash config.sh model [model_id]    Tampilkan atau set default model OpenCode"
         echo "  bash config.sh model-agy [model_id]Tampilkan atau set default model Antigravity (agy)"
         echo "  bash config.sh sync-env            Sinkronkan key & endpoint ke ~/.termux_ai_env"

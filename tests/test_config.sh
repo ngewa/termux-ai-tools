@@ -137,8 +137,49 @@ assert_output_contains "Verifikasi model Antigravity agy" "Gemini 3.8 Pro" "$CON
 # Restore model agy
 "$CONFIG_BIN" model-agy "Gemini 3.8 Flash (Medium)" >/dev/null 2>&1
 
-# Test 11: Cleanup & Remove
-echo -e "\n${BOLD}11. Pembersihan Kredensial Pengujian:${RESET}"
+# Test 11: Pengaturan Target Integrasi Spesifik (opencode, agy, all)
+echo -e "\n${BOLD}11. Pengaturan Target Integrasi Spesifik (opencode, agy, all):${RESET}"
+TGT_PROV="mistral"
+TGT_KEY="sk-mistral-target-test-12345678"
+assert_output_contains "Set provider $TGT_PROV dengan target all" "disimpan" "$CONFIG_BIN" set "$TGT_PROV" "$TGT_KEY" "all"
+assert_output_contains "Info $TGT_PROV menampilkan TARGET:all" "TARGET:all" "$CONFIG_BIN" info "$TGT_PROV"
+
+assert_output_contains "Ubah target $TGT_PROV ke opencode saja" "berhasil diatur ke 'opencode'" "$CONFIG_BIN" target "$TGT_PROV" "opencode"
+assert_output_contains "Info $TGT_PROV menampilkan TARGET:opencode" "TARGET:opencode" "$CONFIG_BIN" info "$TGT_PROV"
+
+assert_output_contains "Ubah target $TGT_PROV ke agy saja" "berhasil diatur ke 'agy'" "$CONFIG_BIN" target "$TGT_PROV" "agy"
+assert_output_contains "Info $TGT_PROV menampilkan TARGET:agy" "TARGET:agy" "$CONFIG_BIN" info "$TGT_PROV"
+
+assert_output_contains "Ubah target $TGT_PROV kembali ke all" "berhasil diatur ke 'all'" "$CONFIG_BIN" target "$TGT_PROV" "all"
+assert_output_contains "Info $TGT_PROV kembali TARGET:all" "TARGET:all" "$CONFIG_BIN" info "$TGT_PROV"
+
+# Test 12: Fitur Enable / Disable Berdasarkan Target (Per-Target Status)
+echo -e "\n${BOLD}12. Fitur Enable / Disable Berdasarkan Target (Per-Target Status):${RESET}"
+assert_output_contains "Disable $TGT_PROV di OpenCode saja" "berhasil dinonaktifkan [Target: opencode]" "$CONFIG_BIN" disable "$TGT_PROV" "opencode"
+assert_output_contains "Info STATUS_OPENCODE adalah NONAKTIF" "STATUS_OPENCODE:NONAKTIF" "$CONFIG_BIN" info "$TGT_PROV"
+assert_output_contains "Info STATUS_AGY tetap AKTIF" "STATUS_AGY:AKTIF" "$CONFIG_BIN" info "$TGT_PROV"
+
+assert_output_contains "Enable $TGT_PROV di OpenCode saja" "berhasil diaktifkan [Target: opencode]" "$CONFIG_BIN" enable "$TGT_PROV" "opencode"
+assert_output_contains "Info STATUS_OPENCODE kembali AKTIF" "STATUS_OPENCODE:AKTIF" "$CONFIG_BIN" info "$TGT_PROV"
+
+assert_output_contains "Disable $TGT_PROV di AGY saja" "berhasil dinonaktifkan [Target: agy]" "$CONFIG_BIN" disable "$TGT_PROV" "agy"
+assert_output_contains "Info STATUS_AGY adalah NONAKTIF" "STATUS_AGY:NONAKTIF" "$CONFIG_BIN" info "$TGT_PROV"
+assert_output_contains "Info STATUS_OPENCODE tetap AKTIF" "STATUS_OPENCODE:AKTIF" "$CONFIG_BIN" info "$TGT_PROV"
+
+assert_output_contains "Enable $TGT_PROV di AGY saja" "berhasil diaktifkan [Target: agy]" "$CONFIG_BIN" enable "$TGT_PROV" "agy"
+assert_output_contains "Info STATUS_AGY kembali AKTIF" "STATUS_AGY:AKTIF" "$CONFIG_BIN" info "$TGT_PROV"
+
+# Test 13: Fitur Hapus Provider Parsial Berdasarkan Target (Per-Target Remove)
+echo -e "\n${BOLD}13. Fitur Hapus Provider Parsial Berdasarkan Target (Per-Target Remove):${RESET}"
+assert_output_contains "Hapus $TGT_PROV dari OpenCode saja" "berhasil dihapus [Target: opencode]" "$CONFIG_BIN" remove "$TGT_PROV" "opencode"
+assert_output_contains "Info $TGT_PROV berubah target ke agy" "TARGET:agy" "$CONFIG_BIN" info "$TGT_PROV"
+assert_output_contains "Status AGY masih AKTIF" "STATUS_AGY:AKTIF" "$CONFIG_BIN" info "$TGT_PROV"
+
+assert_output_contains "Hapus $TGT_PROV dari AGY" "berhasil dihapus [Target: agy]" "$CONFIG_BIN" remove "$TGT_PROV" "agy"
+assert_output_contains "Status $TGT_PROV kembali BELUM" "[ BELUM ]" "$CONFIG_BIN" list
+
+# Test 14: Cleanup & Remove
+echo -e "\n${BOLD}14. Pembersihan Kredensial Pengujian:${RESET}"
 assert_output_contains "Hapus kredensial pengujian $TEST_PROV" "dihapus" "$CONFIG_BIN" remove "$TEST_PROV"
 assert_output_contains "Hapus provider advanced $ADV_PROV" "dihapus" "$CONFIG_BIN" remove "$ADV_PROV"
 assert_output_contains "Status $TEST_PROV kembali BELUM" "[ BELUM ]" "$CONFIG_BIN" list
