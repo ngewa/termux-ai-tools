@@ -72,26 +72,65 @@ PRESETS = {
     "antislop": {
         "name": "antislop",
         "desc": "Anti-slop filters & code hygiene, eliminates generic AI boilerplate & fluff",
-        "url": "https://github.com/thevahidal/antislop.git",
-        "author": "thevahidal"
+        "url": "https://github.com/miqdadbadjuber/anti-slop.git",
+        "subpath": "skills/antislop",
+        "author": "miqdadbadjuber"
+    },
+    "antislop-ui": {
+        "name": "antislop-ui",
+        "desc": "UI & visual design filter for antislop: restraint, contrast, bespoke layouts",
+        "url": "https://github.com/miqdadbadjuber/anti-slop.git",
+        "subpath": "skills/antislop-ui",
+        "author": "miqdadbadjuber"
+    },
+    "antislop-code": {
+        "name": "antislop-code",
+        "desc": "Code comment hygiene for antislop: remove generic filler comments, preserve code",
+        "url": "https://github.com/miqdadbadjuber/anti-slop.git",
+        "subpath": "skills/antislop-code",
+        "author": "miqdadbadjuber"
+    },
+    "antislop-copywriting": {
+        "name": "antislop-copywriting",
+        "desc": "Copy and text filter for antislop: clear, concise, no AI hype or emoji spam",
+        "url": "https://github.com/miqdadbadjuber/anti-slop.git",
+        "subpath": "skills/antislop-copywriting",
+        "author": "miqdadbadjuber"
+    },
+    "antislop-human": {
+        "name": "antislop-human",
+        "desc": "Human & accessibility filter for antislop: contrast checker, keyboard, focus, states",
+        "url": "https://github.com/miqdadbadjuber/anti-slop.git",
+        "subpath": "skills/antislop-human",
+        "author": "miqdadbadjuber"
+    },
+    "antislop-layoutmobile": {
+        "name": "antislop-layoutmobile",
+        "desc": "Mobile layout & responsive rules for antislop: reflow, grids, tap targets",
+        "url": "https://github.com/miqdadbadjuber/anti-slop.git",
+        "subpath": "skills/antislop-layoutmobile",
+        "author": "miqdadbadjuber"
     },
     "ui-ux-pro-max": {
         "name": "ui-ux-pro-max",
         "desc": "UI/UX design intelligence, design tokens, 192 product palettes, responsive layouts",
-        "url": "https://github.com/nextlevelcoder/ui-ux-pro-max.git",
-        "author": "nextlevelcoder"
+        "url": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git",
+        "subpath": ".claude/skills/ui-ux-pro-max",
+        "author": "nextlevelbuilder"
     },
     "banner-design": {
         "name": "banner-design",
         "desc": "Design banners for ads, social media, web heroes, and creative marketing assets",
-        "url": "https://github.com/nextlevelcoder/banner-design.git",
-        "author": "nextlevelcoder"
+        "url": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git",
+        "subpath": ".claude/skills/banner-design",
+        "author": "nextlevelbuilder"
     },
     "code-review-graph": {
         "name": "code-review-graph",
         "desc": "Knowledge graph assisted code exploration, blast radius analysis & reviews",
-        "url": "https://github.com/raghavdua/code-review-graph.git",
-        "author": "raghavdua"
+        "url": "https://github.com/tirth8205/code-review-graph.git",
+        "subpath": "skills/explore-codebase",
+        "author": "tirth8205"
     }
 }
 
@@ -758,6 +797,46 @@ def action_install(target_arg, dest_type="universal"):
         print("\033[31m[ERROR]\033[0m Harap masukkan nama preset, skill Claude, atau URL Git repo.")
         sys.exit(1)
 
+    # Alias normalization
+    if target_arg in ("anti-slop", "antislop-core"):
+        target_arg = "antislop"
+
+    # Paket lengkap antislop-all
+    if target_arg in ("antislop-all", "anti-slop-all"):
+        skills_to_install = [
+            "antislop", "antislop-ui", "antislop-code",
+            "antislop-copywriting", "antislop-human", "antislop-layoutmobile"
+        ]
+        print(f"\033[36m[INFO]\033[0m Mengunduh paket lengkap Antislop (6 skills) dari https://github.com/miqdadbadjuber/anti-slop.git...")
+        tmp_dest = os.path.join(HOME, ".agents", "tmp-antislop-bundle")
+        if os.path.exists(tmp_dest):
+            shutil.rmtree(tmp_dest)
+        try:
+            subprocess.check_call(["git", "clone", "--depth", "1", "https://github.com/miqdadbadjuber/anti-slop.git", tmp_dest])
+        except subprocess.CalledProcessError as e:
+            print(f"\033[31m[ERROR]\033[0m Gagal melakukan git clone: {e}")
+            if os.path.exists(tmp_dest):
+                shutil.rmtree(tmp_dest)
+            sys.exit(1)
+
+        dest_base = resolve_dest_base(dest_type)
+        os.makedirs(dest_base, exist_ok=True)
+        installed_any = False
+        for sk in skills_to_install:
+            s_src = os.path.join(tmp_dest, "skills", sk)
+            s_dst = os.path.join(dest_base, sk)
+            if os.path.isdir(s_src):
+                if os.path.exists(s_dst):
+                    shutil.rmtree(s_dst)
+                shutil.copytree(s_src, s_dst)
+                print(f"  \033[32m[OK]\033[0m Skill '\033[1m{sk}\033[0m' terpasang di \033[36m{s_dst}\033[0m")
+                installed_any = True
+        if os.path.exists(tmp_dest):
+            shutil.rmtree(tmp_dest)
+        if installed_any:
+            print(f"\033[32m[OK]\033[0m Seluruh paket Antislop berhasil dipasang ke \033[36m{dest_base}\033[0m!")
+        return
+
     # Cek jika target adalah skill resmi Claude
     if target_arg in CLAUDE_OFFICIAL_SKILLS or target_arg.startswith("claude:"):
         install_claude_skill(target_arg, dest_type)
@@ -837,13 +916,27 @@ def action_install(target_arg, dest_type="universal"):
     if not meta.get("file"):
         # Check subdirectories (some repos put skills in a subfolder)
         found_sub = None
-        for root, dirs, files in os.walk(tmp_dest):
-            for f in files:
-                if f in ["SKILL.md", "skill.md"]:
+        preset_subpath = PRESETS.get(target_arg, {}).get("subpath")
+        if preset_subpath:
+            cand = os.path.join(tmp_dest, preset_subpath)
+            if os.path.isdir(cand) and any(os.path.isfile(os.path.join(cand, f)) for f in ["SKILL.md", "skill.md"]):
+                found_sub = cand
+
+        if not found_sub:
+            # First pass: check if any subfolder name matches skill_name exactly
+            for root, dirs, files in os.walk(tmp_dest):
+                if any(f in ["SKILL.md", "skill.md"] for f in files):
+                    if os.path.basename(root).lower() == skill_name.lower():
+                        found_sub = root
+                        break
+
+        if not found_sub:
+            # Second pass: first subfolder with SKILL.md
+            for root, dirs, files in os.walk(tmp_dest):
+                if any(f in ["SKILL.md", "skill.md"] for f in files):
                     found_sub = root
                     break
-            if found_sub:
-                break
+
         if found_sub and found_sub != tmp_dest:
             print(f"\033[36m[INFO]\033[0m SKILL.md ditemukan di subdirektori: {os.path.relpath(found_sub, tmp_dest)}")
             shutil.move(found_sub, dest_dir)
@@ -859,6 +952,10 @@ def action_install(target_arg, dest_type="universal"):
     meta = parse_frontmatter(dest_dir)
     if meta.get("description"):
         print(f"      Deskripsi: {meta['description']}")
+    if skill_name == "antislop":
+        print(f"      \033[33m[TIP]\033[0m Skill pelengkap antislop: antislop-ui, antislop-code, antislop-copywriting,")
+        print(f"            antislop-human, antislop-layoutmobile.")
+        print(f"            Pasang sekaligus: \033[1m\033[32maiskill install antislop-all\033[0m")
 
 # ------------------------------------------------------------------------------
 # Action: REMOVE
@@ -942,6 +1039,14 @@ def action_update(skill_id=None):
                 updated_count += 1
             except subprocess.CalledProcessError as e:
                 print(f"  \033[31m-> Gagal git pull: {e.output.strip()}\033[0m")
+        elif s["id"] in PRESETS:
+            print(f"\033[36m[INFO]\033[0m Memperbarui preset skill '{s['id']}' dari {PRESETS[s['id']]['url']}...")
+            try:
+                shutil.rmtree(s["dir"])
+                action_install(s["id"])
+                updated_count += 1
+            except Exception as e:
+                print(f"  \033[31m-> Gagal update preset: {e}\033[0m")
         else:
             if skill_id:
                 print(f"\033[33m[WARN]\033[0m Skill '{s['id']}' bukan repository Git (instalasi manual).")

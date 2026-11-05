@@ -71,6 +71,7 @@ echo -e "\n${BOLD}2. Pemeriksaan Status & Katalog Preset:${RESET}"
 assert_output_contains "skill.sh list menampilkan header status" "STATUS AI AGENT SKILLS TERPASANG" "$SKILL_BIN" list
 assert_output_contains "skill.sh presets menampilkan prompt-master" "prompt-master" "$SKILL_BIN" presets
 assert_output_contains "skill.sh presets menampilkan antislop" "antislop" "$SKILL_BIN" presets
+assert_output_contains "skill.sh presets menampilkan author miqdadbadjuber" "miqdadbadjuber" "$SKILL_BIN" presets
 
 # Test 3: Create, Info, & Inspect
 echo -e "\n${BOLD}3. Pembuatan & Inspeksi Skill Baru:${RESET}"
