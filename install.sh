@@ -233,7 +233,7 @@ case "$1" in
         bash "$s" "$@"
         ;;
     aswap|antigravity-swap|--aswap)
-        pip install --upgrade antigravity-swap
+        pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
         ;;
     service|web|--service)
         s=$(get_script "bin/service.sh")

@@ -1002,7 +1002,7 @@ interactive_menu() {
                 echo ""
                 if ! command -v aswap >/dev/null 2>&1; then
                     echo -e "${YELLOW}[WARN] antigravity-swap (aswap) belum terpasang. Memasang...${RESET}"
-                    pip install --upgrade antigravity-swap
+                    pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
                 fi
                 echo -e "${BOLD}${CYAN}=== Menu Antigravity Swapper (aswap) ===${RESET}"
                 echo "1) aswap list   (Lihat semua akun & kuota 5h/7d)"
@@ -1091,42 +1091,42 @@ else
         aswap|swap)
             shift
             if ! command -v aswap >/dev/null 2>&1; then
-                pip install --upgrade antigravity-swap
+                pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
             fi
             exec aswap "$@"
             ;;
         agy-add)
             shift
             if ! command -v aswap >/dev/null 2>&1; then
-                pip install --upgrade antigravity-swap
+                pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
             fi
             exec aswap add "$@"
             ;;
         agy-switch)
             shift
             if ! command -v aswap >/dev/null 2>&1; then
-                pip install --upgrade antigravity-swap
+                pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
             fi
             exec aswap switch "$@"
             ;;
         agy-list|agy-ls)
             shift
             if ! command -v aswap >/dev/null 2>&1; then
-                pip install --upgrade antigravity-swap
+                pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
             fi
             exec aswap list "$@"
             ;;
         agy-watch)
             shift
             if ! command -v aswap >/dev/null 2>&1; then
-                pip install --upgrade antigravity-swap
+                pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
             fi
             exec aswap watch "$@"
             ;;
         agy-auto)
             shift
             if ! command -v aswap >/dev/null 2>&1; then
-                pip install --upgrade antigravity-swap
+                pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
             fi
             exec aswap auto "$@"
             ;;

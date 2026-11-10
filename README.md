@@ -275,7 +275,7 @@ account.sh restore <file.enc># Pulihkan kredensial akun dari berkas backup teren
 ```
 
 ##### 🪐 Integrasi Antigravity-Swap (`aswap`) untuk Antigravity CLI (`agy`)
-Dukungan bawaan untuk multi-account Google OAuth pada Antigravity CLI (`agy`) menggunakan [antigravity-swap](https://github.com/hrmasss/antigravity-swap):
+Dukungan bawaan untuk multi-account Google OAuth pada Antigravity CLI (`agy`) menggunakan [antigravity-swap](https://github.com/ngewa/antigravity-swap):
 ```bash
 ai aswap                     # Buka menu aswap (atau langsung ketik 'aswap')
 ai aswap list                # Lihat seluruh akun Google agy beserta kuota 5h/7d live (Claude/GPT & Gemini)

@@ -171,7 +171,7 @@ case "$1" in
             exec aswap "$@"
         else
             echo -e "${YELLOW}[WARN]${RESET} aswap belum terpasang. Menginstal via pip..."
-            pip install --upgrade antigravity-swap
+            pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
             exec aswap "$@"
         fi
         ;;
