@@ -38,7 +38,7 @@ echo -e "\n${BOLD}${CYAN}=== Termux AI Tools - Quick Launcher & Shortcuts Setup 
 AI_BIN="$PREFIX/bin/ai"
 if [ "$REMOVE_MODE" = "true" ]; then
     log_info "Menghapus perintah global 'ai' dan symlink..."
-    rm -f "$AI_BIN" "$PREFIX/bin/doctor.sh" "$PREFIX/bin/update.sh" "$PREFIX/bin/backup.sh" "$PREFIX/bin/service.sh" "$PREFIX/bin/config.sh" "$PREFIX/bin/aiconfig" "$PREFIX/bin/session.sh" "$PREFIX/bin/aisession" "$PREFIX/bin/plugin.sh" "$PREFIX/bin/aiplugin" "$PREFIX/bin/memory.sh" "$PREFIX/bin/aimem" "$PREFIX/bin/skill.sh" "$PREFIX/bin/aiskill" "$PREFIX/bin/agent.sh" "$PREFIX/bin/aiagent"
+    rm -f "$AI_BIN" "$PREFIX/bin/doctor.sh" "$PREFIX/bin/update.sh" "$PREFIX/bin/backup.sh" "$PREFIX/bin/service.sh" "$PREFIX/bin/config.sh" "$PREFIX/bin/aiconfig" "$PREFIX/bin/session.sh" "$PREFIX/bin/aisession" "$PREFIX/bin/plugin.sh" "$PREFIX/bin/aiplugin" "$PREFIX/bin/memory.sh" "$PREFIX/bin/aimem" "$PREFIX/bin/skill.sh" "$PREFIX/bin/aiskill" "$PREFIX/bin/agent.sh" "$PREFIX/bin/aiagent" "$PREFIX/bin/account.sh" "$PREFIX/bin/aiaccount"
     log_ok "Perintah global berhasil dibersihkan."
 else
     log_info "Memasang perintah global 'ai' ke $AI_BIN..."
@@ -69,8 +69,10 @@ else
         ln -sf "$REPO_DIR/skill.sh" "$PREFIX/bin/aiskill"
         ln -sf "$REPO_DIR/agent.sh" "$PREFIX/bin/agent.sh"
         ln -sf "$REPO_DIR/agent.sh" "$PREFIX/bin/aiagent"
+        ln -sf "$REPO_DIR/account.sh" "$PREFIX/bin/account.sh"
+        ln -sf "$REPO_DIR/account.sh" "$PREFIX/bin/aiaccount"
     fi
-    log_ok "Perintah 'ai', 'agent.sh', 'aiagent', 'skill.sh', 'aiskill', 'plugin.sh', 'session.sh', 'memory.sh', 'aimem', 'config.sh', 'doctor.sh', 'service.sh' kini dapat dijalankan dari terminal mana saja!"
+    log_ok "Perintah 'ai', 'account.sh', 'aiaccount', 'agent.sh', 'aiagent', 'skill.sh', 'aiskill', 'plugin.sh', 'session.sh', 'memory.sh', 'aimem', 'config.sh', 'doctor.sh', 'service.sh' kini dapat dijalankan dari terminal mana saja!"
 
 fi
 
@@ -104,9 +106,10 @@ alias aiplug="plugin.sh"
 alias aimem="memory.sh"
 alias aiskill="skill.sh"
 alias aiagent="agent.sh"
+alias aiacc="account.sh"
 $ALIAS_END
 EOF
-        log_ok "Alias ditambahkan ke $(basename "$rc_file") (oc, oc2, aidoc, aiup, aicfg, aisess, aiplug, aimem, aiskill, aiagent)"
+        log_ok "Alias ditambahkan ke $(basename "$rc_file") (oc, oc2, aidoc, aiup, aicfg, aisess, aiplug, aimem, aiskill, aiagent, aiacc)"
     fi
 }
 
@@ -214,9 +217,16 @@ EOF
 memory.sh
 EOF
 
+    # 13. AI Multi-Account & Quota Shortcut
+    cat > "$SHORTCUTS_DIR/AI-Account.sh" << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+account.sh
+EOF
+
     chmod +x "$SHORTCUTS_DIR"/*.sh
     log_ok "Shortcut Termux:Widget berhasil dibuat:"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Menu.sh${RESET}"
+    echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Account.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Web.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Config.sh${RESET}"
     echo -e "  • ${CYAN}$SHORTCUTS_DIR/AI-Session.sh${RESET}"

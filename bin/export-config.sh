@@ -130,6 +130,15 @@ if [ -d "$HOME_DIR/.agents" ]; then
     log_ok "Universal Agent Skills (~/.agents) berhasil dikemas."
 fi
 
+# 5. Backup Multi-Account Registry (~/.config/termux-ai)
+if [ -d "$HOME_DIR/.config/termux-ai" ]; then
+    log_info "Mengamankan Multi-Account Registry (~/.config/termux-ai)..."
+    mkdir -p "$STAGE_DIR/termux_ai"
+    tar -czf "$STAGE_DIR/termux_ai/termux_ai_config.tar.gz" -C "$HOME_DIR/.config" termux-ai 2>/dev/null || true
+    ITEMS_COUNT=$((ITEMS_COUNT + 1))
+    log_ok "Multi-Account Registry (accounts.json) berhasil dikemas."
+fi
+
 if [ "$ITEMS_COUNT" -eq 0 ]; then
     log_err "Tidak ada file konfigurasi yang ditemukan untuk diexport!"
     exit 1

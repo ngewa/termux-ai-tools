@@ -130,4 +130,16 @@ if [ -d "$STAGE_DIR/agents" ]; then
     log_ok "Universal Agent Skills (~/.agents) berhasil dipulihkan."
 fi
 
+# 5. Restore Multi-Account Registry (~/.config/termux-ai)
+if [ -d "$STAGE_DIR/termux_ai" ]; then
+    log_info "Memulihkan Multi-Account Registry (~/.config/termux-ai)..."
+    mkdir -p "$HOME_DIR/.config"
+    if [ -f "$STAGE_DIR/termux_ai/termux_ai_config.tar.gz" ]; then
+        tar -xzf "$STAGE_DIR/termux_ai/termux_ai_config.tar.gz" -C "$HOME_DIR/.config"
+        chmod 700 "$HOME_DIR/.config/termux-ai" 2>/dev/null || true
+        chmod 600 "$HOME_DIR/.config/termux-ai/accounts.json" 2>/dev/null || true
+    fi
+    log_ok "Multi-Account Registry (accounts.json) berhasil dipulihkan."
+fi
+
 echo -e "\n${BOLD}${GREEN}✅ Restore Berhasil! Semua pengaturan dan token telah dipulihkan.${RESET}\n"

@@ -155,6 +155,16 @@ case "$1" in
             exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/agent.sh | bash -s -- "$@"
         fi
         ;;
+    acc|account|auth)
+        shift
+        if [ -f "$TOOLS_DIR/account.sh" ]; then
+            exec bash "$TOOLS_DIR/account.sh" "$@"
+        elif [ -f "$TOOLS_DIR/bin/account-manager.sh" ]; then
+            exec bash "$TOOLS_DIR/bin/account-manager.sh" "$@"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/account.sh | bash -s -- "$@"
+        fi
+        ;;
     help|--help|-h)
         echo -e "${BOLD}${CYAN}AI Quick Launcher Usage:${RESET}"
         echo "  ai                  Buka menu interaktif pemilih AI"
@@ -167,6 +177,7 @@ case "$1" in
         echo "  ai plugin [args...] Pasang MCP servers & OpenCode plugins"
         echo "  ai skill [args...]  Kelola AI Agent Skills (Prompt Master, Antislop, UI/UX)"
         echo "  ai agent [args...]  Kelola AI Subagents & Personas (Roblox, Toolkit, Reverser)"
+        echo "  ai account [args...]Multi-account registry, quota 5h/mingguan, rotasi & backup"
         echo "  ai config [args...] Wizard pengaturan API key & default model"
         echo "  ai doctor           Jalankan pemeriksaan kesehatan sistem"
         echo "  ai update           Cek & update versi terbaru dari GitHub"
@@ -208,10 +219,11 @@ echo -e "  ${CYAN}12)${RESET} Knowledge Memory & AI Brain (Solusi terverifikasi 
 echo -e "  ${CYAN}13)${RESET} AI Agent Skills     (Prompt Master, Antislop, UI/UX Design)"
 echo -e "  ${CYAN}14)${RESET} AI Subagents & Personas (Roblox, Toolkit, Reverser)"
 echo -e "  ${CYAN}15)${RESET} Usage Statistics    (Token, request & statistik harian)"
-echo -e "  ${YELLOW}16)${RESET} Keluar"
+echo -e "  ${CYAN}16)${RESET} Multi-Account & Kuota (Akun Personal/Kerja, Quota 5h, Rotasi Otomatis)"
+echo -e "  ${YELLOW}17)${RESET} Keluar"
 echo ""
 
-read -r -p "Masukkan pilihan [1-16]: " choice
+read -r -p "Masukkan pilihan [1-17]: " choice
 
 case "$choice" in
     1)
@@ -320,6 +332,15 @@ case "$choice" in
             exec bash "$TOOLS_DIR/bin/usage-stats.sh"
         else
             exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/bin/usage-stats.sh | bash
+        fi
+        ;;
+    16)
+        if [ -f "$TOOLS_DIR/account.sh" ]; then
+            exec bash "$TOOLS_DIR/account.sh"
+        elif [ -f "$TOOLS_DIR/bin/account-manager.sh" ]; then
+            exec bash "$TOOLS_DIR/bin/account-manager.sh"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/account.sh | bash
         fi
         ;;
     *)

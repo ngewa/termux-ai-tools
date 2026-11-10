@@ -55,11 +55,12 @@ show_menu() {
     echo -e "  ${CYAN}13)${RESET} Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)"
     echo -e "  ${CYAN}14)${RESET} Restore Pengaturan dari File Backup"
     echo -e "  ${CYAN}15)${RESET} Manajemen Background Web Service (service.sh)"
-    echo -e "  ${GREEN}16)${RESET} Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)"
-    echo -e "  ${RED}17)${RESET} Uninstall Tools (Hapus biner / data)"
-    echo -e "  ${YELLOW}18)${RESET} Keluar"
+    echo -e "  ${CYAN}16)${RESET} Manajemen Multi-Akun & Kuota AI (account.sh)"
+    echo -e "  ${GREEN}17)${RESET} Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)"
+    echo -e "  ${RED}18)${RESET} Uninstall Tools (Hapus biner / data)"
+    echo -e "  ${YELLOW}19)${RESET} Keluar"
     echo ""
-    read -r -p "Pilihan Anda [1-18]: " opt
+    read -r -p "Pilihan Anda [1-19]: " opt
     case "$opt" in
         1)
             local s
@@ -142,15 +143,20 @@ show_menu() {
             ;;
         16)
             local s
-            s=$(get_script "bin/setup-shortcuts.sh")
+            s=$(get_script "bin/account-manager.sh")
             bash "$s"
             ;;
         17)
             local s
-            s=$(get_script "bin/uninstall.sh")
+            s=$(get_script "bin/setup-shortcuts.sh")
             bash "$s"
             ;;
         18)
+            local s
+            s=$(get_script "bin/uninstall.sh")
+            bash "$s"
+            ;;
+        19)
             echo "Keluar."
             exit 0
             ;;
@@ -218,6 +224,11 @@ case "$1" in
         ;;
     doctor|--doctor)
         s=$(get_script "bin/doctor.sh")
+        shift
+        bash "$s" "$@"
+        ;;
+    account|acc|auth|--account)
+        s=$(get_script "bin/account-manager.sh")
         shift
         bash "$s" "$@"
         ;;

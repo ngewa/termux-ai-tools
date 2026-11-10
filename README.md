@@ -74,6 +74,7 @@ Setelah menjalankan `./setup-shortcuts.sh`, alias berikut otomatis aktif di `~/.
 | `aimem` | `memory.sh` | Buka **Knowledge Memory & AI Brain** (Solusi terverifikasi & FTS5) |
 | `aiskill` | `skill.sh` | Buka **AI Agent Skill Manager** (Prompt Master, Antislop, UI/UX) |
 | `aiagent` | `agent.sh` | Buka **AI Persona & Subagent Manager** (Roblox, Toolkit, Reverser) |
+| `aiacc` | `account.sh` | Buka **Multi-Account & Quota Manager** (Personal/Work, Quota 5h, Rotasi) |
 | `ai usage` | `usage-stats.sh` | Tampilkan **Usage Statistics** token & request OpenCode + AGY |
 
 ---
@@ -93,6 +94,7 @@ ai memory [cmd] [args...]    # Akses Knowledge Memory, simpan solusi sesi & sear
 ai plugin [cmd] [args...]    # Kelola MCP servers dan OpenCode plugins
 ai skill [cmd] [args...]     # Kelola AI Agent Skills (daftar, pasang, toggle, update)
 ai agent [cmd] [args...]     # Kelola AI Subagents & Personas (daftar, create, sync, run)
+ai account [cmd] [args...]   # Multi-account registry, pantau kuota 5h, rotasi failover & backup
 ai config [cmd] [args...]    # Atur provider API key dan default model
 ai doctor [--fix]            # Periksa dan perbaiki kesehatan lingkungan sistem
 ai update                    # Cek versi terpasang vs rilis terbaru GitHub/npm
@@ -256,7 +258,23 @@ agent.sh remove <nama>       # Hapus persona dari sistem
 agent.sh doctor              # Audit kelengkapan YAML frontmatter & sinkronisasi silang
 ```
 
-#### J. 💾 Backup & Restore Pengaturan (`backup.sh`)
+#### J. 🔐 Multi-Account, Quota & Rotation Manager (`account.sh` / `aiacc` / `ai account`)
+```bash
+account.sh                   # Menu interaktif TUI Multi-Account & Quota Manager
+account.sh list              # Daftar semua profil akun terdaftar & indikator status aktif
+account.sh current           # Tampilkan metadata dan kredensial profil akun aktif
+account.sh switch <nama>     # Beralih akun aktif secara instan (swap auth.json, config & env)
+account.sh add <nama> [desc] # Daftarkan profil akun baru (personal, work, testing)
+account.sh set-key <p> <k>   # Simpan API key & target platform ke profil tertentu
+account.sh remove <nama>     # Hapus profil akun dari registry
+account.sh quota [--all]     # Pantau kuota live (jendela rolling 5 jam, mingguan, reset harian 00:00 UTC)
+account.sh rotate            # Putar otomatis ke profil berikutnya di pool failover
+account.sh pool [set p1,p2]  # Konfigurasi urutan pool rotasi otomatis saat limit tercapai
+account.sh backup [file.enc] # Snapshot kredensial terenkripsi AES-256 (PBKDF2 100k + SHA256)
+account.sh restore <file.enc># Pulihkan kredensial akun dari berkas backup terenkripsi
+```
+
+#### K. 💾 Backup & Restore Pengaturan (`backup.sh`)
 ```bash
 backup.sh                    # Menu interaktif Backup & Restore
 backup.sh export             # Ekspor konfigurasi, token OAuth, memory.db, dan skills ke tar.gz (~3MB)
@@ -264,13 +282,13 @@ backup.sh export --full      # Ekspor lengkap termasuk seluruh riwayat percakapa
 backup.sh restore <file>     # Pulihkan konfigurasi & memory.db dari file backup .tar.gz
 ```
 
-#### K. 🚀 Setup Shortcuts & Widget (`setup-shortcuts.sh`)
+#### L. 🚀 Setup Shortcuts & Widget (`setup-shortcuts.sh`)
 ```bash
 setup-shortcuts.sh           # Pasang perintah 'ai', shell aliases, dan Termux:Widget
 setup-shortcuts.sh --remove  # Bersihkan semua shortcut dan alias dari sistem
 ```
 
-#### L. 🗑️ Uninstaller (`uninstall.sh`)
+#### M. 🗑️ Uninstaller (`uninstall.sh`)
 ```bash
 uninstall.sh                 # Menu interaktif penghapusan tools
 uninstall.sh opencode        # Hapus binary wrapper OpenCode v1
@@ -292,6 +310,7 @@ Bagi pengguna aplikasi **Termux:Widget** dari F-Droid, shortcut sekali-ketuk ber
 - 🧩 **`AI-Plugin.sh`** : Membuka installer plugin & MCP tool
 - 🎯 **`AI-Skill.sh`**  : Membuka AI Agent Skill Manager
 - 🤖 **`AI-Agent.sh`**  : Membuka AI Persona & Subagent Manager
+- 🔐 **`AI-Account.sh`**: Membuka Multi-Account, Quota & Rotation Manager
 - 🩺 **`AI-Doctor.sh`** : Menjalankan diagnostik kesehatan sistem
 - 💻 **`OpenCode.sh`** : Membuka OpenCode v1 langsung di terminal
 - 🚀 **`OpenCode-v2.sh`**: Membuka OpenCode v2 langsung di terminal
