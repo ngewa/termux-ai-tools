@@ -121,8 +121,15 @@ assert_output_contains "ai account list berjalan via ai-launcher" "REGISTRY MULT
 assert_output_contains "ai account quota berjalan via ai-launcher" "PEMANTAUAN KUOTA" bash "$AI_BIN" account quota
 assert_output_contains "ai account whoami berjalan via ai-launcher" "Detail Profil Aktif" bash "$AI_BIN" account whoami
 
-# 10. Pembersihan Profil Uji
-echo -e "\n${BOLD}10. Pembersihan Profil Uji (Cleanup):${RESET}"
+# 10. Integrasi Antigravity-Swap (aswap)
+echo -e "\n${BOLD}10. Integrasi Antigravity-Swap (aswap):${RESET}"
+assert_success "aswap binary tersedia dan dapat dijalankan" command -v aswap
+assert_output_contains "aswap list menampilkan akun Antigravity" "chraigmenholadi@gmail.com" aswap list
+assert_output_contains "ai aswap list berjalan via ai-launcher" "chraigmenholadi@gmail.com" bash "$AI_BIN" aswap list
+assert_output_contains "quota monitor menyertakan akun Google agy" "AKUN GOOGLE ANTIGRAVITY" bash "$ACCOUNT_BIN" quota
+
+# 11. Pembersihan Profil Uji
+echo -e "\n${BOLD}11. Pembersihan Profil Uji (Cleanup):${RESET}"
 assert_success "Hapus profil qa-test" bash "$ACCOUNT_BIN" remove qa-test
 assert_success "Reset pool rotasi ke default" bash "$ACCOUNT_BIN" pool set default
 

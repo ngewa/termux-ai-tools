@@ -232,6 +232,9 @@ case "$1" in
         shift
         bash "$s" "$@"
         ;;
+    aswap|antigravity-swap|--aswap)
+        pip install --upgrade antigravity-swap
+        ;;
     service|web|--service)
         s=$(get_script "bin/service.sh")
         shift

@@ -107,9 +107,10 @@ alias aimem="memory.sh"
 alias aiskill="skill.sh"
 alias aiagent="agent.sh"
 alias aiacc="account.sh"
+alias aswap="aswap"
 $ALIAS_END
 EOF
-        log_ok "Alias ditambahkan ke $(basename "$rc_file") (oc, oc2, aidoc, aiup, aicfg, aisess, aiplug, aimem, aiskill, aiagent, aiacc)"
+        log_ok "Alias ditambahkan ke $(basename "$rc_file") (oc, oc2, aidoc, aiup, aicfg, aisess, aiplug, aimem, aiskill, aiagent, aiacc, aswap)"
     fi
 }
 

@@ -165,6 +165,16 @@ case "$1" in
             exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/account.sh | bash -s -- "$@"
         fi
         ;;
+    aswap|swap)
+        shift
+        if command -v aswap >/dev/null 2>&1; then
+            exec aswap "$@"
+        else
+            echo -e "${YELLOW}[WARN]${RESET} aswap belum terpasang. Menginstal via pip..."
+            pip install --upgrade antigravity-swap
+            exec aswap "$@"
+        fi
+        ;;
     help|--help|-h)
         echo -e "${BOLD}${CYAN}AI Quick Launcher Usage:${RESET}"
         echo "  ai                  Buka menu interaktif pemilih AI"
@@ -178,6 +188,7 @@ case "$1" in
         echo "  ai skill [args...]  Kelola AI Agent Skills (Prompt Master, Antislop, UI/UX)"
         echo "  ai agent [args...]  Kelola AI Subagents & Personas (Roblox, Toolkit, Reverser)"
         echo "  ai account [args...]Multi-account registry, quota 5h/mingguan, rotasi & backup"
+        echo "  ai aswap [args...]  Antigravity CLI (agy) account switcher & quota live (aswap)"
         echo "  ai config [args...] Wizard pengaturan API key & default model"
         echo "  ai doctor           Jalankan pemeriksaan kesehatan sistem"
         echo "  ai update           Cek & update versi terbaru dari GitHub"

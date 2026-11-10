@@ -683,6 +683,32 @@ def cmd_quota(args):
 
         print()
 
+    # Query antigravity-swap (aswap) for live Google OAuth quota if available
+    try:
+        r = subprocess.run(["aswap", "list", "--json"], capture_output=True, text=True, timeout=5)
+        if r.returncode == 0 and r.stdout.strip():
+            aswap_data = json.loads(r.stdout.strip())
+            accs = aswap_data.get("accounts", [])
+            if accs:
+                print(f"{BOLD}{MAGENTA}🪐 AKUN GOOGLE ANTIGRAVITY CLI (aswap live quota):{RESET}")
+                for acc in accs:
+                    num = acc.get("number")
+                    email = acc.get("email", "unknown")
+                    alias = acc.get("alias", "")
+                    alias_str = f" [{alias}]" if alias else ""
+                    is_active = acc.get("active", False)
+                    badge = f" {GREEN}[AKTIF]{RESET}" if is_active else ""
+                    print(f"  [{num}] {BOLD}{email}{RESET}{alias_str}{badge}:")
+                    usage = acc.get("usage", {})
+                    for bucket_id, bdata in usage.items():
+                        used_pct = bdata.get("usedPct", 0.0)
+                        resets_at = bdata.get("resetsAt", "")
+                        bar_color = GREEN if used_pct < 60 else (YELLOW if used_pct < 85 else RED)
+                        print(f"      • {bucket_id:<12}: {bar_color}{used_pct:>5.1f}% terpakai{RESET} (Reset: {resets_at})")
+                print(f"{DIM}Kelola akun agy dengan: aswap switch / aswap add / aswap watch{RESET}\n")
+    except Exception:
+        pass
+
 def cmd_backup(args):
     # Syntax: backup [output_file] [--password <pwd>]
     reg = load_registry()
@@ -894,10 +920,11 @@ interactive_menu() {
         echo -e "  ${YELLOW}7)${RESET} Backup Kredensial Terenkripsi (AES-256-CBC + SHA256)"
         echo -e "  ${YELLOW}8)${RESET} Restore Kredensial dari Berkas .enc"
         echo -e "  ${RED}9)${RESET} Hapus Profil Akun"
+        echo -e "  ${MAGENTA}10)${RESET} Antigravity (agy) Swapper (aswap: Google OAuth, Switch agy, Quota 5h/7d)"
         echo -e "  ${DIM}0)${RESET} Kembali / Keluar"
         echo ""
 
-        read -r -p "Pilihan Anda [0-9]: " choice
+        read -r -p "Pilihan Anda [0-10]: " choice
         case "$choice" in
             1)
                 echo ""
@@ -971,6 +998,33 @@ interactive_menu() {
                 fi
                 read -r -p "Tekan Enter untuk melanjutkan..." _
                 ;;
+            10)
+                echo ""
+                if ! command -v aswap >/dev/null 2>&1; then
+                    echo -e "${YELLOW}[WARN] antigravity-swap (aswap) belum terpasang. Memasang...${RESET}"
+                    pip install --upgrade antigravity-swap
+                fi
+                echo -e "${BOLD}${CYAN}=== Menu Antigravity Swapper (aswap) ===${RESET}"
+                echo "1) aswap list   (Lihat semua akun & kuota 5h/7d)"
+                echo "2) aswap add    (Daftarkan akun agy yang sedang aktif)"
+                echo "3) aswap switch (Beralih ke akun Google agy lain)"
+                echo "4) aswap watch  (Monitor kuota live secara real-time)"
+                echo "5) aswap auto   (Jalankan background auto-switcher)"
+                echo "0) Batal"
+                read -r -p "Pilihan aswap [0-5]: " aopt
+                case "$aopt" in
+                    1) aswap list ;;
+                    2) aswap add ;;
+                    3)
+                        read -r -p "Nomor / Email / Alias akun: " tgt_acc
+                        [ -n "$tgt_acc" ] && aswap switch "$tgt_acc"
+                        ;;
+                    4) aswap watch ;;
+                    5) aswap auto ;;
+                    *) echo "Dibatalkan." ;;
+                esac
+                read -r -p "Tekan Enter untuk melanjutkan..." _
+                ;;
             0|q|exit)
                 echo "Selesai."
                 break
@@ -1034,6 +1088,48 @@ else
             shift
             run_account_engine restore "$@"
             ;;
+        aswap|swap)
+            shift
+            if ! command -v aswap >/dev/null 2>&1; then
+                pip install --upgrade antigravity-swap
+            fi
+            exec aswap "$@"
+            ;;
+        agy-add)
+            shift
+            if ! command -v aswap >/dev/null 2>&1; then
+                pip install --upgrade antigravity-swap
+            fi
+            exec aswap add "$@"
+            ;;
+        agy-switch)
+            shift
+            if ! command -v aswap >/dev/null 2>&1; then
+                pip install --upgrade antigravity-swap
+            fi
+            exec aswap switch "$@"
+            ;;
+        agy-list|agy-ls)
+            shift
+            if ! command -v aswap >/dev/null 2>&1; then
+                pip install --upgrade antigravity-swap
+            fi
+            exec aswap list "$@"
+            ;;
+        agy-watch)
+            shift
+            if ! command -v aswap >/dev/null 2>&1; then
+                pip install --upgrade antigravity-swap
+            fi
+            exec aswap watch "$@"
+            ;;
+        agy-auto)
+            shift
+            if ! command -v aswap >/dev/null 2>&1; then
+                pip install --upgrade antigravity-swap
+            fi
+            exec aswap auto "$@"
+            ;;
         help|--help|-h)
             echo -e "${BOLD}${CYAN}Termux AI Tools - Multi-Account & Quota Manager${RESET}"
             echo "Penggunaan:"
@@ -1049,6 +1145,11 @@ else
             echo "  ai account pool [set p1,p2,p3]       Kelola daftar rotasi failover"
             echo "  ai account backup [file.enc]         Snapshot terenkripsi PBKDF2 AES-256"
             echo "  ai account restore <file.enc>        Pulihkan snapshot dari berkas"
+            echo "  ai account aswap [args...]           Proxy langsung ke antigravity-swap (aswap)"
+            echo "  ai account agy-add [alias]           Daftarkan akun agy aktif ke aswap"
+            echo "  ai account agy-switch <acc>          Beralih akun Google agy via aswap"
+            echo "  ai account agy-watch                 Live quota table Antigravity CLI"
+            echo "  ai account agy-auto                  Jalankan background auto-switcher agy"
             exit 0
             ;;
         *)
