@@ -144,8 +144,16 @@ assert_output_contains "Verifikasi mode hasil edit" "API_MODE:responses" "$CONFI
 echo -e "\n${BOLD}10. Pengaturan Model Antigravity agy:${RESET}"
 assert_output_contains "Set model Antigravity agy" "diatur ke" "$CONFIG_BIN" model-agy "Gemini 3.8 Pro"
 assert_output_contains "Verifikasi model Antigravity agy" "Gemini 3.8 Pro" "$CONFIG_BIN" model-agy
+# Test proteksi model tidak kompatibel untuk agy (gpt-6-luna & prefix provider)
+"$CONFIG_BIN" model-agy "gpt-6-luna" >/dev/null 2>&1 || true
+assert_output_contains "Proteksi: model gpt-6-luna ditolak dan tidak mengubah model agy" "Gemini 3.8 Pro" "$CONFIG_BIN" model-agy
+"$CONFIG_BIN" model-agy "bynara/glm-5.3-flash" >/dev/null 2>&1 || true
+assert_output_contains "Proteksi: model dengan prefix provider ditolak" "Gemini 3.8 Pro" "$CONFIG_BIN" model-agy
+# Normalisasi identifier resmi agy (gemini-3.8-flash-high -> Gemini 3.8 Flash (High))
+"$CONFIG_BIN" model-agy "gemini-3.8-flash-high" >/dev/null 2>&1
+assert_output_contains "Normalisasi identifier resmi agy" "Gemini 3.8 Flash (High)" "$CONFIG_BIN" model-agy
 # Restore model agy
-"$CONFIG_BIN" model-agy "Gemini 3.8 Flash (Medium)" >/dev/null 2>&1
+"$CONFIG_BIN" model-agy "Gemini 3.8 Flash (High)" >/dev/null 2>&1
 
 # Test 11: Pengaturan Target Integrasi Spesifik (opencode, agy, all)
 echo -e "\n${BOLD}11. Pengaturan Target Integrasi Spesifik (opencode, agy, all):${RESET}"

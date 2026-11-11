@@ -71,6 +71,8 @@ echo -e "\n${BOLD}2. Pemeriksaan Status & Registri Profil:${RESET}"
 assert_output_contains "account.sh list menampilkan header registri" "REGISTRY MULTI-ACCOUNT" bash "$ACCOUNT_BIN" list
 assert_output_contains "account.sh current menampilkan profil aktif" "Detail Profil Aktif" bash "$ACCOUNT_BIN" current
 
+BASE_PROF=$(python3 -c "import json, os; p=os.path.expanduser('~/.config/termux-ai/accounts.json'); print(json.load(open(p)).get('active_profile', 'default') if os.path.exists(p) else 'default')" 2>/dev/null || echo "default")
+
 # 3. Pembuatan Profil Baru (Work & Testing)
 echo -e "\n${BOLD}3. Pembuatan Multi-Account Profil Baru:${RESET}"
 assert_success "Tambah profil qa-test" bash "$ACCOUNT_BIN" add qa-test "Akun Testing QA"
@@ -83,27 +85,27 @@ assert_output_contains "List menampilkan 1 provider pada qa-test" "1 provider" b
 echo -e "\n${BOLD}4. Pengalihan Akun Cepat (Account Switching):${RESET}"
 assert_output_contains "Beralih ke profil qa-test" "Berhasil beralih ke profil: qa-test" bash "$ACCOUNT_BIN" switch qa-test
 assert_output_contains "Profil aktif sekarang qa-test" "Profil Aktif : qa-test" bash "$ACCOUNT_BIN" list
-assert_output_contains "Beralih kembali ke default" "Berhasil beralih ke profil: default" bash "$ACCOUNT_BIN" switch default
-assert_output_contains "Profil aktif kembali default" "Profil Aktif : default" bash "$ACCOUNT_BIN" list
+assert_output_contains "Beralih kembali ke $BASE_PROF" "Berhasil beralih ke profil: $BASE_PROF" bash "$ACCOUNT_BIN" switch "$BASE_PROF"
+assert_output_contains "Profil aktif kembali $BASE_PROF" "Profil Aktif : $BASE_PROF" bash "$ACCOUNT_BIN" list
 
 # 5. Konfigurasi Failover Pool Rotasi
 echo -e "\n${BOLD}5. Manajemen Failover Pool Rotasi:${RESET}"
 assert_output_contains "Pool list menampilkan konfigurasi" "Konfigurasi Failover Pool" bash "$ACCOUNT_BIN" pool list
-assert_success "Set urutan pool rotasi" bash "$ACCOUNT_BIN" pool set default,qa-test
-assert_output_contains "Pool berisi default -> qa-test" "default -> qa-test" bash "$ACCOUNT_BIN" pool list
+assert_success "Set urutan pool rotasi" bash "$ACCOUNT_BIN" pool set "$BASE_PROF,qa-test"
+assert_output_contains "Pool berisi $BASE_PROF -> qa-test" "$BASE_PROF -> qa-test" bash "$ACCOUNT_BIN" pool list
 assert_output_contains "List menandai qa-test dengan [POOL]" "[POOL]" bash "$ACCOUNT_BIN" list
 
 # 6. Rotasi Akun Otomatis
 echo -e "\n${BOLD}6. Rotasi Akun Otomatis (Quota Failover):${RESET}"
-assert_output_contains "Rotasi dari default ke qa-test" "Ke Profil   : qa-test" bash "$ACCOUNT_BIN" rotate
+assert_output_contains "Rotasi dari $BASE_PROF ke qa-test" "Ke Profil   : qa-test" bash "$ACCOUNT_BIN" rotate
 assert_output_contains "Profil aktif kini qa-test setelah rotasi" "Profil Aktif : qa-test" bash "$ACCOUNT_BIN" list
-assert_output_contains "Rotasi balik ke default" "Ke Profil   : default" bash "$ACCOUNT_BIN" rotate
-assert_output_contains "Profil aktif kembali default" "Profil Aktif : default" bash "$ACCOUNT_BIN" list
+assert_output_contains "Rotasi balik ke $BASE_PROF" "Ke Profil   : $BASE_PROF" bash "$ACCOUNT_BIN" rotate
+assert_output_contains "Profil aktif kembali $BASE_PROF" "Profil Aktif : $BASE_PROF" bash "$ACCOUNT_BIN" list
 
 # 7. Pemantauan Kuota & Waktu Reset
 echo -e "\n${BOLD}7. Pemantauan Kuota & Waktu Reset:${RESET}"
 assert_output_contains "Quota monitor menampilkan reset harian" "Reset Kuota Harian" bash "$ACCOUNT_BIN" quota
-assert_output_contains "Quota monitor mendeteksi profil default" "Profil: default" bash "$ACCOUNT_BIN" quota
+assert_output_contains "Quota monitor mendeteksi profil $BASE_PROF" "Profil: $BASE_PROF" bash "$ACCOUNT_BIN" quota
 assert_output_contains "Quota --all menampilkan semua profil" "Profil: qa-test" bash "$ACCOUNT_BIN" quota --all
 
 # 8. Snapshot Kredensial Terenkripsi AES-256 + SHA256 Checksum

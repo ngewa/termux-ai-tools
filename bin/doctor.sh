@@ -311,6 +311,27 @@ else
     WARNINGS=$((WARNINGS + 1))
 fi
 
+# Antigravity Default Model Check
+AGY_SETTINGS_FILE="$HOME_DIR/.gemini/antigravity-cli/settings.json"
+if [ -f "$AGY_SETTINGS_FILE" ]; then
+    TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+    CUR_AGY_MOD=$(python3 -c "import json; print(json.load(open('$AGY_SETTINGS_FILE')).get('model', ''))" 2>/dev/null || echo "")
+    if [ -n "$CUR_AGY_MOD" ]; then
+        if [[ "$CUR_AGY_MOD" == *"/"* ]] || [[ "$CUR_AGY_MOD" == *"luna"* ]]; then
+            echo -e "  [${WARN}] Antigravity Model: ${YELLOW}Model tidak kompatibel ($CUR_AGY_MOD)${RESET}"
+            echo -e "         ${DIM}Model ini memicu warning 'is no longer available' di agy.${RESET}"
+            WARNINGS=$((WARNINGS + 1))
+            if [ "$AUTO_FIX" = "true" ]; then
+                python3 -c "import json; p='$AGY_SETTINGS_FILE'; d=json.load(open(p)); d['model']='Gemini 3.8 Flash (High)'; json.dump(d,open(p,'w'),indent=2)" 2>/dev/null
+                echo -e "         ${CYAN}[Auto-Fix] Model Antigravity direset ke 'Gemini 3.8 Flash (High)'.${RESET}"
+            fi
+        else
+            echo -e "  [${PASS}] Antigravity Model: ${GREEN}Valid ($CUR_AGY_MOD)${RESET}"
+            PASSED_CHECKS=$((PASSED_CHECKS + 1))
+        fi
+    fi
+fi
+
 # ------------------------------------------------------------------------------
 # 7. Knowledge Memory & AI Brain Health
 # ------------------------------------------------------------------------------

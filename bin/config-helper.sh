@@ -283,8 +283,23 @@ def save_config_model(model_name):
     save_config(data)
 
 def save_agy_model(model_name):
+    if not model_name:
+        return
+    m_clean = model_name.strip()
+    if "/" in m_clean or "luna" in m_clean.lower():
+        sys.stderr.write(f"[WARN] Model '{m_clean}' tidak kompatibel dengan format root model Antigravity CLI (agy).\n")
+        return
+    canonical_map = {
+        "gemini-3.8-flash-high": "Gemini 3.8 Flash (High)",
+        "gemini-3.8-flash-medium": "Gemini 3.8 Flash (Medium)",
+        "gemini-3.8-flash-low": "Gemini 3.8 Flash (Low)",
+        "claude-sonnet-4-6": "Claude Sonnet 4.6 (Thinking)",
+        "claude-opus-4-6-thinking": "Claude Opus 4.6 (Thinking)",
+        "gpt-oss-120b-medium": "GPT-OSS 120B (Medium)",
+    }
+    normalized = canonical_map.get(m_clean.lower(), m_clean)
     data = load_agy_settings()
-    data["model"] = model_name
+    data["model"] = normalized
     save_agy_settings(data)
 
 def is_provider_disabled_opencode(pid, config_data, auth_data):
@@ -1089,10 +1104,11 @@ elif cmd == "model-agy":
     if len(sys.argv) >= 3:
         model_name = sys.argv[2].strip()
         save_agy_model(model_name)
-        print(f"AGY_MODEL_SAVED:{model_name}")
+        curr_m = load_agy_settings().get("model", "")
+        print(f"AGY_MODEL_SAVED:{curr_m}")
     else:
         agy_data = load_agy_settings()
-        print(agy_data.get("model", "Gemini 3.8 Flash (Medium)"))
+        print(agy_data.get("model", "Gemini 3.8 Flash (High)"))
 
 elif cmd == "sync-env":
     auth_data = load_auth()
@@ -1205,6 +1221,75 @@ EOF
 }
 
 # ------------------------------------------------------------------------------
+# Model Presets Helpers
+# ------------------------------------------------------------------------------
+select_opencode_model_preset() {
+    echo "" >&2
+    echo -e "${BOLD}Pilih Preset Model Rekomendasi OpenCode:${RESET}" >&2
+    echo -e "  ${GREEN}1)${RESET} bynara/glm-5.3-flash          (NaraRouter / Cepat & Terjangkau)" >&2
+    echo -e "  ${GREEN}2)${RESET} google/gemini-2.5-flash       (Cepat & Hemat Token)" >&2
+    echo -e "  ${GREEN}3)${RESET} google/gemini-2.5-pro         (Penalaran Tinggi & Akurat)" >&2
+    echo -e "  ${GREEN}4)${RESET} anthropic/claude-3-7-sonnet   (Paling Andal Coding & Refactoring)" >&2
+    echo -e "  ${GREEN}5)${RESET} anthropic/claude-3-5-sonnet   (Andal & Stabil)" >&2
+    echo -e "  ${GREEN}6)${RESET} deepseek/deepseek-chat        (Sangat Murah & Cerdas)" >&2
+    echo -e "  ${GREEN}7)${RESET} deepseek/deepseek-reasoner    (Model Berpikir / R1)" >&2
+    echo -e "  ${GREEN}8)${RESET} openai/gpt-4o                 (Multimodal Cepat)" >&2
+    echo -e "  ${GREEN}9)${RESET} openrouter/auto               (Rute Otomatis Model Terbaik)" >&2
+    echo -e "  ${CYAN}10)${RESET} Input Manual ID Model Kustom" >&2
+    echo -e "  ${YELLOW}0)${RESET} Batal" >&2
+    echo "" >&2
+    local oc_m_choice
+    read -r -p "Pilihan model [0-10]: " oc_m_choice
+    case "$oc_m_choice" in
+        1) echo "bynara/glm-5.3-flash" ;;
+        2) echo "google/gemini-2.5-flash" ;;
+        3) echo "google/gemini-2.5-pro" ;;
+        4) echo "anthropic/claude-3-7-sonnet" ;;
+        5) echo "anthropic/claude-3-5-sonnet" ;;
+        6) echo "deepseek/deepseek-chat" ;;
+        7) echo "deepseek/deepseek-reasoner" ;;
+        8) echo "openai/gpt-4o" ;;
+        9) echo "openrouter/auto" ;;
+        10)
+            local custom_oc_m
+            read -r -p "Masukkan model ID lengkap (contoh: provider/model-name): " custom_oc_m
+            echo "$custom_oc_m"
+            ;;
+        *) echo "" ;;
+    esac
+}
+
+select_agy_model_preset() {
+    echo "" >&2
+    echo -e "${BOLD}Pilih Preset Model Antigravity CLI (agy):${RESET}" >&2
+    echo -e "  ${GREEN}1)${RESET} Gemini 3.8 Flash (High)      (Kecepatan tinggi, penalaran optimal)" >&2
+    echo -e "  ${GREEN}2)${RESET} Gemini 3.8 Flash (Medium)    (Seimbang & hemat kuota)" >&2
+    echo -e "  ${GREEN}3)${RESET} Gemini 3.8 Flash (Low)       (Respons super cepat)" >&2
+    echo -e "  ${GREEN}4)${RESET} Claude Sonnet 4.6 (Thinking) (Penalaran mendalam & coding)" >&2
+    echo -e "  ${GREEN}5)${RESET} Claude Opus 4.6 (Thinking)   (Kompleksitas tinggi)" >&2
+    echo -e "  ${GREEN}6)${RESET} GPT-OSS 120B (Medium)        (Open weights reasoning)" >&2
+    echo -e "  ${CYAN}7)${RESET} Input Manual ID Model Kustom" >&2
+    echo -e "  ${YELLOW}0)${RESET} Batal" >&2
+    echo "" >&2
+    local agy_m_choice
+    read -r -p "Pilihan model [0-7]: " agy_m_choice
+    case "$agy_m_choice" in
+        1) echo "Gemini 3.8 Flash (High)" ;;
+        2) echo "Gemini 3.8 Flash (Medium)" ;;
+        3) echo "Gemini 3.8 Flash (Low)" ;;
+        4) echo "Claude Sonnet 4.6 (Thinking)" ;;
+        5) echo "Claude Opus 4.6 (Thinking)" ;;
+        6) echo "GPT-OSS 120B (Medium)" ;;
+        7)
+            local custom_agy_m
+            read -r -p "Masukkan model ID Antigravity: " custom_agy_m
+            echo "$custom_agy_m"
+            ;;
+        *) echo "" ;;
+    esac
+}
+
+# ------------------------------------------------------------------------------
 # Interactive Menu Wizard
 # ------------------------------------------------------------------------------
 edit_provider_menu() {
@@ -1291,9 +1376,14 @@ edit_provider_menu() {
 
                     read -r -p "Jadikan '$new_mod' sebagai model aktif saat ini? (Y/n): " set_act
                     if [[ ! "$set_act" =~ ^[Nn]$ ]]; then
-                        run_python_helper "model" "$new_mod" >/dev/null 2>&1 || true
-                        run_python_helper "model-agy" "$new_mod" >/dev/null 2>&1 || true
-                        log_ok "Model aktif OpenCode & AGY diperbarui!"
+                        if [ "$cur_target" = "opencode" ] || [ "$cur_target" = "all" ]; then
+                            run_python_helper "model" "$new_mod" >/dev/null 2>&1 || true
+                            log_ok "Model aktif OpenCode diperbarui!"
+                        fi
+                        if [ "$cur_target" = "agy" ]; then
+                            run_python_helper "model-agy" "$new_mod" >/dev/null 2>&1 || true
+                            log_ok "Model aktif Antigravity (agy) diperbarui!"
+                        fi
                     fi
                     sleep 1
                 fi
@@ -1655,48 +1745,21 @@ manage_tool_providers_menu() {
 
             4)
                 # Ubah Default Model
-                echo ""
-                echo -e "${BOLD}Pilih Preset Model Rekomendasi untuk ${tool_title}:${RESET}"
-                echo -e "  ${GREEN}1)${RESET} bynara/glm-5.3-flash          (NaraRouter / Cepat & Terjangkau)"
-                echo -e "  ${GREEN}2)${RESET} google/gemini-2.5-flash       (Cepat & Hemat Token)"
-                echo -e "  ${GREEN}3)${RESET} google/gemini-2.5-pro         (Penalaran Tinggi & Akurat)"
-                echo -e "  ${GREEN}4)${RESET} anthropic/claude-3-7-sonnet   (Paling Andal Coding & Refactoring)"
-                echo -e "  ${GREEN}5)${RESET} anthropic/claude-3-5-sonnet   (Andal & Stabil)"
-                echo -e "  ${GREEN}6)${RESET} deepseek/deepseek-chat        (Sangat Murah & Cerdas)"
-                echo -e "  ${GREEN}7)${RESET} deepseek/deepseek-reasoner    (Model Berpikir / R1)"
-                echo -e "  ${GREEN}8)${RESET} openai/gpt-4o                 (Multimodal Cepat)"
-                echo -e "  ${GREEN}9)${RESET} openrouter/auto               (Rute Otomatis Model Terbaik)"
-                echo -e "  ${CYAN}10)${RESET} Input Manual ID Model Kustom"
-                echo -e "  ${YELLOW}0)${RESET} Batal"
-                echo ""
-                read -r -p "Pilihan model [0-10]: " mod_choice
-
                 sel_m=""
-                case "$mod_choice" in
-                    1) sel_m="bynara/glm-5.3-flash" ;;
-                    2) sel_m="google/gemini-2.5-flash" ;;
-                    3) sel_m="google/gemini-2.5-pro" ;;
-                    4) sel_m="anthropic/claude-3-7-sonnet" ;;
-                    5) sel_m="anthropic/claude-3-5-sonnet" ;;
-                    6) sel_m="deepseek/deepseek-chat" ;;
-                    7) sel_m="deepseek/deepseek-reasoner" ;;
-                    8) sel_m="openai/gpt-4o" ;;
-                    9) sel_m="openrouter/auto" ;;
-                    10)
-                        read -r -p "Masukkan model ID lengkap (contoh: provider/model-name): " sel_m
-                        ;;
-                    *) sel_m="" ;;
-                esac
-
-                if [ -n "$sel_m" ]; then
-                    if [ "$tool" = "opencode" ]; then
-                        run_python_helper "model" "$sel_m" >/dev/null
-                        log_ok "Default model OpenCode berhasil diatur ke '$sel_m'!"
-                    else
+                if [ "$tool" = "agy" ]; then
+                    sel_m=$(select_agy_model_preset)
+                    if [ -n "$sel_m" ]; then
                         run_python_helper "model-agy" "$sel_m" >/dev/null
                         log_ok "Default model Antigravity (agy) berhasil diatur ke '$sel_m'!"
+                        sleep 1
                     fi
-                    sleep 1
+                else
+                    sel_m=$(select_opencode_model_preset)
+                    if [ -n "$sel_m" ]; then
+                        run_python_helper "model" "$sel_m" >/dev/null
+                        log_ok "Default model OpenCode berhasil diatur ke '$sel_m'!"
+                        sleep 1
+                    fi
                 fi
                 ;;
 
@@ -2165,7 +2228,7 @@ wizard_menu() {
                                 run_python_helper "model" "$adv_model" >/dev/null
                                 log_ok "Model default OpenCode diatur ke '$adv_model'"
                             fi
-                            if [ "$adv_target" = "agy" ] || [ "$adv_target" = "all" ]; then
+                            if [ "$adv_target" = "agy" ]; then
                                 run_python_helper "model-agy" "$adv_model" >/dev/null
                                 log_ok "Model default Antigravity (agy) diatur ke '$adv_model'"
                             fi
@@ -2330,52 +2393,40 @@ wizard_menu() {
                 echo ""
                 read -r -p "Pilihan tool [0-3]: " tool_target_choice
 
-                if [ "$tool_target_choice" = "1" ] || [ "$tool_target_choice" = "2" ] || [ "$tool_target_choice" = "3" ]; then
-                    echo ""
-                    echo -e "${BOLD}Pilih Preset Model Rekomendasi:${RESET}"
-                    echo -e "  ${GREEN}1)${RESET} bynara/glm-5.3-flash          (NaraRouter / Cepat & Terjangkau)"
-                    echo -e "  ${GREEN}2)${RESET} google/gemini-2.5-flash       (Cepat & Hemat Token)"
-                    echo -e "  ${GREEN}3)${RESET} google/gemini-2.5-pro         (Penalaran Tinggi & Akurat)"
-                    echo -e "  ${GREEN}4)${RESET} anthropic/claude-3-7-sonnet   (Paling Andal Coding & Refactoring)"
-                    echo -e "  ${GREEN}5)${RESET} anthropic/claude-3-5-sonnet   (Andal & Stabil)"
-                    echo -e "  ${GREEN}6)${RESET} deepseek/deepseek-chat        (Sangat Murah & Cerdas)"
-                    echo -e "  ${GREEN}7)${RESET} deepseek/deepseek-reasoner    (Model Berpikir / R1)"
-                    echo -e "  ${GREEN}8)${RESET} openai/gpt-4o                 (Multimodal Cepat)"
-                    echo -e "  ${GREEN}9)${RESET} openrouter/auto               (Rute Otomatis Model Terbaik)"
-                    echo -e "  ${CYAN}10)${RESET} Input Manual ID Model Kustom"
-                    echo -e "  ${YELLOW}0)${RESET} Batal"
-                    echo ""
-                    read -r -p "Pilihan model [0-10]: " m_choice
-
-                    selected_model=""
-                    case "$m_choice" in
-                        1) selected_model="bynara/glm-5.3-flash" ;;
-                        2) selected_model="google/gemini-2.5-flash" ;;
-                        3) selected_model="google/gemini-2.5-pro" ;;
-                        4) selected_model="anthropic/claude-3-7-sonnet" ;;
-                        5) selected_model="anthropic/claude-3-5-sonnet" ;;
-                        6) selected_model="deepseek/deepseek-chat" ;;
-                        7) selected_model="deepseek/deepseek-reasoner" ;;
-                        8) selected_model="openai/gpt-4o" ;;
-                        9) selected_model="openrouter/auto" ;;
-                        10)
-                            read -r -p "Masukkan model ID lengkap (contoh: provider/model-name): " selected_model
-                            ;;
-                        *) selected_model="" ;;
-                    esac
-
+                if [ "$tool_target_choice" = "1" ]; then
+                    selected_model=$(select_opencode_model_preset)
                     if [ -n "$selected_model" ]; then
-                        if [ "$tool_target_choice" = "1" ] || [ "$tool_target_choice" = "3" ]; then
-                            run_python_helper "model" "$selected_model" >/dev/null
-                            log_ok "Default model OpenCode diatur ke '$selected_model' di opencode.jsonc"
-                        fi
-                        if [ "$tool_target_choice" = "2" ] || [ "$tool_target_choice" = "3" ]; then
-                            run_python_helper "model-agy" "$selected_model" >/dev/null
-                            log_ok "Default model Antigravity (agy) diatur ke '$selected_model' di settings.json"
-                        fi
+                        run_python_helper "model" "$selected_model" >/dev/null
+                        log_ok "Default model OpenCode diatur ke '$selected_model' di opencode.jsonc"
                         echo ""
                         read -r -p "Tekan ENTER untuk kembali..." _
                     fi
+                elif [ "$tool_target_choice" = "2" ]; then
+                    selected_model=$(select_agy_model_preset)
+                    if [ -n "$selected_model" ]; then
+                        run_python_helper "model-agy" "$selected_model" >/dev/null
+                        log_ok "Default model Antigravity (agy) diatur ke '$selected_model' di settings.json"
+                        echo ""
+                        read -r -p "Tekan ENTER untuk kembali..." _
+                    fi
+                elif [ "$tool_target_choice" = "3" ]; then
+                    echo ""
+                    log_info "1/2 Mengatur Default Model untuk OpenCode..."
+                    selected_oc_m=$(select_opencode_model_preset)
+                    if [ -n "$selected_oc_m" ]; then
+                        run_python_helper "model" "$selected_oc_m" >/dev/null
+                        log_ok "Default model OpenCode diatur ke '$selected_oc_m' di opencode.jsonc"
+                    fi
+
+                    echo ""
+                    log_info "2/2 Mengatur Default Model untuk Antigravity CLI (agy)..."
+                    selected_agy_m=$(select_agy_model_preset)
+                    if [ -n "$selected_agy_m" ]; then
+                        run_python_helper "model-agy" "$selected_agy_m" >/dev/null
+                        log_ok "Default model Antigravity (agy) diatur ke '$selected_agy_m' di settings.json"
+                    fi
+                    echo ""
+                    read -r -p "Tekan ENTER untuk kembali..." _
                 fi
                 ;;
 

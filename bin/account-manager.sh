@@ -112,6 +112,14 @@ def write_json_safe(path, data, mode=0o600):
     os.chmod(temp_path, mode)
     os.replace(temp_path, path)
 
+def is_valid_agy_model(m):
+    if not m or not isinstance(m, str):
+        return False
+    m_clean = m.strip().lower()
+    if "/" in m_clean or "luna" in m_clean:
+        return False
+    return True
+
 def load_registry():
     if os.path.exists(REGISTRY_FILE):
         try:
@@ -136,7 +144,8 @@ def load_registry():
     agy = read_json_safe(AGY_SETTINGS_FILE)
 
     default_providers = {}
-    default_model = cfg.get("model", "") or agy.get("model", "")
+    default_model = cfg.get("model", "")
+    default_agy_model = agy.get("model", "")
 
     # OpenCode providers
     for prov_id, pdata in auth.items():
@@ -167,6 +176,7 @@ def load_registry():
         "description": "Akun default awal (Auto-migrated)",
         "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "model": default_model,
+        "agy_model": default_agy_model,
         "providers": default_providers
     }
 
@@ -184,6 +194,7 @@ def sync_active_profile_to_system(reg):
 
     providers = profile.get("providers", {})
     profile_model = profile.get("model", "")
+    profile_agy_model = profile.get("agy_model", "")
 
     # 1. Update OpenCode auth.json
     auth_data = read_json_safe(AUTH_FILE)
@@ -209,7 +220,9 @@ def sync_active_profile_to_system(reg):
 
     # 3. Update Antigravity settings.json
     agy_data = read_json_safe(AGY_SETTINGS_FILE)
-    if profile_model:
+    if profile_agy_model:
+        agy_data["model"] = profile_agy_model
+    elif profile_model and is_valid_agy_model(profile_model):
         agy_data["model"] = profile_model
     if "providers" not in agy_data:
         agy_data["providers"] = {}
