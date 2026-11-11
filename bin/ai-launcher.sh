@@ -14,6 +14,7 @@ YELLOW="\033[33m"
 CYAN="\033[36m"
 RED="\033[31m"
 BOLD="\033[1m"
+DIM="\033[2m"
 RESET="\033[0m"
 
 # Handle CLI arguments directly
@@ -176,89 +177,112 @@ case "$1" in
         fi
         ;;
     help|--help|-h)
-        echo -e "${BOLD}${CYAN}AI Quick Launcher Usage:${RESET}"
-        echo "  ai                  Buka menu interaktif pemilih AI"
-        echo "  ai oc [args...]     Jalankan OpenCode v1 langsung"
-        echo "  ai oc2 [args...]    Jalankan OpenCode v2 langsung"
-        echo "  ai agy [args...]    Jalankan Antigravity CLI langsung"
-        echo "  ai web              Buka mode Web UI OpenCode"
-        echo "  ai session [args...]Kelola sesi, cari riwayat & vacuum storage"
-        echo "  ai memory [args...] Kelola Knowledge Memory & AI Brain persisten"
-        echo "  ai plugin [args...] Pasang MCP servers & OpenCode plugins"
-        echo "  ai skill [args...]  Kelola AI Agent Skills (Prompt Master, Antislop, UI/UX)"
-        echo "  ai agent [args...]  Kelola AI Subagents & Personas (Roblox, Toolkit, Reverser)"
-        echo "  ai account [args...]Multi-account registry, quota 5h/mingguan, rotasi & backup"
-        echo "  ai aswap [args...]  Antigravity CLI (agy) account switcher & quota live (aswap)"
-        echo "  ai config [args...] Wizard pengaturan API key & default model"
-        echo "  ai doctor           Jalankan pemeriksaan kesehatan sistem"
-        echo "  ai update           Cek & update versi terbaru dari GitHub"
-        echo "  ai backup           Export / backup pengaturan & token"
-        echo "  ai restore          Restore pengaturan dari file backup"
+        echo -e "${BOLD}${CYAN}Termux AI Tools - Quick Launcher Usage:${RESET}"
+        echo -e "  ${GREEN}ai${RESET}                       Buka menu interaktif pemilih AI"
+        echo -e "  ${GREEN}ai oc [args...]${RESET}          Jalankan OpenCode v1 langsung"
+        echo -e "  ${GREEN}ai oc2 [args...]${RESET}         Jalankan OpenCode v2 langsung"
+        echo -e "  ${GREEN}ai agy [args...]${RESET}         Jalankan Antigravity CLI langsung"
+        echo -e "  ${GREEN}ai web${RESET}                   Buka mode Web UI OpenCode & Browser"
+        echo -e "  ${CYAN}ai skill [args...]${RESET}       Kelola AI Agent Skills (Prompt Master, Antislop, UI)"
+        echo -e "  ${CYAN}ai agent [args...]${RESET}       Kelola AI Personas & Subagents (Roblox, Toolkit)"
+        echo -e "  ${CYAN}ai memory [args...]${RESET}      Kelola Knowledge Memory & AI Brain persisten (FTS5)"
+        echo -e "  ${CYAN}ai plugin [args...]${RESET}      Pasang MCP servers & OpenCode plugins"
+        echo -e "  ${CYAN}ai account [args...]${RESET}     Multi-account registry, kuota & auto-rotasi"
+        echo -e "  ${CYAN}ai aswap [args...]${RESET}       Antigravity CLI (agy) account switcher & quota live"
+        echo -e "  ${CYAN}ai stats [args...]${RESET}       Statistik token, request & histori pemakaian"
+        echo -e "  ${CYAN}ai config [args...]${RESET}      Wizard pengaturan API key & default model"
+        echo -e "  ${CYAN}ai session [args...]${RESET}     Kelola sesi riwayat, ekspor & vacuum storage"
+        echo -e "  ${CYAN}ai doctor${RESET}                Jalankan pemeriksaan kesehatan sistem"
+        echo -e "  ${CYAN}ai update${RESET}                Cek & update versi terbaru dari GitHub"
+        echo -e "  ${CYAN}ai backup${RESET}                Export / backup pengaturan & token"
+        echo -e "  ${CYAN}ai restore${RESET}               Restore pengaturan dari file backup"
         exit 0
         ;;
 esac
 
 # Interactive Menu if run without arguments
 clear 2>/dev/null || true
-echo -e "${BOLD}${CYAN}=================================================="
-echo "        ⚡ Termux AI Tools Quick Launcher        "
-echo -e "==================================================${RESET}"
-
-# Get versions if installed
-V1_VER="[Tidak terpasang]"
-[ -x "$PREFIX/bin/opencode" ] && V1_VER="($("$PREFIX/bin/opencode" --version 2>/dev/null || echo 'OK'))"
-
-V2_VER="[Tidak terpasang]"
-[ -x "$PREFIX/bin/opencode-v2" ] && V2_VER="($("$PREFIX/bin/opencode-v2" --version 2>/dev/null || echo 'OK'))"
-
-AGY_VER="[Tidak terpasang]"
-[ -x "$PREFIX/bin/agy" ] && AGY_VER="($("$PREFIX/bin/agy" --version 2>/dev/null || echo 'OK'))"
-
-echo -e "\n${BOLD}Pilih AI coding assistant:${RESET}"
-echo -e "  ${GREEN}1)${RESET} OpenCode v1          ${CYAN}${V1_VER}${RESET}"
-echo -e "  ${GREEN}2)${RESET} OpenCode v2          ${CYAN}${V2_VER}${RESET}"
-echo -e "  ${GREEN}3)${RESET} Antigravity CLI      ${CYAN}${AGY_VER}${RESET}"
-echo -e "  ${GREEN}4)${RESET} OpenCode Web UI      (Buka server web)"
-echo -e "  ${CYAN}5)${RESET} Pengecekan Update    (Cek rilis upstream & ganti versi custom)"
-echo -e "  ${CYAN}6)${RESET} Diagnostik Sistem    (Doctor & Health check)"
-echo -e "  ${CYAN}7)${RESET} Manajemen Sesi & DB  (Cari sesi, ekspor & vacuum storage)"
-echo -e "  ${CYAN}8)${RESET} Plugin & MCP Tools   (Termux device, web fetch, db)"
-echo -e "  ${CYAN}9)${RESET} Konfigurasi AI & Key (Setup API key & model)"
-echo -e "  ${CYAN}10)${RESET} Backup Pengaturan   (Export settings & tokens)"
-echo -e "  ${CYAN}11)${RESET} Restore Pengaturan  (Restore dari arsip)"
-echo -e "  ${CYAN}12)${RESET} Knowledge Memory & AI Brain (Solusi terverifikasi & search FTS5)"
-echo -e "  ${CYAN}13)${RESET} AI Agent Skills     (Prompt Master, Antislop, UI/UX Design)"
-echo -e "  ${CYAN}14)${RESET} AI Subagents & Personas (Roblox, Toolkit, Reverser)"
-echo -e "  ${CYAN}15)${RESET} Usage Statistics    (Token, request & statistik harian)"
-echo -e "  ${CYAN}16)${RESET} Multi-Account & Kuota (Akun Personal/Kerja, Quota 5h, Rotasi Otomatis)"
-echo -e "  ${YELLOW}17)${RESET} Keluar"
+echo -e "${BOLD}${CYAN}╭────────────────────────────────────────────────────────╮${RESET}"
+echo -e "${BOLD}${CYAN}│        ⚡ Termux AI Tools Quick Launcher               │${RESET}"
+echo -e "${BOLD}${CYAN}│          ${DIM}Unified AI Ecosystem for Termux${RESET}${BOLD}${CYAN}               │${RESET}"
+echo -e "${BOLD}${CYAN}╰────────────────────────────────────────────────────────╯${RESET}"
 echo ""
 
-read -r -p "Masukkan pilihan [1-17]: " choice
+# Get versions if installed
+V1_VER="${DIM}[Belum terpasang]${RESET}"
+if [ -x "$PREFIX/bin/opencode" ]; then
+    v="$("$PREFIX/bin/opencode" --version 2>/dev/null | head -n1 | sed -e 's/^opencode //' -e 's/^[vV]//')"
+    [ -n "$v" ] && V1_VER="${CYAN}(v${v})${RESET}" || V1_VER="${CYAN}(OK)${RESET}"
+fi
+
+V2_VER="${DIM}[Belum terpasang]${RESET}"
+if [ -x "$PREFIX/bin/opencode-v2" ]; then
+    v="$("$PREFIX/bin/opencode-v2" --version 2>/dev/null | head -n1 | sed -e 's/^opencode //' -e 's/^[vV]//')"
+    [ -n "$v" ] && V2_VER="${CYAN}(v${v})${RESET}" || V2_VER="${CYAN}(OK)${RESET}"
+fi
+
+AGY_VER="${DIM}[Belum terpasang]${RESET}"
+if [ -x "$PREFIX/bin/agy" ]; then
+    v="$("$PREFIX/bin/agy" --version 2>/dev/null | head -n1 | sed -e 's/^antigravity //' -e 's/^[vV]//')"
+    [ -n "$v" ] && AGY_VER="${CYAN}(v${v})${RESET}" || AGY_VER="${CYAN}(OK)${RESET}"
+fi
+
+echo -e " ${BOLD}${YELLOW}▸ AI Coding Assistants${RESET}"
+printf "   ${GREEN}%2s)${RESET} ${BOLD}%-23s${RESET} %b\n" "1" "OpenCode v1" "${V1_VER}"
+printf "   ${GREEN}%2s)${RESET} ${BOLD}%-23s${RESET} %b\n" "2" "OpenCode v2" "${V2_VER}"
+printf "   ${GREEN}%2s)${RESET} ${BOLD}%-23s${RESET} %b\n" "3" "Antigravity CLI" "${AGY_VER}"
+printf "   ${GREEN}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "4" "OpenCode Web UI" "(Server Web & Browser)"
+echo ""
+
+echo -e " ${BOLD}${YELLOW}▸ AI Brain & Agent Extensions${RESET}"
+printf "   ${CYAN}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "5" "AI Agent Skills" "(Prompt Master, Antislop, UI/UX)"
+printf "   ${CYAN}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "6" "Subagents & Personas" "(Roblox, Toolkit, Reverser)"
+printf "   ${CYAN}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "7" "Knowledge Memory" "(AI Brain terverifikasi & FTS5)"
+printf "   ${CYAN}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "8" "Plugin & MCP Tools" "(Termux device, bridge & API)"
+echo ""
+
+echo -e " ${BOLD}${YELLOW}▸ Akun, Kuota & Statistik${RESET}"
+printf "   ${CYAN}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "9" "Multi-Account & Pool" "(Akun personal/kerja, rotasi & aswap)"
+printf "   ${CYAN}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "10" "Usage Statistics" "(Token, request & pemakaian harian)"
+echo ""
+
+echo -e " ${BOLD}${YELLOW}▸ Konfigurasi & Pemeliharaan${RESET}"
+printf "   ${CYAN}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "11" "Konfigurasi AI & Key" "(Setup API key & default model)"
+printf "   ${CYAN}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "12" "Manajemen Sesi & DB" "(Cari riwayat, ekspor & vacuum)"
+printf "   ${CYAN}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "13" "Diagnostik Sistem" "(Doctor & audit kesehatan sistem)"
+printf "   ${CYAN}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "14" "Pengecekan Update" "(Cek rilis upstream & git sync)"
+printf "   ${CYAN}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "15" "Backup Pengaturan" "(Export settings & token arsip)"
+printf "   ${CYAN}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "16" "Restore Pengaturan" "(Restore data dari file backup)"
+echo ""
+
+printf "   ${YELLOW}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "0" "Keluar" "(atau ketik 17 / q / exit)"
+echo ""
+
+read -r -p "Masukkan pilihan [0-16]: " choice
 
 case "$choice" in
-    1)
+    1|oc|opencode)
         if [ -x "$PREFIX/bin/opencode" ]; then
             exec "$PREFIX/bin/opencode"
         else
-            echo -e "${RED}OpenCode v1 belum terpasang!${RESET}"
+            echo -e "${RED}[ERROR]${RESET} OpenCode v1 belum terpasang!"
         fi
         ;;
-    2)
+    2|oc2|opencode-v2)
         if [ -x "$PREFIX/bin/opencode-v2" ]; then
             exec "$PREFIX/bin/opencode-v2"
         else
-            echo -e "${RED}OpenCode v2 belum terpasang!${RESET}"
+            echo -e "${RED}[ERROR]${RESET} OpenCode v2 belum terpasang!"
         fi
         ;;
-    3)
+    3|agy|antigravity)
         if [ -x "$PREFIX/bin/agy" ]; then
             exec "$PREFIX/bin/agy"
         else
-            echo -e "${RED}Antigravity CLI belum terpasang!${RESET}"
+            echo -e "${RED}[ERROR]${RESET} Antigravity CLI belum terpasang!"
         fi
         ;;
-    4)
+    4|web|ui)
         if [ -f "$TOOLS_DIR/service.sh" ]; then
             exec bash "$TOOLS_DIR/service.sh"
         elif [ -x "$PREFIX/bin/opencode-v2" ]; then
@@ -267,85 +291,35 @@ case "$choice" in
             exec "$PREFIX/bin/opencode" web
         fi
         ;;
-
-    5)
-        if [ -f "$TOOLS_DIR/update.sh" ]; then
-            exec bash "$TOOLS_DIR/update.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/update.sh | bash
-        fi
-        ;;
-    6)
-        if [ -f "$TOOLS_DIR/doctor.sh" ]; then
-            exec bash "$TOOLS_DIR/doctor.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- doctor
-        fi
-        ;;
-    7)
-        if [ -f "$TOOLS_DIR/session.sh" ]; then
-            exec bash "$TOOLS_DIR/session.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/session.sh | bash
-        fi
-        ;;
-    8)
-        if [ -f "$TOOLS_DIR/plugin.sh" ]; then
-            exec bash "$TOOLS_DIR/plugin.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/plugin.sh | bash
-        fi
-        ;;
-    9)
-        if [ -f "$TOOLS_DIR/config.sh" ]; then
-            exec bash "$TOOLS_DIR/config.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/config.sh | bash
-        fi
-        ;;
-    10)
-        if [ -f "$TOOLS_DIR/backup.sh" ]; then
-            exec bash "$TOOLS_DIR/backup.sh" export
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- export
-        fi
-        ;;
-    11)
-        if [ -f "$TOOLS_DIR/backup.sh" ]; then
-            exec bash "$TOOLS_DIR/backup.sh" restore
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- restore
-        fi
-        ;;
-    12)
-        if [ -f "$TOOLS_DIR/memory.sh" ]; then
-            exec bash "$TOOLS_DIR/memory.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/memory.sh | bash
-        fi
-        ;;
-    13)
+    5|skill|skills|aiskill)
         if [ -f "$TOOLS_DIR/skill.sh" ]; then
             exec bash "$TOOLS_DIR/skill.sh"
         else
             exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/skill.sh | bash
         fi
         ;;
-    14)
+    6|agent|agents|aiagent)
         if [ -f "$TOOLS_DIR/agent.sh" ]; then
             exec bash "$TOOLS_DIR/agent.sh"
         else
             exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/agent.sh | bash
         fi
         ;;
-    15)
-        if [ -f "$TOOLS_DIR/bin/usage-stats.sh" ]; then
-            exec bash "$TOOLS_DIR/bin/usage-stats.sh"
+    7|mem|memory|aimem|brain)
+        if [ -f "$TOOLS_DIR/memory.sh" ]; then
+            exec bash "$TOOLS_DIR/memory.sh"
         else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/bin/usage-stats.sh | bash
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/memory.sh | bash
         fi
         ;;
-    16)
+    8|plugin|plugins|mcp|aiplugin)
+        if [ -f "$TOOLS_DIR/plugin.sh" ]; then
+            exec bash "$TOOLS_DIR/plugin.sh"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/plugin.sh | bash
+        fi
+        ;;
+    9|acc|account|auth|aiaccount)
         if [ -f "$TOOLS_DIR/account.sh" ]; then
             exec bash "$TOOLS_DIR/account.sh"
         elif [ -f "$TOOLS_DIR/bin/account-manager.sh" ]; then
@@ -354,8 +328,70 @@ case "$choice" in
             exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/account.sh | bash
         fi
         ;;
-    *)
-        echo "Selesai."
+    10|usage|stats|stat)
+        if [ -f "$TOOLS_DIR/bin/usage-stats.sh" ]; then
+            exec bash "$TOOLS_DIR/bin/usage-stats.sh"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/bin/usage-stats.sh | bash
+        fi
+        ;;
+    11|cfg|config|aiconfig)
+        if [ -f "$TOOLS_DIR/config.sh" ]; then
+            exec bash "$TOOLS_DIR/config.sh"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/config.sh | bash
+        fi
+        ;;
+    12|sess|session|aisession)
+        if [ -f "$TOOLS_DIR/session.sh" ]; then
+            exec bash "$TOOLS_DIR/session.sh"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/session.sh | bash
+        fi
+        ;;
+    13|doc|doctor|aidoc)
+        if [ -f "$TOOLS_DIR/doctor.sh" ]; then
+            exec bash "$TOOLS_DIR/doctor.sh"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- doctor
+        fi
+        ;;
+    14|up|update|aiup)
+        if [ -f "$TOOLS_DIR/update.sh" ]; then
+            exec bash "$TOOLS_DIR/update.sh"
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/update.sh | bash
+        fi
+        ;;
+    15|backup|export)
+        if [ -f "$TOOLS_DIR/backup.sh" ]; then
+            exec bash "$TOOLS_DIR/backup.sh" export
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- export
+        fi
+        ;;
+    16|restore|import)
+        if [ -f "$TOOLS_DIR/backup.sh" ]; then
+            exec bash "$TOOLS_DIR/backup.sh" restore
+        else
+            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- restore
+        fi
+        ;;
+    aswap|swap)
+        if command -v aswap >/dev/null 2>&1; then
+            exec aswap
+        else
+            echo -e "${YELLOW}[WARN]${RESET} aswap belum terpasang. Menginstal via pip..."
+            pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
+            exec aswap
+        fi
+        ;;
+    0|17|q|Q|quit|exit|x|"")
+        echo -e "${CYAN}Sampai jumpa!${RESET}"
         exit 0
+        ;;
+    *)
+        echo -e "${RED}[ERROR]${RESET} Pilihan '$choice' tidak valid."
+        exit 1
         ;;
 esac
