@@ -1018,7 +1018,7 @@ interactive_menu() {
                     pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
                 fi
                 echo -e "${BOLD}${CYAN}=== Menu Antigravity Swapper (aswap) ===${RESET}"
-                echo "1) aswap list   (Lihat semua akun & kuota 5h/7d)"
+                echo "1) aswap list   (Lihat semua akun, kuota 5h/7d & model tersedia per grup)"
                 echo "2) aswap add    (Daftarkan akun agy yang sedang aktif)"
                 echo "3) aswap switch (Beralih ke akun Google agy lain)"
                 echo "4) aswap watch  (Monitor kuota live secara real-time)"
@@ -1026,7 +1026,7 @@ interactive_menu() {
                 echo "0) Batal"
                 read -r -p "Pilihan aswap [0-5]: " aopt
                 case "$aopt" in
-                    1) aswap list ;;
+                    1) aswap list --detail || aswap list ;;
                     2) aswap add ;;
                     3)
                         read -r -p "Nomor / Email / Alias akun: " tgt_acc

@@ -279,6 +279,7 @@ Dukungan bawaan untuk multi-account Google OAuth pada Antigravity CLI (`agy`) me
 ```bash
 ai aswap                     # Buka menu aswap (atau langsung ketik 'aswap')
 ai aswap list                # Lihat seluruh akun Google agy beserta kuota 5h/7d live (Claude/GPT & Gemini)
+ai aswap list --detail       # Detail per grup model: daftar model, status tersedia/habis, & waktu reset
 ai aswap add                 # Simpan akun Google yang sedang aktif di agy ke registry aswap
 ai aswap switch <1|email>    # Beralih akun Google Antigravity tanpa harus logout
 ai aswap watch               # Dashboard real-time countdown kuota & jendela reset
