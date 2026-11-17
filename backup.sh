@@ -20,7 +20,17 @@ case "$1" in
         echo "3) Keluar"
         read -r -p "Pilihan [1-3]: " opt
         case "$opt" in
-            1) bash "$SCRIPT_DIR/bin/export-config.sh" ;;
+            1)
+                echo -e "\nTipe Backup:"
+                echo "1) Backup Standar (Konfigurasi, Token, Brain & Rules - Cepat & Ringan)"
+                echo "2) Backup Penuh (--full: Sertakan seluruh riwayat chat/sesi)"
+                read -r -p "Pilihan [1-2] (default 1): " btype
+                if [ "$btype" = "2" ]; then
+                    bash "$SCRIPT_DIR/bin/export-config.sh" --full
+                else
+                    bash "$SCRIPT_DIR/bin/export-config.sh"
+                fi
+                ;;
             2) bash "$SCRIPT_DIR/bin/restore-config.sh" ;;
             *) exit 0 ;;
         esac

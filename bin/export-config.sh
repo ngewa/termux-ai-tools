@@ -139,18 +139,73 @@ if [ -d "$HOME_DIR/.config/termux-ai" ]; then
     log_ok "Multi-Account Registry (accounts.json) berhasil dikemas."
 fi
 
+# 6. Backup Antigravity Swap (aswap accounts & credentials)
+if [ -d "$HOME_DIR/.local/share/antigravity-swap" ]; then
+    log_info "Mengamankan Antigravity Swap (~/.local/share/antigravity-swap)..."
+    mkdir -p "$STAGE_DIR/aswap"
+    tar -czf "$STAGE_DIR/aswap/antigravity_swap.tar.gz" -C "$HOME_DIR/.local/share" \
+        --exclude='antigravity-swap/.lock' \
+        antigravity-swap 2>/dev/null || true
+    ITEMS_COUNT=$((ITEMS_COUNT + 1))
+    log_ok "Antigravity Swap (accounts & credentials) berhasil dikemas."
+fi
+
+# 7. Backup Antigravity Scope & Active Environment Profile
+STAGE_ENV_COUNT=0
+if [ -d "$HOME_DIR/.config/antigravity" ] || [ -f "$HOME_DIR/.termux_ai_env" ] || [ -f "$HOME_DIR/.termux_authinfo" ]; then
+    log_info "Mengamankan Antigravity Scope & Environment Profile..."
+    mkdir -p "$STAGE_DIR/env"
+    if [ -d "$HOME_DIR/.config/antigravity" ]; then
+        tar -czf "$STAGE_DIR/env/antigravity_config.tar.gz" -C "$HOME_DIR/.config" antigravity 2>/dev/null || true
+        STAGE_ENV_COUNT=$((STAGE_ENV_COUNT + 1))
+    fi
+    if [ -f "$HOME_DIR/.termux_ai_env" ]; then
+        cp "$HOME_DIR/.termux_ai_env" "$STAGE_DIR/env/"
+        STAGE_ENV_COUNT=$((STAGE_ENV_COUNT + 1))
+    fi
+    if [ -f "$HOME_DIR/.termux_authinfo" ]; then
+        cp "$HOME_DIR/.termux_authinfo" "$STAGE_DIR/env/"
+        STAGE_ENV_COUNT=$((STAGE_ENV_COUNT + 1))
+    fi
+    if [ "$STAGE_ENV_COUNT" -gt 0 ]; then
+        ITEMS_COUNT=$((ITEMS_COUNT + 1))
+        log_ok "Antigravity Scope & Environment Profile berhasil dikemas."
+    fi
+fi
+
+# 8. Backup Global AI Rules & MCP Config at $HOME
+RULES_FOUND=0
+RULES_STAGING="$STAGE_DIR/rules_staging"
+mkdir -p "$RULES_STAGING"
+for rf in AGENTS.md GEMINI.md CLAUDE.md CODEBUDDY.md QODER.md .cursorrules .windsurfrules .mcp.json; do
+    if [ -f "$HOME_DIR/$rf" ]; then
+        cp "$HOME_DIR/$rf" "$RULES_STAGING/"
+        RULES_FOUND=$((RULES_FOUND + 1))
+    fi
+done
+if [ "$RULES_FOUND" -gt 0 ]; then
+    log_info "Mengamankan $RULES_FOUND file aturan AI global & MCP root..."
+    mkdir -p "$STAGE_DIR/rules"
+    tar -czf "$STAGE_DIR/rules/global_rules.tar.gz" -C "$RULES_STAGING" . 2>/dev/null || true
+    rm -rf "$RULES_STAGING"
+    ITEMS_COUNT=$((ITEMS_COUNT + 1))
+    log_ok "Global AI Rules & MCP config berhasil dikemas."
+else
+    rm -rf "$RULES_STAGING"
+fi
+
 if [ "$ITEMS_COUNT" -eq 0 ]; then
     log_err "Tidak ada file konfigurasi yang ditemukan untuk diexport!"
     exit 1
 fi
 
-# 5. Create metadata file
+# 9. Create metadata file
 cat > "$STAGE_DIR/metadata.json" << EOF
 {
-  "backup_version": "1.3",
+  "backup_version": "1.4",
   "created_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "device_user": "$(whoami 2>/dev/null || echo 'termux')",
-  "packages": ["opencode", "antigravity-cli", "termux-ai-memory", "agent-skills", "ai-personas"]
+  "packages": ["opencode", "antigravity-cli", "termux-ai-memory", "agent-skills", "ai-personas", "antigravity-swap", "ai-rules"]
 }
 EOF
 
