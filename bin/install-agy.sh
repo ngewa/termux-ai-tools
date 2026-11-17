@@ -34,6 +34,15 @@ for pkg in clang curl tar python; do
 done
 
 if [ ! -f "$LOADER" ]; then
+    if ! dpkg -s glibc-repo >/dev/null 2>&1; then
+        log_warn "Menginstall glibc-repo terlebih dahulu..."
+        if command -v pkg >/dev/null 2>&1; then
+            pkg install glibc-repo -y
+        else
+            apt-get update -y
+            apt-get install -y glibc-repo
+        fi
+    fi
     MISSING_PKGS+=("glibc")
 fi
 

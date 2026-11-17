@@ -1032,7 +1032,21 @@ interactive_menu() {
                         read -r -p "Nomor / Email / Alias akun: " tgt_acc
                         [ -n "$tgt_acc" ] && aswap switch "$tgt_acc"
                         ;;
-                    4) aswap watch ;;
+                    4)
+                        if aswap watch --help 2>/dev/null | grep -q -- '--detail'; then
+                            aswap watch --detail
+                        else
+                            (
+                                trap 'exit 0' INT
+                                while true; do
+                                    clear
+                                    echo -e "${BOLD}${CYAN}aswap watch${RESET}  $(date '+%H:%M:%S')  ${DIM}(every 60s, Ctrl-C stops)${RESET}\n"
+                                    aswap list --detail || aswap list
+                                    sleep 60
+                                done
+                            )
+                        fi
+                        ;;
                     5) aswap auto ;;
                     *) echo "Dibatalkan." ;;
                 esac

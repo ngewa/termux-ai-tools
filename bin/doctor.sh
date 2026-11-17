@@ -89,7 +89,14 @@ else
     ERRORS=$((ERRORS + 1))
     if [ "$AUTO_FIX" = "true" ]; then
         echo -e "         ${CYAN}[Auto-Fix] Menginstall glibc-repo dan glibc...${RESET}"
-        apt-get update -y && apt-get install -y glibc-repo glibc
+        if ! dpkg -s glibc-repo >/dev/null 2>&1; then
+            if command -v pkg >/dev/null 2>&1; then
+                pkg install glibc-repo -y
+            else
+                apt-get update -y && apt-get install -y glibc-repo
+            fi
+        fi
+        apt-get update -y && apt-get install -y glibc
     fi
 fi
 
