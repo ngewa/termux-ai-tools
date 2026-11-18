@@ -12,25 +12,33 @@ Jalankan perintah ini di terminal Termux Anda:
 curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash
 ```
 
-Perintah di atas akan menampilkan menu interaktif lengkap:
-1. **Install / Update OpenCode v1** (versi upstream `v1.19.4`)
-2. **Install / Update OpenCode v2** (versi upstream `v2.2.0` glibc + patchelf)
-3. **Install / Update Antigravity CLI** (`agy v1.3.5` build stabil dengan memory patch)
-4. **Install / Update Semua Tools**
-5. **Cek Status & Versi Terpasang**
-6. **Wizard Setup Provider & API Key (config.sh)**
-7. **Manajemen Sesi & Optimasi DB Storage (session.sh)**
-8. **Plugin & MCP Tool Installer (plugin.sh)**
-9. **Knowledge Memory & AI Brain (memory.sh)**
-10. **Manajemen AI Agent Skills (skill.sh) — deteksi Global & Workspace**
-11. **Manajemen AI Subagents & Personas (agent.sh)**
-12. **Diagnostik & Health Check Lingkungan (Doctor)**
-13. **Export (Backup) Pengaturan & Token ke Arsip (.tar.gz)**
-14. **Restore Pengaturan dari File Backup**
-15. **Manajemen Background Web Service (service.sh)**
-16. **Pasang Shortcut Cepat (Perintah 'ai', widget, aliases)**
-17. **Uninstall Tools (Hapus biner / data)**
-18. **Keluar**
+Perintah di atas akan menampilkan menu interaktif modern & terkategori (dengan deteksi versi terpasang secara langsung):
+
+- **Instalasi & Pembaruan Tools**
+  1. **OpenCode v1** — Install / Update OpenCode v1
+  2. **OpenCode v2** — Install / Update OpenCode v2 (`glibc + patchelf`)
+  3. **Antigravity CLI (agy)** — Install / Update Antigravity CLI
+  4. **Antigravity Swap (aswap)** — Install / Update `antigravity-swap` via pip
+  5. **Install / Update Semua** — Pasang / perbarui `v1`, `v2`, & `agy` sekaligus
+  6. **Cek Update & Versi Live** — Cek rilis GitHub & version switcher (`update.sh`)
+- **AI Brain & Agent Extensions**
+  7. **AI Agent Skills** — Prompt Master, Antislop, UI/UX (`skill.sh`)
+  8. **Subagents & Personas** — Roblox, Toolkit, Reverser (`agent.sh`)
+  9. **Knowledge Memory** — AI Brain terverifikasi & FTS5 (`memory.sh`)
+  10. **Plugin & MCP Tools** — Termux device, bridge & API (`plugin.sh`)
+- **Akun, Kuota & Statistik**
+  11. **Multi-Account & Pool** — Rotasi akun, kuota & `aswap` (`account.sh`)
+  12. **Usage Statistics** — Token, request & pemakaian (`usage-stats.sh`)
+- **Konfigurasi & Pemeliharaan**
+  13. **Konfigurasi AI & Key** — Setup API key & default model (`config.sh`)
+  14. **Manajemen Sesi & DB** — Cari riwayat, ekspor & vacuum (`session.sh`)
+  15. **Background Web Service** — Daemon web UI OpenCode (`service.sh`)
+  16. **Diagnostik Sistem** — Doctor & health check (`doctor.sh`)
+  17. **Backup Pengaturan** — Export settings & token `.tar.gz` (`export-config.sh`)
+  18. **Restore Pengaturan** — Restore data dari file backup (`restore-config.sh`)
+  19. **Pasang Shortcut Cepat** — Perintah `'ai'`, Termux:Widget, & shell aliases (`setup-shortcuts.sh`)
+  20. **Uninstall Tools** — Hapus biner / data (`uninstall.sh`)
+  0. **Keluar** — (`0`, `q`, atau `exit`)
 
 ---
 
@@ -47,6 +55,9 @@ curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.
 
 # Pasang / Update Antigravity CLI saja
 curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- agy
+
+# Pasang / Update Antigravity Swap (aswap)
+curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- aswap
 
 # Pasang / Update Semua Sekaligus
 curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- all
