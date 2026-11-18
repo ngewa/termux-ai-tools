@@ -340,6 +340,27 @@ else
     echo -e "  [INFO] OpenCode v2: Belum terpasang di sistem"
 fi
 
+# OpenCode Cache Binaries (rg, opencode-pty)
+OPENCODE_CACHE_BIN="$HOME_DIR/.cache/opencode/bin"
+if [ -d "$OPENCODE_CACHE_BIN" ] && command -v patchelf >/dev/null 2>&1; then
+    while IFS= read -r -d '' cache_bin; do
+        cur_interp=$(patchelf --print-interpreter "$cache_bin" 2>/dev/null || echo "")
+        if [ -n "$cur_interp" ] && [ "$cur_interp" != "$LOADER" ]; then
+            TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+            bin_name=$(basename "$cache_bin")
+            echo -e "  [${WARN}] OpenCode Cache ($bin_name): ${YELLOW}Interpreter masih $cur_interp (menyebabkan @ file search/pty gagal)${RESET}"
+            WARNINGS=$((WARNINGS + 1))
+            if [ "$AUTO_FIX" = "true" ]; then
+                if patchelf --set-interpreter "$LOADER" "$cache_bin" 2>/dev/null; then
+                    echo -e "         ${GREEN}[Auto-Fix] Interpreter $bin_name berhasil di-patch ke glibc Termux.${RESET}"
+                else
+                    echo -e "         ${RED}[Auto-Fix] Gagal mem-patch $cache_bin.${RESET}"
+                fi
+            fi
+        fi
+    done < <(find "$OPENCODE_CACHE_BIN" -type f -perm -111 -print0 2>/dev/null)
+fi
+
 # Antigravity CLI
 TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
 if [ -f "$PREFIX/bin/agy" ] && [ -f "$PREFIX/share/antigravity-cli/agy.real" ]; then
