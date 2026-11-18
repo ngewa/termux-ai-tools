@@ -5,6 +5,8 @@ PREFIX=${PREFIX:-/data/data/com.termux/files/usr}
 DOWNLOAD_URL="https://github.com/google-antigravity/antigravity-cli/releases/download/${VERSION}/agy_cli_linux_arm64.tar.gz"
 SHARE_DIR="$PREFIX/share/antigravity-cli"
 BIN_DIR="$PREFIX/bin"
+LOADER="$PREFIX/glibc/lib/ld-linux-aarch64.so.1"
+LIB_PATH="$PREFIX/glibc/lib"
 STAGING="$TMPDIR/antigravity-staging"
 
 mkdir -p "$SHARE_DIR" "$BIN_DIR" "$STAGING"
@@ -94,13 +96,23 @@ pathlib.Path(dst).write_bytes(data)
 PYEOF
 
 chmod +x "$PATCHED_BIN"
+patchelf --set-interpreter "$LOADER" "$PATCHED_BIN" 2>/dev/null || true
+
+if [ -d "$PREFIX/glibc/etc" ] && [ -x "$PREFIX/glibc/bin/ldconfig" ]; then
+    mkdir -p "$PREFIX/glibc/etc"
+    if ! grep -qsF "$LIB_PATH" "$PREFIX/glibc/etc/ld.so.conf" 2>/dev/null; then
+        echo "$LIB_PATH" >> "$PREFIX/glibc/etc/ld.so.conf"
+    fi
+    chmod 644 "$PREFIX/glibc/etc/ld.so.conf" 2>/dev/null || true
+    "$PREFIX/glibc/bin/ldconfig" >/dev/null 2>&1 || true
+fi
+
 rm -rf "$STAGING"
 
 # Write and compile the glibc wrapper
 cat > "$TMPDIR/agy_wrapper.c" << 'EOF'
 #include <stdlib.h>
 #include <unistd.h>
-#include <string.h>
 #include <stdio.h>
 
 int main(int argc, char** argv) {
@@ -109,20 +121,15 @@ int main(int argc, char** argv) {
     setenv("GODEBUG", "netdns=cgo", 1);
     setenv("SSL_CERT_FILE", "/data/data/com.termux/files/usr/etc/tls/cert.pem", 1);
 
-    char* loader = "/data/data/com.termux/files/usr/glibc/lib/ld-linux-aarch64.so.1";
     char real_bin[] = "/data/data/com.termux/files/usr/share/antigravity-cli/agy.real";
-    char lib_path[] = "/data/data/com.termux/files/usr/glibc/lib";
 
-    char** new_argv = malloc((argc + 4) * sizeof(char*));
+    char** new_argv = malloc((argc + 1) * sizeof(char*));
     if (!new_argv) return 1;
-    new_argv[0] = loader;
-    new_argv[1] = "--library-path";
-    new_argv[2] = lib_path;
-    new_argv[3] = real_bin;
-    for (int i = 1; i < argc; i++) new_argv[i + 3] = argv[i];
-    new_argv[argc + 3] = NULL;
+    new_argv[0] = real_bin;
+    for (int i = 1; i < argc; i++) new_argv[i] = argv[i];
+    new_argv[argc] = NULL;
 
-    execv(loader, new_argv);
+    execv(real_bin, new_argv);
     perror("execv");
     free(new_argv);
     return 1;

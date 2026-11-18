@@ -27,7 +27,7 @@ log_err() { echo -e "${RED}[ERROR]${RESET} $1"; }
 # 1. Check prerequisites
 log_info "Memeriksa dependensi sistem..."
 MISSING_PKGS=()
-for pkg in clang curl tar python; do
+for pkg in clang curl tar python patchelf; do
     if ! command -v "$pkg" >/dev/null 2>&1; then
         MISSING_PKGS+=("$pkg")
     fi
@@ -168,6 +168,19 @@ PYEOF
 
 chmod +x "$PATCHED_BIN"
 
+log_info "Mengatur glibc interpreter via patchelf..."
+patchelf --set-interpreter "$LOADER" "$PATCHED_BIN" 2>/dev/null || true
+
+log_info "Mengonfigurasi glibc dynamic linker cache..."
+if [ -d "$PREFIX/glibc/etc" ] && [ -x "$PREFIX/glibc/bin/ldconfig" ]; then
+    mkdir -p "$PREFIX/glibc/etc"
+    if ! grep -qsF "$LIB_PATH" "$PREFIX/glibc/etc/ld.so.conf" 2>/dev/null; then
+        echo "$LIB_PATH" >> "$PREFIX/glibc/etc/ld.so.conf"
+    fi
+    chmod 644 "$PREFIX/glibc/etc/ld.so.conf" 2>/dev/null || true
+    "$PREFIX/glibc/bin/ldconfig" >/dev/null 2>&1 || true
+fi
+
 # 5. Compile C wrapper
 WRAPPER_BIN="$BIN_DIR/agy"
 log_info "Menyiapkan wrapper C di $WRAPPER_BIN..."
@@ -175,7 +188,6 @@ log_info "Menyiapkan wrapper C di $WRAPPER_BIN..."
 cat > "$TMP_DIR/agy_wrapper.c" << 'EOF'
 #include <stdlib.h>
 #include <unistd.h>
-#include <string.h>
 #include <stdio.h>
 
 int main(int argc, char** argv) {
@@ -184,20 +196,15 @@ int main(int argc, char** argv) {
     setenv("GODEBUG", "netdns=cgo", 1);
     setenv("SSL_CERT_FILE", "/data/data/com.termux/files/usr/etc/tls/cert.pem", 1);
 
-    char* loader = "/data/data/com.termux/files/usr/glibc/lib/ld-linux-aarch64.so.1";
     char real_bin[] = "/data/data/com.termux/files/usr/share/antigravity-cli/agy.real";
-    char lib_path[] = "/data/data/com.termux/files/usr/glibc/lib";
 
-    char** new_argv = malloc((argc + 4) * sizeof(char*));
+    char** new_argv = malloc((argc + 1) * sizeof(char*));
     if (!new_argv) return 1;
-    new_argv[0] = loader;
-    new_argv[1] = "--library-path";
-    new_argv[2] = lib_path;
-    new_argv[3] = real_bin;
-    for (int i = 1; i < argc; i++) new_argv[i + 3] = argv[i];
-    new_argv[argc + 3] = NULL;
+    new_argv[0] = real_bin;
+    for (int i = 1; i < argc; i++) new_argv[i] = argv[i];
+    new_argv[argc] = NULL;
 
-    execv(loader, new_argv);
+    execv(real_bin, new_argv);
     perror("execv");
     free(new_argv);
     return 1;

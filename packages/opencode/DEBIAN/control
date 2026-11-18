@@ -2,7 +2,7 @@ Package: opencode
 Version: 1.19.4
 Architecture: all
 Maintainer: eL (ngewa)
-Depends: glibc, clang, python, curl, tar
+Depends: glibc, clang, python, curl, tar, patchelf
 Section: ai
 Priority: optional
 Homepage: https://opencode.ai/

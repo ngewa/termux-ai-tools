@@ -233,6 +233,81 @@ fi
 # ------------------------------------------------------------------------------
 echo -e "\n${BOLD}5. Status & Integritas Biner AI Tools:${RESET}"
 
+ensure_glibc_ldcache() {
+    if [ -d "$PREFIX/glibc/etc" ] && [ -x "$PREFIX/glibc/bin/ldconfig" ]; then
+        mkdir -p "$PREFIX/glibc/etc"
+        if ! grep -qsF "$PREFIX/glibc/lib" "$PREFIX/glibc/etc/ld.so.conf" 2>/dev/null; then
+            echo "$PREFIX/glibc/lib" >> "$PREFIX/glibc/etc/ld.so.conf"
+        fi
+        chmod 644 "$PREFIX/glibc/etc/ld.so.conf" 2>/dev/null || true
+        "$PREFIX/glibc/bin/ldconfig" >/dev/null 2>&1 || true
+    fi
+}
+
+check_and_fix_proc_self_exe() {
+    local tool_name="$1"
+    local wrapper_bin="$2"
+    local real_bin="$3"
+    local cur_interp=""
+    local needs_fix=false
+
+    if command -v patchelf >/dev/null 2>&1; then
+        cur_interp=$(patchelf --print-interpreter "$real_bin" 2>/dev/null || echo "")
+        if [ "$cur_interp" != "$LOADER" ]; then
+            needs_fix=true
+        fi
+    fi
+    if grep -qF -- "--library-path" "$wrapper_bin" 2>/dev/null; then
+        needs_fix=true
+    fi
+
+    if [ "$needs_fix" = "true" ]; then
+        TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+        echo -e "  [${WARN}] $tool_name (/proc/self/exe): ${YELLOW}Masih memakai loader wrapper lama (berisiko ld-linux-aarch64.so.1: invalid argument)${RESET}"
+        WARNINGS=$((WARNINGS + 1))
+        if [ "$AUTO_FIX" = "true" ]; then
+            if command -v patchelf >/dev/null 2>&1 && command -v clang >/dev/null 2>&1; then
+                echo -e "         ${CYAN}[Auto-Fix] Mem-patch interpreter $tool_name dan mengompilasi ulang wrapper...${RESET}"
+                ensure_glibc_ldcache
+                patchelf --set-interpreter "$LOADER" "$real_bin" 2>/dev/null || true
+                local safe_name="${tool_name// /_}"
+                local tmp_c="${TMPDIR:-$PREFIX/tmp}/fix_${safe_name}_$$.c"
+                cat > "$tmp_c" <<C_EOF
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
+
+int main(int argc, char** argv) {
+    unsetenv("LD_PRELOAD");
+    unsetenv("LD_LIBRARY_PATH");
+    setenv("GODEBUG", "netdns=cgo", 1);
+    setenv("SSL_CERT_FILE", "$CERT_PEM", 1);
+
+    char real_bin[] = "$real_bin";
+    char** new_argv = malloc((argc + 1) * sizeof(char*));
+    if (!new_argv) return 1;
+    new_argv[0] = real_bin;
+    for (int i = 1; i < argc; i++) new_argv[i] = argv[i];
+    new_argv[argc] = NULL;
+
+    execv(real_bin, new_argv);
+    perror("execv");
+    free(new_argv);
+    return 1;
+}
+C_EOF
+                if clang -O2 -o "$wrapper_bin" "$tmp_c"; then
+                    chmod 755 "$wrapper_bin"
+                    echo -e "         ${GREEN}[Auto-Fix] Wrapper $tool_name berhasil diperbarui ke mode patchelf langsung.${RESET}"
+                fi
+                rm -f "$tmp_c"
+            else
+                echo -e "         ${RED}[Auto-Fix] Membutuhkan 'patchelf' dan 'clang' untuk memperbaiki $tool_name.${RESET}"
+            fi
+        fi
+    fi
+}
+
 # OpenCode v1
 TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
 if [ -f "$PREFIX/bin/opencode" ] && [ -f "$PREFIX/share/opencode/opencode.real" ]; then
@@ -244,6 +319,7 @@ if [ -f "$PREFIX/bin/opencode" ] && [ -f "$PREFIX/share/opencode/opencode.real" 
         echo -e "  [${FAIL}] OpenCode v1: ${RED}Biner tidak dapat dieksekusi${RESET}"
         ERRORS=$((ERRORS + 1))
     fi
+    check_and_fix_proc_self_exe "OpenCode v1" "$PREFIX/bin/opencode" "$PREFIX/share/opencode/opencode.real"
 else
     echo -e "  [INFO] OpenCode v1: Belum terpasang di sistem"
 fi
@@ -259,6 +335,7 @@ if [ -f "$PREFIX/bin/opencode-v2" ] && [ -f "$PREFIX/share/opencode-v2/opencode.
         echo -e "  [${FAIL}] OpenCode v2: ${RED}Biner tidak dapat dieksekusi${RESET}"
         ERRORS=$((ERRORS + 1))
     fi
+    check_and_fix_proc_self_exe "OpenCode v2" "$PREFIX/bin/opencode-v2" "$PREFIX/share/opencode-v2/opencode.real"
 else
     echo -e "  [INFO] OpenCode v2: Belum terpasang di sistem"
 fi
@@ -274,6 +351,7 @@ if [ -f "$PREFIX/bin/agy" ] && [ -f "$PREFIX/share/antigravity-cli/agy.real" ]; 
         echo -e "  [${FAIL}] Antigravity CLI: ${RED}Biner gagal dieksekusi${RESET}"
         ERRORS=$((ERRORS + 1))
     fi
+    check_and_fix_proc_self_exe "Antigravity CLI" "$PREFIX/bin/agy" "$PREFIX/share/antigravity-cli/agy.real"
 else
     echo -e "  [INFO] Antigravity CLI: Belum terpasang di sistem"
 fi
