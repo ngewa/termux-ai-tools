@@ -256,6 +256,8 @@ check_and_fix_proc_self_exe() {
         if [ "$cur_interp" != "$LOADER" ]; then
             needs_fix=true
         fi
+    else
+        cur_interp="(patchelf tidak tersedia)"
     fi
     if grep -qF -- "--library-path" "$wrapper_bin" 2>/dev/null; then
         needs_fix=true
@@ -263,16 +265,16 @@ check_and_fix_proc_self_exe() {
 
     if [ "$needs_fix" = "true" ]; then
         TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
-        echo -e "  [${WARN}] $tool_name (/proc/self/exe): ${YELLOW}Masih memakai loader wrapper lama (berisiko ld-linux-aarch64.so.1: invalid argument)${RESET}"
+        echo -e "  [${WARN}] $tool_name: ${YELLOW}Interpreter tidak sesuai (${cur_interp:-tidak terbaca}), diharapkan $LOADER${RESET}"
         WARNINGS=$((WARNINGS + 1))
         if [ "$AUTO_FIX" = "true" ]; then
             if command -v patchelf >/dev/null 2>&1 && command -v clang >/dev/null 2>&1; then
                 echo -e "         ${CYAN}[Auto-Fix] Mem-patch interpreter $tool_name dan mengompilasi ulang wrapper...${RESET}"
                 ensure_glibc_ldcache
-                patchelf --set-interpreter "$LOADER" "$real_bin" 2>/dev/null || true
-                local safe_name="${tool_name// /_}"
-                local tmp_c="${TMPDIR:-$PREFIX/tmp}/fix_${safe_name}_$$.c"
-                cat > "$tmp_c" <<C_EOF
+                if patchelf --set-interpreter "$LOADER" "$real_bin" 2>/dev/null; then
+                    local safe_name="${tool_name// /_}"
+                    local tmp_c="${TMPDIR:-$PREFIX/tmp}/fix_${safe_name}_$$.c"
+                    cat > "$tmp_c" <<C_EOF
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -296,11 +298,26 @@ int main(int argc, char** argv) {
     return 1;
 }
 C_EOF
-                if clang -O2 -o "$wrapper_bin" "$tmp_c"; then
-                    chmod 755 "$wrapper_bin"
-                    echo -e "         ${GREEN}[Auto-Fix] Wrapper $tool_name berhasil diperbarui ke mode patchelf langsung.${RESET}"
+                    if clang -O2 -o "$wrapper_bin" "$tmp_c"; then
+                        chmod 755 "$wrapper_bin"
+                        echo -e "         ${GREEN}[Auto-Fix] Wrapper $tool_name berhasil diperbarui ke mode patchelf langsung.${RESET}"
+                        local verify_out
+                        verify_out=$("$wrapper_bin" --version 2>/dev/null || echo "")
+                        if [ -n "$verify_out" ]; then
+                            echo -e "         ${GREEN}[Auto-Fix] Verifikasi $tool_name berhasil ($verify_out).${RESET}"
+                        else
+                            echo -e "         ${RED}[Auto-Fix] Verifikasi $tool_name gagal setelah perbaikan.${RESET}"
+                            ERRORS=$((ERRORS + 1))
+                        fi
+                    else
+                        echo -e "         ${RED}[Auto-Fix] Gagal mengompilasi ulang wrapper $tool_name.${RESET}"
+                        ERRORS=$((ERRORS + 1))
+                    fi
+                    rm -f "$tmp_c"
+                else
+                    echo -e "         ${RED}[Auto-Fix] Gagal mem-patch interpreter $real_bin.${RESET}"
+                    ERRORS=$((ERRORS + 1))
                 fi
-                rm -f "$tmp_c"
             else
                 echo -e "         ${RED}[Auto-Fix] Membutuhkan 'patchelf' dan 'clang' untuk memperbaiki $tool_name.${RESET}"
             fi

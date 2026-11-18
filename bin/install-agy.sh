@@ -169,7 +169,20 @@ PYEOF
 chmod +x "$PATCHED_BIN"
 
 log_info "Mengatur glibc interpreter via patchelf..."
-patchelf --set-interpreter "$LOADER" "$PATCHED_BIN" 2>/dev/null || true
+if ! command -v patchelf >/dev/null 2>&1; then
+    log_err "patchelf tidak ditemukan. Tidak dapat mengatur interpreter glibc."
+    exit 1
+fi
+if ! patchelf --set-interpreter "$LOADER" "$PATCHED_BIN"; then
+    log_err "Gagal mengatur interpreter glibc pada $PATCHED_BIN."
+    exit 1
+fi
+CUR_INTERP=$(patchelf --print-interpreter "$PATCHED_BIN" 2>/dev/null || echo "")
+if [ "$CUR_INTERP" != "$LOADER" ]; then
+    log_err "Interpreter masih salah setelah di-patch: ${CUR_INTERP:-kosong}"
+    exit 1
+fi
+log_ok "Interpreter glibc: $CUR_INTERP"
 
 log_info "Mengonfigurasi glibc dynamic linker cache..."
 if [ -d "$PREFIX/glibc/etc" ] && [ -x "$PREFIX/glibc/bin/ldconfig" ]; then
@@ -217,5 +230,10 @@ rm -rf "$TMP_DIR"
 
 # 6. Verification
 NEW_VER=$("$WRAPPER_BIN" --version 2>/dev/null || echo "error")
+if [ "$NEW_VER" = "error" ] || [ -z "$NEW_VER" ]; then
+    log_err "Verifikasi gagal: '$WRAPPER_BIN --version' tidak mengembalikan versi."
+    log_err "Periksa interpreter $PATCHED_BIN atau jalankan: doctor.sh --fix"
+    exit 1
+fi
 log_ok "Antigravity CLI v${NEW_VER} berhasil dipasang!"
 log_info "Jalankan 'agy' di terminal Termux Anda."
