@@ -6,10 +6,48 @@ set -e
 # Real-time GitHub Upstream Releases Checker & Interactive Version Selector
 # ==============================================================================
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_RAW_URL="https://raw.githubusercontent.com/ngewa/termux-ai-tools/main"
+SCRIPT_DIR=""
+IS_PIPED=true
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "")"
+    IS_PIPED=false
+fi
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 CACHE_DIR="${HOME:-/data/data/com.termux/files/home}/.cache/termux-ai"
 CACHE_TTL=300
+
+prompt_read() {
+    local prompt_text="$1"
+    local var_name="$2"
+    if [ -t 0 ]; then
+        read -r -p "$prompt_text" "$var_name" || true
+    elif [ "$IS_PIPED" = "true" ] && ( : </dev/tty ) 2>/dev/null; then
+        read -r -p "$prompt_text" "$var_name" </dev/tty || true
+    else
+        read -r -p "$prompt_text" "$var_name" || true
+    fi
+}
+
+run_bin_script() {
+    local script_rel="$1"
+    shift
+    local target=""
+    if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/$script_rel" ]; then
+        target="$SCRIPT_DIR/$script_rel"
+    elif [ -f "${HOME:-/data/data/com.termux/files/home}/termux-ai-tools/$script_rel" ]; then
+        target="${HOME:-/data/data/com.termux/files/home}/termux-ai-tools/$script_rel"
+    else
+        target="${TMPDIR:-$PREFIX/tmp}/termux-ai-$(basename "$script_rel")"
+        curl -fsSL "$REPO_RAW_URL/$script_rel" -o "$target"
+        chmod +x "$target"
+    fi
+    if [ "$IS_PIPED" = "true" ] && [ ! -t 0 ] && ( : </dev/tty ) 2>/dev/null; then
+        bash "$target" "$@" </dev/tty
+    else
+        bash "$target" "$@"
+    fi
+}
 
 GREEN="\033[32m"
 YELLOW="\033[33m"
@@ -250,8 +288,8 @@ choose_version() {
     printf "  ${RED}%2s)${RESET} Batal / Kembali ke menu\n" "0"
     echo ""
 
-    local choice
-    read -r -p "Pilihan versi [1-$((count-1)), atau ketik versi langsung, default: 1 (${versions[0]})]: " choice
+    local choice=""
+    prompt_read "Pilihan versi [1-$((count-1)), atau ketik versi langsung, default: 1 (${versions[0]})]: " choice
     choice="${choice:-1}"
 
     if [ "$choice" = "0" ] || [ "$choice" = "batal" ] || [ "$choice" = "q" ]; then
@@ -259,7 +297,8 @@ choose_version() {
         SELECTED_VERSION=""
         return 1
     elif [ "$choice" = "c" ] || [ "$choice" = "C" ] || [ "$choice" = "m" ] || [ "$choice" = "M" ]; then
-        read -r -p "Masukkan versi kustom target (contoh: 2.2.0): " manual_v
+        local manual_v=""
+        prompt_read "Masukkan versi kustom target (contoh: 2.2.0): " manual_v
         SELECTED_VERSION="${manual_v#v}"
         if [ -z "$SELECTED_VERSION" ]; then
             echo -e "${RED}Versi tidak boleh kosong.${RESET}"
@@ -290,31 +329,35 @@ custom_switcher() {
     echo -e "  ${GREEN}3)${RESET} Antigravity CLI (AGY)(Saat ini: ${AGY_INSTALLED})"
     echo -e "  ${RED}0)${RESET} Batal"
     echo ""
-    read -r -p "Pilihan tool [1-3]: " t_choice
+    local t_choice=""
+    prompt_read "Pilihan tool [1-3]: " t_choice
 
     case "$t_choice" in
         1)
-            read -r -p "Masukkan versi OpenCode v1 target (contoh: 1.19.4): " custom_v
+            local custom_v=""
+            prompt_read "Masukkan versi OpenCode v1 target (contoh: 1.19.4): " custom_v
             custom_v="${custom_v#v}"
             if [ -n "$custom_v" ]; then
                 log_info "Beralih ke OpenCode v1 versi $custom_v..."
-                bash "$SCRIPT_DIR/bin/install-opencode.sh" "$custom_v" --force
+                run_bin_script "bin/install-opencode.sh" "$custom_v" --force
             fi
             ;;
         2)
-            read -r -p "Masukkan versi OpenCode v2 target (contoh: 2.2.1): " custom_v
+            local custom_v=""
+            prompt_read "Masukkan versi OpenCode v2 target (contoh: 2.2.1): " custom_v
             custom_v="${custom_v#v}"
             if [ -n "$custom_v" ]; then
                 log_info "Beralih ke OpenCode v2 versi $custom_v..."
-                bash "$SCRIPT_DIR/bin/install-opencode-v2.sh" "$custom_v" --force
+                run_bin_script "bin/install-opencode-v2.sh" "$custom_v" --force
             fi
             ;;
         3)
-            read -r -p "Masukkan versi Antigravity CLI target (contoh: 1.3.5 atau 1.4.10): " custom_v
+            local custom_v=""
+            prompt_read "Masukkan versi Antigravity CLI target (contoh: 1.3.5 atau 1.4.10): " custom_v
             custom_v="${custom_v#v}"
             if [ -n "$custom_v" ]; then
                 log_info "Beralih ke Antigravity CLI versi $custom_v..."
-                bash "$SCRIPT_DIR/bin/install-agy.sh" "$custom_v" --force
+                run_bin_script "bin/install-agy.sh" "$custom_v" --force
             fi
             ;;
         *)
@@ -338,7 +381,7 @@ if [ -n "$TARGET" ]; then
                 SELECTED_VERSION="$OPENCODE_LATEST"
             fi
             log_info "Memulai update OpenCode v1 ke versi $SELECTED_VERSION..."
-            bash "$SCRIPT_DIR/bin/install-opencode.sh" "$SELECTED_VERSION" --force
+            run_bin_script "bin/install-opencode.sh" "$SELECTED_VERSION" --force
             exit 0
             ;;
         opencode-v2|v2)
@@ -350,7 +393,7 @@ if [ -n "$TARGET" ]; then
                 SELECTED_VERSION="$OPENCODE2_LATEST"
             fi
             log_info "Memulai update OpenCode v2 ke versi $SELECTED_VERSION..."
-            bash "$SCRIPT_DIR/bin/install-opencode-v2.sh" "$SELECTED_VERSION" --force
+            run_bin_script "bin/install-opencode-v2.sh" "$SELECTED_VERSION" --force
             exit 0
             ;;
         agy)
@@ -362,7 +405,7 @@ if [ -n "$TARGET" ]; then
                 SELECTED_VERSION="1.3.5"
             fi
             log_info "Memulai update / pasang Antigravity CLI ke versi $SELECTED_VERSION..."
-            bash "$SCRIPT_DIR/bin/install-agy.sh" "$SELECTED_VERSION" --force
+            run_bin_script "bin/install-agy.sh" "$SELECTED_VERSION" --force
             exit 0
             ;;
         custom|switch)
@@ -371,9 +414,9 @@ if [ -n "$TARGET" ]; then
             ;;
         all)
             log_info "Mengupdate semua tools ke versi rilis terbaru / stabil..."
-            bash "$SCRIPT_DIR/bin/install-opencode.sh" "$OPENCODE_LATEST" --force
-            bash "$SCRIPT_DIR/bin/install-opencode-v2.sh" "$OPENCODE2_LATEST" --force
-            bash "$SCRIPT_DIR/bin/install-agy.sh" "1.3.5" --force
+            run_bin_script "bin/install-opencode.sh" "$OPENCODE_LATEST" --force
+            run_bin_script "bin/install-opencode-v2.sh" "$OPENCODE2_LATEST" --force
+            run_bin_script "bin/install-agy.sh" "1.3.5" --force
             exit 0
             ;;
         --check|check)
@@ -396,35 +439,36 @@ echo -e "  ${GREEN}4)${RESET} Update Semua Tools   (Rilis terbaru)"
 echo -e "  ${CYAN}5)${RESET} Ganti Versi Kustom   (Ketik versi bebas langsung)"
 echo -e "  ${YELLOW}6)${RESET} Keluar"
 echo ""
-read -r -p "Masukkan pilihan [1-6]: " choice
+choice=""
+prompt_read "Masukkan pilihan [1-6]: " choice
 
 case "$choice" in
     1)
         if choose_version "OpenCode v1" "$OPENCODE_INSTALLED" "${OPENCODE1_LIST[@]}"; then
             log_info "Memulai pemasangan OpenCode v1 versi ${SELECTED_VERSION}..."
-            bash "$SCRIPT_DIR/bin/install-opencode.sh" "$SELECTED_VERSION" --force
+            run_bin_script "bin/install-opencode.sh" "$SELECTED_VERSION" --force
         fi
         ;;
     2)
         if choose_version "OpenCode v2" "$OPENCODE2_INSTALLED" "${OPENCODE2_LIST[@]}"; then
             log_info "Memulai pemasangan OpenCode v2 versi ${SELECTED_VERSION}..."
-            bash "$SCRIPT_DIR/bin/install-opencode-v2.sh" "$SELECTED_VERSION" --force
+            run_bin_script "bin/install-opencode-v2.sh" "$SELECTED_VERSION" --force
         fi
         ;;
     3)
         if choose_version "Antigravity CLI (AGY)" "$AGY_INSTALLED" "${AGY_LIST[@]}"; then
             log_info "Memulai pemasangan Antigravity CLI versi ${SELECTED_VERSION}..."
-            bash "$SCRIPT_DIR/bin/install-agy.sh" "$SELECTED_VERSION" --force
+            run_bin_script "bin/install-agy.sh" "$SELECTED_VERSION" --force
         fi
         ;;
     4)
         log_info "Mengupdate semua tools..."
         log_info "1. Mengupdate OpenCode v1 ke versi terbaru ($OPENCODE_LATEST)..."
-        bash "$SCRIPT_DIR/bin/install-opencode.sh" "$OPENCODE_LATEST" --force
+        run_bin_script "bin/install-opencode.sh" "$OPENCODE_LATEST" --force
         log_info "2. Mengupdate OpenCode v2 ke versi terbaru ($OPENCODE2_LATEST)..."
-        bash "$SCRIPT_DIR/bin/install-opencode-v2.sh" "$OPENCODE2_LATEST" --force
+        run_bin_script "bin/install-opencode-v2.sh" "$OPENCODE2_LATEST" --force
         log_info "3. Memasang Antigravity CLI (1.3.5 stabil)..."
-        bash "$SCRIPT_DIR/bin/install-agy.sh" "1.3.5" --force
+        run_bin_script "bin/install-agy.sh" "1.3.5" --force
         log_ok "Semua tools berhasil diperbarui!"
         ;;
     5)

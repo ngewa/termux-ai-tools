@@ -8,6 +8,7 @@ set -e
 
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 TOOLS_DIR="${HOME:-/data/data/com.termux/files/home}/termux-ai-tools"
+REPO_RAW_URL="https://raw.githubusercontent.com/ngewa/termux-ai-tools/main"
 
 GREEN="\033[32m"
 YELLOW="\033[33m"
@@ -16,6 +17,27 @@ RED="\033[31m"
 BOLD="\033[1m"
 DIM="\033[2m"
 RESET="\033[0m"
+
+run_tool_script() {
+    local rel_path="$1"
+    shift
+    if [ -f "$TOOLS_DIR/$rel_path" ]; then
+        if [ ! -t 0 ] && ( : </dev/tty ) 2>/dev/null; then
+            exec bash "$TOOLS_DIR/$rel_path" "$@" </dev/tty
+        else
+            exec bash "$TOOLS_DIR/$rel_path" "$@"
+        fi
+    else
+        local tmp_script="${TMPDIR:-$PREFIX/tmp}/termux-ai-$(basename "$rel_path")"
+        curl -fsSL "$REPO_RAW_URL/$rel_path" -o "$tmp_script"
+        chmod +x "$tmp_script"
+        if [ ! -t 0 ] && ( : </dev/tty ) 2>/dev/null; then
+            exec bash "$tmp_script" "$@" </dev/tty
+        else
+            exec bash "$tmp_script" "$@"
+        fi
+    fi
+}
 
 # Handle CLI arguments directly
 case "$1" in
@@ -60,111 +82,57 @@ case "$1" in
         ;;
     service)
         shift
-        if [ -f "$TOOLS_DIR/service.sh" ]; then
-            exec bash "$TOOLS_DIR/service.sh" "$@"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/service.sh | bash -s -- "$@"
-        fi
+        run_tool_script "bin/service.sh" "$@"
         ;;
 
     usage|stats)
         shift
-        if [ -f "$TOOLS_DIR/bin/usage-stats.sh" ]; then
-            exec bash "$TOOLS_DIR/bin/usage-stats.sh" "$@"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/bin/usage-stats.sh | bash -s -- "$@"
-        fi
+        run_tool_script "bin/usage-stats.sh" "$@"
         ;;
 
     doc|doctor)
         shift
-        if [ -f "$TOOLS_DIR/doctor.sh" ]; then
-            exec bash "$TOOLS_DIR/doctor.sh" "$@"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- doctor "$@"
-        fi
+        run_tool_script "bin/doctor.sh" "$@"
         ;;
     up|update)
         shift
-        if [ -f "$TOOLS_DIR/update.sh" ]; then
-            exec bash "$TOOLS_DIR/update.sh" "$@"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/update.sh | bash -s -- "$@"
-        fi
+        run_tool_script "update.sh" "$@"
         ;;
     backup|export)
         shift
-        if [ -f "$TOOLS_DIR/backup.sh" ]; then
-            exec bash "$TOOLS_DIR/backup.sh" export "$@"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- export "$@"
-        fi
+        run_tool_script "bin/export-config.sh" "$@"
         ;;
     restore)
         shift
-        if [ -f "$TOOLS_DIR/backup.sh" ]; then
-            exec bash "$TOOLS_DIR/backup.sh" restore "$@"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- restore "$@"
-        fi
+        run_tool_script "bin/restore-config.sh" "$@"
         ;;
     cfg|config)
         shift
-        if [ -f "$TOOLS_DIR/config.sh" ]; then
-            exec bash "$TOOLS_DIR/config.sh" "$@"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/config.sh | bash -s -- "$@"
-        fi
+        run_tool_script "bin/config-helper.sh" "$@"
         ;;
     sess|session)
         shift
-        if [ -f "$TOOLS_DIR/session.sh" ]; then
-            exec bash "$TOOLS_DIR/session.sh" "$@"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/session.sh | bash -s -- "$@"
-        fi
+        run_tool_script "bin/session-manager.sh" "$@"
         ;;
     plugin|mcp)
         shift
-        if [ -f "$TOOLS_DIR/plugin.sh" ]; then
-            exec bash "$TOOLS_DIR/plugin.sh" "$@"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/plugin.sh | bash -s -- "$@"
-        fi
+        run_tool_script "bin/plugin-installer.sh" "$@"
         ;;
     mem|memory)
         shift
-        if [ -f "$TOOLS_DIR/memory.sh" ]; then
-            exec bash "$TOOLS_DIR/memory.sh" "$@"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/memory.sh | bash -s -- "$@"
-        fi
+        run_tool_script "bin/memory-manager.sh" "$@"
         ;;
     skill|skills)
         shift
-        if [ -f "$TOOLS_DIR/skill.sh" ]; then
-            exec bash "$TOOLS_DIR/skill.sh" "$@"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/skill.sh | bash -s -- "$@"
-        fi
+        run_tool_script "bin/skill-manager.sh" "$@"
         ;;
     agent|agents)
         shift
-        if [ -f "$TOOLS_DIR/agent.sh" ]; then
-            exec bash "$TOOLS_DIR/agent.sh" "$@"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/agent.sh | bash -s -- "$@"
-        fi
+        run_tool_script "bin/agent-manager.sh" "$@"
         ;;
     acc|account|auth)
         shift
-        if [ -f "$TOOLS_DIR/account.sh" ]; then
-            exec bash "$TOOLS_DIR/account.sh" "$@"
-        elif [ -f "$TOOLS_DIR/bin/account-manager.sh" ]; then
-            exec bash "$TOOLS_DIR/bin/account-manager.sh" "$@"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/account.sh | bash -s -- "$@"
-        fi
+        run_tool_script "bin/account-manager.sh" "$@"
         ;;
     aswap|swap)
         shift
@@ -258,7 +226,8 @@ echo ""
 printf "   ${YELLOW}%2s)${RESET} ${BOLD}%-23s${RESET} ${DIM}%s${RESET}\n" "0" "Keluar" "(atau ketik 17 / q / exit)"
 echo ""
 
-read -r -p "Masukkan pilihan [0-16]: " choice
+choice=""
+read -r -p "Masukkan pilihan [0-16]: " choice || true
 
 case "$choice" in
     1|oc|opencode)
@@ -292,90 +261,40 @@ case "$choice" in
         fi
         ;;
     5|skill|skills|aiskill)
-        if [ -f "$TOOLS_DIR/skill.sh" ]; then
-            exec bash "$TOOLS_DIR/skill.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/skill.sh | bash
-        fi
+        run_tool_script "bin/skill-manager.sh"
         ;;
     6|agent|agents|aiagent)
-        if [ -f "$TOOLS_DIR/agent.sh" ]; then
-            exec bash "$TOOLS_DIR/agent.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/agent.sh | bash
-        fi
+        run_tool_script "bin/agent-manager.sh"
         ;;
     7|mem|memory|aimem|brain)
-        if [ -f "$TOOLS_DIR/memory.sh" ]; then
-            exec bash "$TOOLS_DIR/memory.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/memory.sh | bash
-        fi
+        run_tool_script "bin/memory-manager.sh"
         ;;
     8|plugin|plugins|mcp|aiplugin)
-        if [ -f "$TOOLS_DIR/plugin.sh" ]; then
-            exec bash "$TOOLS_DIR/plugin.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/plugin.sh | bash
-        fi
+        run_tool_script "bin/plugin-installer.sh"
         ;;
     9|acc|account|auth|aiaccount)
-        if [ -f "$TOOLS_DIR/account.sh" ]; then
-            exec bash "$TOOLS_DIR/account.sh"
-        elif [ -f "$TOOLS_DIR/bin/account-manager.sh" ]; then
-            exec bash "$TOOLS_DIR/bin/account-manager.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/account.sh | bash
-        fi
+        run_tool_script "bin/account-manager.sh"
         ;;
     10|usage|stats|stat)
-        if [ -f "$TOOLS_DIR/bin/usage-stats.sh" ]; then
-            exec bash "$TOOLS_DIR/bin/usage-stats.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/bin/usage-stats.sh | bash
-        fi
+        run_tool_script "bin/usage-stats.sh"
         ;;
     11|cfg|config|aiconfig)
-        if [ -f "$TOOLS_DIR/config.sh" ]; then
-            exec bash "$TOOLS_DIR/config.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/config.sh | bash
-        fi
+        run_tool_script "bin/config-helper.sh"
         ;;
     12|sess|session|aisession)
-        if [ -f "$TOOLS_DIR/session.sh" ]; then
-            exec bash "$TOOLS_DIR/session.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/session.sh | bash
-        fi
+        run_tool_script "bin/session-manager.sh"
         ;;
     13|doc|doctor|aidoc)
-        if [ -f "$TOOLS_DIR/doctor.sh" ]; then
-            exec bash "$TOOLS_DIR/doctor.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- doctor
-        fi
+        run_tool_script "bin/doctor.sh"
         ;;
     14|up|update|aiup)
-        if [ -f "$TOOLS_DIR/update.sh" ]; then
-            exec bash "$TOOLS_DIR/update.sh"
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/update.sh | bash
-        fi
+        run_tool_script "update.sh"
         ;;
     15|backup|export)
-        if [ -f "$TOOLS_DIR/backup.sh" ]; then
-            exec bash "$TOOLS_DIR/backup.sh" export
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- export
-        fi
+        run_tool_script "bin/export-config.sh"
         ;;
     16|restore|import)
-        if [ -f "$TOOLS_DIR/backup.sh" ]; then
-            exec bash "$TOOLS_DIR/backup.sh" restore
-        else
-            exec curl -fsSL https://raw.githubusercontent.com/ngewa/termux-ai-tools/main/install.sh | bash -s -- restore
-        fi
+        run_tool_script "bin/restore-config.sh"
         ;;
     aswap|swap)
         if command -v aswap >/dev/null 2>&1; then
