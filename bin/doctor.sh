@@ -382,14 +382,47 @@ fi
 TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
 if [ -f "$PREFIX/bin/agy" ] && [ -f "$PREFIX/share/antigravity-cli/agy.real" ]; then
     AGY_VER=$("$PREFIX/bin/agy" --version 2>/dev/null || echo "Error")
-    if [ "$AGY_VER" != "Error" ]; then
+    if [ "$AGY_VER" != "Error" ] && [ -n "$AGY_VER" ]; then
         echo -e "  [${PASS}] Antigravity CLI (agy): ${GREEN}Terpasang (v${AGY_VER})${RESET}"
         PASSED_CHECKS=$((PASSED_CHECKS + 1))
     else
         echo -e "  [${FAIL}] Antigravity CLI: ${RED}Biner gagal dieksekusi${RESET}"
         ERRORS=$((ERRORS + 1))
     fi
-    check_and_fix_proc_self_exe "Antigravity CLI" "$PREFIX/bin/agy" "$PREFIX/share/antigravity-cli/agy.real"
+
+    AGY_NEEDS_REPAIR=false
+    AGY_CUR_INTERP=""
+    if command -v patchelf >/dev/null 2>&1; then
+        AGY_CUR_INTERP=$(patchelf --print-interpreter "$PREFIX/share/antigravity-cli/agy.real" 2>/dev/null || echo "")
+        [ "$AGY_CUR_INTERP" != "$LOADER" ] && AGY_NEEDS_REPAIR=true
+    fi
+    if [ ! -x "$PREFIX/share/antigravity-cli/patch-agy.sh" ] || ! grep -qF "patch-agy.sh" "$PREFIX/bin/agy" 2>/dev/null; then
+        AGY_NEEDS_REPAIR=true
+    fi
+
+    if [ "$AGY_NEEDS_REPAIR" = "true" ]; then
+        TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+        echo -e "  [${WARN}] Antigravity CLI Auto-Recovery: ${YELLOW}Wrapper self-healing belum aktif atau interpreter tidak sesuai (${AGY_CUR_INTERP:-unknown})${RESET}"
+        WARNINGS=$((WARNINGS + 1))
+        if [ "$AUTO_FIX" = "true" ]; then
+            DOC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "")"
+            if [ -n "$DOC_DIR" ] && [ -f "$DOC_DIR/install-agy.sh" ]; then
+                echo -e "         ${CYAN}[Auto-Fix] Mengaktifkan self-healing wrapper & patch helper AGY...${RESET}"
+                if bash "$DOC_DIR/install-agy.sh" --repair-wrapper; then
+                    echo -e "         ${GREEN}[Auto-Fix] Self-healing wrapper AGY aktif.${RESET}"
+                else
+                    echo -e "         ${RED}[Auto-Fix] Gagal memperbaiki wrapper AGY.${RESET}"
+                    ERRORS=$((ERRORS + 1))
+                fi
+            else
+                check_and_fix_proc_self_exe "Antigravity CLI" "$PREFIX/bin/agy" "$PREFIX/share/antigravity-cli/agy.real"
+            fi
+        fi
+    else
+        TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+        echo -e "  [${PASS}] Antigravity CLI Auto-Recovery: ${GREEN}Self-healing wrapper & patch-agy.sh aktif${RESET}"
+        PASSED_CHECKS=$((PASSED_CHECKS + 1))
+    fi
 else
     echo -e "  [INFO] Antigravity CLI: Belum terpasang di sistem"
 fi

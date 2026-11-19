@@ -132,7 +132,7 @@ if [ -n "$AGY_RELEASES_JSON" ]; then
     mapfile -t AGY_LIST < <(echo "$AGY_RELEASES_JSON" | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' | grep -E '^[v0-9]' | head -n 6)
 fi
 if [ ${#AGY_LIST[@]} -eq 0 ]; then
-    AGY_LIST=("1.4.10" "1.4.9" "1.4.8")
+    AGY_LIST=("1.5.12" "1.4.10" "1.3.5")
 fi
 AGY_LATEST="${AGY_LIST[0]#v}"
 
@@ -162,9 +162,17 @@ if [ -f "$PREFIX/bin/opencode-v2" ]; then
 fi
 
 AGY_INSTALLED="Tidak terpasang"
-if [ -f "$PREFIX/bin/agy" ]; then
-    RAW_AGY=$("$PREFIX/bin/agy" --version 2>/dev/null || echo "Unknown")
-    AGY_INSTALLED=$(echo "$RAW_AGY" | sed -E 's/.*([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+if [ -f "$PREFIX/bin/agy" ] || [ -f "$PREFIX/share/antigravity-cli/agy.real" ]; then
+    RAW_AGY=$("$PREFIX/bin/agy" --version 2>/dev/null || echo "")
+    if [ -z "$RAW_AGY" ] && [ -x "$PREFIX/share/antigravity-cli/patch-agy.sh" ]; then
+        bash "$PREFIX/share/antigravity-cli/patch-agy.sh" "$PREFIX/share/antigravity-cli/agy.real" >/dev/null 2>&1 || true
+        RAW_AGY=$("$PREFIX/bin/agy" --version 2>/dev/null || echo "")
+    fi
+    if [ -n "$RAW_AGY" ]; then
+        AGY_INSTALLED=$(echo "$RAW_AGY" | sed -E 's/.*([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+    else
+        AGY_INSTALLED="Unknown"
+    fi
 fi
 
 # 4. Display recent upstream release tags from GitHub (Neat, clean, categorized with [latest] markers)
