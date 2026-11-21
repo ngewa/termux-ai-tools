@@ -698,7 +698,7 @@ def cmd_quota(args):
 
     # Query antigravity-swap (aswap) for live Google OAuth quota if available
     try:
-        r = subprocess.run(["aswap", "list", "--json"], capture_output=True, text=True, timeout=5)
+        r = subprocess.run(["aswap", "list", "--json"], capture_output=True, text=True, timeout=15)
         if r.returncode == 0 and r.stdout.strip():
             aswap_data = json.loads(r.stdout.strip())
             accs = aswap_data.get("accounts", [])
@@ -712,15 +712,352 @@ def cmd_quota(args):
                     is_active = acc.get("active", False)
                     badge = f" {GREEN}[AKTIF]{RESET}" if is_active else ""
                     print(f"  [{num}] {BOLD}{email}{RESET}{alias_str}{badge}:")
-                    usage = acc.get("usage", {})
+                    usage = acc.get("usage") or {}
                     for bucket_id, bdata in usage.items():
-                        used_pct = bdata.get("usedPct", 0.0)
-                        resets_at = bdata.get("resetsAt", "")
-                        bar_color = GREEN if used_pct < 60 else (YELLOW if used_pct < 85 else RED)
-                        print(f"      • {bucket_id:<12}: {bar_color}{used_pct:>5.1f}% terpakai{RESET} (Reset: {resets_at})")
+                        used_pct = float(bdata.get("usedPct", 0.0))
+                        rem_pct = max(0.0, min(100.0, 100.0 - used_pct))
+                        resets_at = _format_reset_local(bdata.get("resetsAt"))
+                        bar_color = GREEN if rem_pct >= 30 else (YELLOW if rem_pct >= 10 else RED)
+                        reset_info = f" (Reset: {resets_at})" if rem_pct < 100 and resets_at else " (full)"
+                        print(f"      • {bucket_id:<12}: {bar_color}{rem_pct:>3.0f}% tersisa{RESET}{DIM}{reset_info}{RESET}")
                 print(f"{DIM}Kelola akun agy dengan: aswap switch / aswap add / aswap watch{RESET}\n")
     except Exception:
         pass
+
+def _parse_iso_utc(ts_str):
+    if not ts_str or not isinstance(ts_str, str):
+        return None
+    try:
+        s = ts_str.strip()
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        dt = datetime.datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+        return dt
+    except Exception:
+        return None
+
+def _format_reset_local(ts_str, now_dt=None):
+    dt = _parse_iso_utc(ts_str)
+    if not dt:
+        return ""
+    now_dt = now_dt or datetime.datetime.now(datetime.timezone.utc)
+    local_dt = dt.astimezone()
+    local_now = now_dt.astimezone()
+    delta_sec = (dt - now_dt).total_seconds()
+    if delta_sec <= 0:
+        return "resetting soon"
+    if local_dt.date() == local_now.date():
+        when = local_dt.strftime("%H:%M")
+    else:
+        when = f"{local_dt.strftime('%b')} {local_dt.day} {local_dt.strftime('%H:%M')}"
+    total = int(delta_sec)
+    days, rem = divmod(total, 86400)
+    hours, rem = divmod(rem, 3600)
+    mins = rem // 60
+    if days > 0:
+        cd = f"{days}d {hours}h"
+    elif hours > 0:
+        cd = f"{hours}h {mins}m"
+    elif mins > 0:
+        cd = f"{mins}m"
+    else:
+        cd = "<1m"
+    return f"{when:<12}  in {cd}"
+
+def _read_aswap_raw_usage(slot):
+    """Read raw remaining_fraction per bucket from aswap's usage/<slot>.json for exact agy parity."""
+    candidates = [
+        os.path.join(HOME, ".local/share/antigravity-swap/usage", f"{slot}.json"),
+        os.path.join(os.environ.get("XDG_DATA_HOME", os.path.join(HOME, ".local/share")), "antigravity-swap/usage", f"{slot}.json"),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                raw_map = {}
+                for g in (data.get("reading") or {}).get("groups") or []:
+                    for b in g.get("buckets") or []:
+                        bid = b.get("bucket_id") or b.get("id") or ""
+                        if bid and b.get("remaining_fraction") is not None:
+                            raw_map[bid] = {
+                                "remaining_fraction": float(b["remaining_fraction"]),
+                                "window": b.get("window") or "",
+                                "reset_time": b.get("reset_time") or "",
+                            }
+                return raw_map
+            except Exception:
+                return {}
+    return {}
+
+def _window_short_label(window_name, bucket_id):
+    w = (window_name or "").lower()
+    if w in ("5h", "5-hour"):
+        return "5h"
+    if w in ("weekly", "7d"):
+        return "7d"
+    if w in ("daily", "1d"):
+        return "1d"
+    bid = (bucket_id or "").lower()
+    if "5h" in bid:
+        return "5h"
+    if "weekly" in bid or "7d" in bid:
+        return "7d"
+    if "daily" in bid or "1d" in bid:
+        return "1d"
+    return w or "?"
+
+def _remaining_bar(rem_pct, width=10):
+    n = max(0, min(width, int(round(rem_pct / 100.0 * width))))
+    bar = "█" * n + "░" * (width - n)
+    color = GREEN if rem_pct >= 30 else (YELLOW if rem_pct >= 10 else RED)
+    return f"{color}{bar}{RESET}", color
+
+def _shorten_home(path_str):
+    if not path_str:
+        return "?"
+    try:
+        h = os.path.realpath(HOME)
+        p = os.path.realpath(path_str)
+        if p == h:
+            return "~"
+        if p.startswith(h + "/"):
+            return "~" + p[len(h):]
+    except Exception:
+        pass
+    if path_str == HOME:
+        return "~"
+    if path_str.startswith(HOME + "/"):
+        return "~" + path_str[len(HOME):]
+    return path_str
+
+def _filter_real_agy_instances(instances):
+    """Filter out transient/non-agy processes that aswap's broad cmdline scan may misclassify."""
+    valid = []
+    helper_cmds = {"models", "mcp", "plugin", "plugins", "agent", "agents", "changelog", "help", "install", "update"}
+    for inst in instances or []:
+        pid = inst.get("pid")
+        if pid and os.path.isdir(f"/proc/{pid}"):
+            try:
+                with open(f"/proc/{pid}/cmdline", "rb") as f:
+                    argv = [a.decode("utf-8", errors="replace") for a in f.read().split(b"\0") if a]
+                if not argv:
+                    continue
+                # Verify executable is actually agy / agy.real (or glibc ld-linux running agy.real)
+                exe0 = os.path.basename(argv[0]).lower()
+                is_agy_exe = exe0 in ("agy", "agy.real", "agy.exe")
+                if not is_agy_exe and exe0.startswith("ld-linux"):
+                    is_agy_exe = any(os.path.basename(a).lower() in ("agy", "agy.real") for a in argv[1:4])
+                if not is_agy_exe:
+                    continue
+                # Exclude short-lived -p /usage probes and helper subcommands
+                if any(a in ("-p", "--print", "--prompt") for a in argv[1:]):
+                    continue
+                non_flags = [a for a in argv[1:] if not a.startswith("-")]
+                if non_flags and non_flags[0] in helper_cmds:
+                    continue
+            except OSError:
+                continue
+        valid.append(inst)
+    return valid
+
+def _fetch_aswap_json(refresh=True):
+    cmd = ["aswap", "list", "--json"]
+    if refresh:
+        cmd.append("--refresh")
+    else:
+        cmd.append("--cached")
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    if r.returncode != 0 or not r.stdout.strip():
+        # Fallback without --refresh/--cached on older aswap
+        r = subprocess.run(["aswap", "list", "--json"], capture_output=True, text=True, timeout=60)
+    if r.returncode != 0 or not r.stdout.strip():
+        return None
+    return json.loads(r.stdout.strip())
+
+def _render_aswap_detail(data):
+    now_dt = datetime.datetime.now(datetime.timezone.utc)
+    accs = data.get("accounts") or []
+    if not accs:
+        print("Belum ada akun agy terdaftar. Login dengan 'agy', lalu jalankan: aswap add")
+        return
+
+    window_rank = {"5h": 0, "1d": 1, "7d": 2}
+    for idx, acc in enumerate(accs):
+        if idx > 0:
+            print()
+        num = acc.get("number")
+        email = acc.get("email") or "unknown"
+        alias = acc.get("alias")
+        is_active = bool(acc.get("active"))
+        name = email + (f" [{alias}]" if alias else "")
+        name_fmt = f"{GREEN}{BOLD}{name}{RESET}" if is_active else f"{BOLD}{name}{RESET}"
+
+        badges = []
+        if is_active:
+            badges.append(f"{GREEN}(active){RESET}")
+        if acc.get("disabled"):
+            badges.append(f"{DIM}(disabled){RESET}")
+        if acc.get("quarantined"):
+            badges.append(f"{RED}(quarantined: {acc.get('quarantineReason') or 're-add needed'}){RESET}")
+        if acc.get("limitedUntil"):
+            lim_str = _format_reset_local(acc.get("limitedUntil"), now_dt)
+            badges.append(f"{YELLOW}(limited {lim_str}){RESET}")
+        status = acc.get("usageStatus")
+        if status and status != "ok":
+            badges.append(f"{YELLOW}· {status.replace('_', ' ')}{RESET}")
+
+        header = f"{num}: {name_fmt}" + (" " + " ".join(badges) if badges else "")
+        print(header)
+
+        usage_map = acc.get("usage") or {}
+        raw_map = _read_aswap_raw_usage(num)
+        groups = acc.get("modelGroups") or []
+
+        if not groups and not usage_map:
+            print(f"   {DIM}belum ada data kuota (aswap refresh {num}){RESET}")
+            continue
+
+        if not groups:
+            # Fallback if older aswap JSON has no modelGroups
+            groups = [{"name": "Quota", "models": [], "available": True, "buckets": list(usage_map.keys())}]
+
+        for grp in groups:
+            g_name = grp.get("name") or "?"
+            g_models = grp.get("models") or []
+            b_ids = grp.get("buckets") or []
+
+            bucket_rows = []
+            for bid in b_ids:
+                uinfo = usage_map.get(bid) or {}
+                rinfo = raw_map.get(bid) or {}
+                if "remaining_fraction" in rinfo:
+                    rem_pct = max(0.0, min(100.0, round(rinfo["remaining_fraction"] * 100.0)))
+                elif "usedPct" in uinfo:
+                    rem_pct = max(0.0, min(100.0, round(100.0 - float(uinfo["usedPct"]))))
+                else:
+                    continue
+                resets_at = uinfo.get("resetsAt") or rinfo.get("reset_time") or ""
+                w_short = _window_short_label(rinfo.get("window", ""), bid)
+                bucket_rows.append({
+                    "id": bid,
+                    "window": w_short,
+                    "rem_pct": rem_pct,
+                    "resets_at": resets_at,
+                })
+            bucket_rows.sort(key=lambda x: window_rank.get(x["window"], 9))
+
+            is_avail = grp.get("available")
+            if is_avail is None:
+                is_avail = all(b["rem_pct"] > 0 for b in bucket_rows)
+
+            if is_avail:
+                print(f"   {GREEN}✓{RESET} {BOLD}{g_name}{RESET}")
+            else:
+                print(f"   {RED}✗{RESET} {BOLD}{g_name}{RESET}  {RED}exhausted{RESET}")
+
+            if g_models:
+                print(f"     {DIM}{', '.join(g_models)}{RESET}")
+
+            for b in bucket_rows:
+                rem_pct = b["rem_pct"]
+                bar_str, pct_color = _remaining_bar(rem_pct)
+                pct_str = f"{pct_color}{rem_pct:>3.0f}%{RESET}"
+                if rem_pct >= 100:
+                    tail = f"{DIM}full{RESET}"
+                else:
+                    reset_str = _format_reset_local(b["resets_at"], now_dt)
+                    tail = f"{DIM}{reset_str}{RESET}" if reset_str else ""
+                print(f"     {b['window']:<3} {bar_str} {pct_str} {tail}".rstrip())
+
+    print(f"\n{DIM}* Persentase menunjukkan sisa kuota (remaining), sinkron dengan 'agy /usage'.{RESET}")
+
+    # Running instances (verified against /proc)
+    instances = _filter_real_agy_instances(data.get("runningInstances") or [])
+    if instances:
+        grouped = {}
+        for inst in instances:
+            mode = inst.get("mode") or "TUI"
+            cwd = _shorten_home(inst.get("cwd"))
+            anum = inst.get("accountNumber")
+            aname = inst.get("account")
+            key = (mode, cwd, anum, aname)
+            grouped[key] = grouped.get(key, 0) + 1
+        print(f"\n{BOLD}Running instances:{RESET}")
+        cwd_w = max(len(k[1]) for k in grouped)
+        who_labels = {
+            k: (f"{k[2]}: {k[3]}" if k[2] else "account unknown")
+            for k in grouped
+        }
+        who_w = max(len(v) for v in who_labels.values())
+        for k in sorted(grouped.keys(), key=lambda x: (x[1], x[0])):
+            mode, cwd, _, _ = k
+            cnt = grouped[k]
+            who = who_labels[k]
+            sess_lbl = f"({cnt} session{'s' if cnt != 1 else ''})"
+            print(f"  {DIM}●{RESET} {mode:<5}  {cwd.ljust(cwd_w)}  {who.ljust(who_w)}  {DIM}{sess_lbl}{RESET}")
+
+def cmd_aswap_list(args):
+    use_refresh = "--cached" not in args
+    if use_refresh and sys.stderr.isatty():
+        print(f"{DIM}Mengambil data kuota live dari agy...{RESET}", file=sys.stderr, flush=True)
+    try:
+        data = _fetch_aswap_json(refresh=use_refresh)
+        if data is not None:
+            _render_aswap_detail(data)
+            return
+    except Exception:
+        pass
+    # Fallback to native aswap if JSON mode is unavailable
+    rc = subprocess.call(["aswap", "list", "--detail"] + (["--refresh"] if use_refresh else []))
+    if rc != 0:
+        subprocess.call(["aswap", "list"])
+
+def cmd_aswap_watch(args):
+    interval = 60
+    once = "--once" in args
+    use_cached = "--cached" in args
+    i = 0
+    while i < len(args):
+        if args[i] in ("--interval", "-i") and i + 1 < len(args):
+            try:
+                interval = max(5, int(float(args[i + 1])))
+            except ValueError:
+                pass
+            i += 2
+        else:
+            i += 1
+    try:
+        first_tick = True
+        while True:
+            if first_tick and not use_cached and sys.stderr.isatty():
+                print(f"{DIM}Mengambil data kuota live dari agy...{RESET}", file=sys.stderr, flush=True)
+            first_tick = False
+            try:
+                data = _fetch_aswap_json(refresh=not use_cached)
+            except KeyboardInterrupt:
+                raise
+            except Exception:
+                data = None
+            if sys.stdout.isatty():
+                sys.stdout.write("\033[2J\033[H")
+            now_str = datetime.datetime.now().strftime("%H:%M:%S")
+            print(f"{BOLD}{CYAN}aswap watch{RESET}  {now_str}  {DIM}(live refresh tiap {interval}s, Ctrl-C berhenti){RESET}\n")
+            if data is not None:
+                _render_aswap_detail(data)
+            else:
+                rc = subprocess.call(["aswap", "list", "--detail"] + ([] if use_cached else ["--refresh"]))
+                if rc != 0:
+                    subprocess.call(["aswap", "list"])
+            sys.stdout.flush()
+            if once:
+                return
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        print()
+        return
 
 def cmd_backup(args):
     # Syntax: backup [output_file] [--password <pwd>]
@@ -899,7 +1236,9 @@ handlers = {
     "quota": cmd_quota,
     "limits": cmd_quota,
     "backup": cmd_backup,
-    "restore": cmd_restore
+    "restore": cmd_restore,
+    "aswap-list": cmd_aswap_list,
+    "aswap-watch": cmd_aswap_watch
 }
 
 if cmd in handlers:
@@ -1026,27 +1365,13 @@ interactive_menu() {
                 echo "0) Batal"
                 read -r -p "Pilihan aswap [0-5]: " aopt
                 case "$aopt" in
-                    1) aswap list --detail || aswap list ;;
+                    1) run_account_engine aswap-list ;;
                     2) aswap add ;;
                     3)
                         read -r -p "Nomor / Email / Alias akun: " tgt_acc
                         [ -n "$tgt_acc" ] && aswap switch "$tgt_acc"
                         ;;
-                    4)
-                        if aswap watch --help 2>/dev/null | grep -q -- '--detail'; then
-                            aswap watch --detail
-                        else
-                            (
-                                trap 'exit 0' INT
-                                while true; do
-                                    clear
-                                    echo -e "${BOLD}${CYAN}aswap watch${RESET}  $(date '+%H:%M:%S')  ${DIM}(every 60s, Ctrl-C stops)${RESET}\n"
-                                    aswap list --detail || aswap list
-                                    sleep 60
-                                done
-                            )
-                        fi
-                        ;;
+                    4) run_account_engine aswap-watch ;;
                     5) aswap auto ;;
                     *) echo "Dibatalkan." ;;
                 esac
@@ -1141,14 +1466,22 @@ else
             if ! command -v aswap >/dev/null 2>&1; then
                 pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
             fi
-            exec aswap list "$@"
+            if [ $# -eq 0 ] || [ "$1" = "--cached" ] || [ "$1" = "--detail" ] || [ "$1" = "-d" ] || [ "$1" = "--refresh" ]; then
+                run_account_engine aswap-list "$@"
+            else
+                exec aswap list "$@"
+            fi
             ;;
         agy-watch)
             shift
             if ! command -v aswap >/dev/null 2>&1; then
                 pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
             fi
-            exec aswap watch "$@"
+            if [ $# -eq 0 ] || [ "$1" = "--interval" ] || [ "$1" = "-i" ] || [ "$1" = "--detail" ] || [ "$1" = "--once" ] || [ "$1" = "--cached" ]; then
+                run_account_engine aswap-watch "$@"
+            else
+                exec aswap watch "$@"
+            fi
             ;;
         agy-auto)
             shift

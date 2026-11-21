@@ -129,6 +129,7 @@ assert_success "aswap binary tersedia dan dapat dijalankan" command -v aswap
 assert_output_contains "aswap list menampilkan akun Antigravity" "chraigmenholadi@gmail.com" aswap list
 assert_output_contains "ai aswap list berjalan via ai-launcher" "chraigmenholadi@gmail.com" bash "$AI_BIN" aswap list
 assert_output_contains "aswap list --detail menampilkan model per grup" "Gemini Models" aswap list --detail --cached
+assert_output_contains "agy-list menampilkan sisa kuota (remaining)" "sisa kuota (remaining)" bash "$ACCOUNT_BIN" agy-list --cached
 assert_output_contains "quota monitor menyertakan akun Google agy" "AKUN GOOGLE ANTIGRAVITY" bash "$ACCOUNT_BIN" quota
 
 # 11. Pembersihan Profil Uji
