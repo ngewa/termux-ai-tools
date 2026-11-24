@@ -53,7 +53,8 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "title": {"type": "string", "description": "Judul notifikasi"},
-                "content": {"type": "string", "description": "Isi pesan notifikasi"}
+                "content": {"type": "string", "description": "Isi pesan notifikasi"},
+                "sound": {"type": "boolean", "description": "Putar suara notifikasi sistem Android (default: true)"}
             },
             "required": ["title", "content"]
         }
@@ -127,17 +128,20 @@ def handle_clipboard(action, text=""):
         return "Install 'pkg install termux-api' untuk menulis clipboard."
     return "Action tidak valid."
 
-def handle_notify(title, content):
+def handle_notify(title, content, sound=True):
     if shutil.which("termux-notification"):
         try:
-            subprocess.run(["termux-notification", "--title", title, "--content", content], timeout=3)
+            cmd = ["termux-notification", "--title", title, "--content", content]
+            if sound:
+                cmd.append("--sound")
+            subprocess.run(cmd, timeout=8)
             return "Notifikasi terkirim ke status bar Android."
         except Exception as e:
             return f"Error: {e}"
     # Fallback to toast
     if shutil.which("termux-toast"):
         try:
-            subprocess.run(["termux-toast", f"{title}: {content}"], timeout=3)
+            subprocess.run(["termux-toast", f"{title}: {content}"], timeout=8)
             return "Notifikasi ditampilkan sebagai toast."
         except Exception:
             pass
@@ -146,7 +150,7 @@ def handle_notify(title, content):
 def handle_toast(message):
     if shutil.which("termux-toast"):
         try:
-            subprocess.run(["termux-toast", message], timeout=3)
+            subprocess.run(["termux-toast", message], timeout=8)
             return "Toast ditampilkan di layar."
         except Exception as e:
             return f"Error: {e}"
@@ -155,7 +159,7 @@ def handle_toast(message):
 def handle_vibrate(duration_ms=500):
     if shutil.which("termux-vibrate"):
         try:
-            subprocess.run(["termux-vibrate", "-d", str(duration_ms)], timeout=3)
+            subprocess.run(["termux-vibrate", "-d", str(duration_ms)], timeout=8)
             return f"Perangkat bergetar selama {duration_ms}ms."
         except Exception as e:
             return f"Error: {e}"
@@ -218,7 +222,11 @@ def process_message(msg):
         elif tool_name == "termux_clipboard":
             result_text = handle_clipboard(args.get("action", "get"), args.get("text", ""))
         elif tool_name == "termux_notify":
-            result_text = handle_notify(args.get("title", "AI Notifikasi"), args.get("content", ""))
+            result_text = handle_notify(
+                args.get("title", "AI Notifikasi"),
+                args.get("content", ""),
+                args.get("sound", True),
+            )
         elif tool_name == "termux_toast":
             result_text = handle_toast(args.get("message", ""))
         elif tool_name == "termux_vibrate":
