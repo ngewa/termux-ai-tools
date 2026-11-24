@@ -1015,6 +1015,81 @@ def cmd_aswap_list(args):
     if rc != 0:
         subprocess.call(["aswap", "list"])
 
+def cmd_aswap_list_compact(args):
+    data = None
+    try:
+        data = _fetch_aswap_json(refresh=False)
+    except Exception:
+        pass
+
+    accs = data.get("accounts", []) if data else []
+    if not accs:
+        acc_file = os.path.join(HOME, ".local/share/antigravity-swap/accounts.json")
+        if os.path.exists(acc_file):
+            try:
+                with open(acc_file, "r", encoding="utf-8") as f:
+                    raw = json.load(f)
+                    accs = raw.get("accounts", [])
+            except Exception:
+                pass
+
+    if not accs:
+        print(f"{YELLOW}[WARN] Belum ada akun agy yang terdaftar.{RESET}")
+        print(f"{DIM}Login dengan 'agy', lalu daftarkan dengan menu: 2) aswap add{RESET}\n")
+        sys.exit(1)
+
+    print(f"{BOLD}{CYAN}=== Daftar Akun Google Antigravity (aswap) ==={RESET}")
+    for a in accs:
+        num = a.get("number") or a.get("slot")
+        email = a.get("email", "unknown")
+        alias = a.get("alias")
+        alias_str = f" [{alias}]" if alias else ""
+        is_active = bool(a.get("active"))
+
+        badges = []
+        if is_active:
+            badges.append(f"{GREEN}[AKTIF]{RESET}")
+        if a.get("disabled"):
+            badges.append(f"{DIM}[DISABLED]{RESET}")
+        if a.get("quarantined"):
+            badges.append(f"{RED}[QUARANTINED]{RESET}")
+
+        badge_str = (" " + " ".join(badges)) if badges else ""
+
+        usage_map = a.get("usage") or {}
+        raw_map = _read_aswap_raw_usage(num)
+
+        rem_g = None
+        for bid in ("gemini-5h", "gemini-weekly"):
+            if bid in raw_map and "remaining_fraction" in raw_map[bid]:
+                pct = max(0.0, min(100.0, round(raw_map[bid]["remaining_fraction"] * 100.0)))
+                rem_g = pct if rem_g is None else min(rem_g, pct)
+            elif bid in usage_map and "usedPct" in usage_map[bid]:
+                pct = max(0.0, min(100.0, round(100.0 - float(usage_map[bid]["usedPct"]))))
+                rem_g = pct if rem_g is None else min(rem_g, pct)
+
+        rem_c = None
+        for bid in ("3p-5h", "3p-weekly"):
+            if bid in raw_map and "remaining_fraction" in raw_map[bid]:
+                pct = max(0.0, min(100.0, round(raw_map[bid]["remaining_fraction"] * 100.0)))
+                rem_c = pct if rem_c is None else min(rem_c, pct)
+            elif bid in usage_map and "usedPct" in usage_map[bid]:
+                pct = max(0.0, min(100.0, round(100.0 - float(usage_map[bid]["usedPct"]))))
+                rem_c = pct if rem_c is None else min(rem_c, pct)
+
+        q_parts = []
+        if rem_g is not None:
+            color_g = GREEN if rem_g >= 30 else (YELLOW if rem_g >= 10 else RED)
+            q_parts.append(f"Gemini: {color_g}{rem_g:.0f}%{RESET}")
+        if rem_c is not None:
+            color_c = GREEN if rem_c >= 30 else (YELLOW if rem_c >= 10 else RED)
+            q_parts.append(f"Claude: {color_c}{rem_c:.0f}%{RESET}")
+
+        q_str = (" " + DIM + "(" + RESET + ", ".join(q_parts) + DIM + " tersisa)" + RESET) if q_parts else ""
+        num_color = GREEN if is_active else CYAN
+        print(f"  {BOLD}{num_color}{num}){RESET} {BOLD}{email}{RESET}{alias_str}{badge_str}{q_str}")
+    print()
+
 def cmd_aswap_watch(args):
     interval = 60
     once = "--once" in args
@@ -1238,7 +1313,8 @@ handlers = {
     "backup": cmd_backup,
     "restore": cmd_restore,
     "aswap-list": cmd_aswap_list,
-    "aswap-watch": cmd_aswap_watch
+    "aswap-watch": cmd_aswap_watch,
+    "aswap-list-compact": cmd_aswap_list_compact
 }
 
 if cmd in handlers:
@@ -1368,8 +1444,15 @@ interactive_menu() {
                     1) run_account_engine aswap-list ;;
                     2) aswap add ;;
                     3)
-                        read -r -p "Nomor / Email / Alias akun: " tgt_acc
-                        [ -n "$tgt_acc" ] && aswap switch "$tgt_acc"
+                        echo ""
+                        if run_account_engine aswap-list-compact; then
+                            read -r -p "Pilih nomor akun tujuan (atau 0 untuk batal): " tgt_acc
+                            if [ -z "$tgt_acc" ] || [ "$tgt_acc" = "0" ] || [ "$tgt_acc" = "batal" ] || [ "$tgt_acc" = "q" ] || [ "$tgt_acc" = "Q" ]; then
+                                echo "Dibatalkan."
+                            else
+                                aswap switch "$tgt_acc"
+                            fi
+                        fi
                         ;;
                     4) run_account_engine aswap-watch ;;
                     5) aswap auto ;;
@@ -1459,7 +1542,18 @@ else
             if ! command -v aswap >/dev/null 2>&1; then
                 pip install --upgrade "antigravity-swap @ git+https://github.com/ngewa/antigravity-swap.git"
             fi
-            exec aswap switch "$@"
+            if [ $# -gt 0 ]; then
+                exec aswap switch "$@"
+            else
+                if run_account_engine aswap-list-compact; then
+                    read -r -p "Pilih nomor akun tujuan (atau 0 untuk batal): " tgt_acc
+                    if [ -z "$tgt_acc" ] || [ "$tgt_acc" = "0" ] || [ "$tgt_acc" = "batal" ] || [ "$tgt_acc" = "q" ] || [ "$tgt_acc" = "Q" ]; then
+                        echo "Dibatalkan."
+                    else
+                        aswap switch "$tgt_acc"
+                    fi
+                fi
+            fi
             ;;
         agy-list|agy-ls)
             shift

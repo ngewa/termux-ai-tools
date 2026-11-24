@@ -136,6 +136,10 @@ case "$1" in
         ;;
     aswap|swap)
         shift
+        if [ "$1" = "switch" ] && [ $# -eq 1 ]; then
+            run_tool_script "bin/account-manager.sh" agy-switch
+            exit $?
+        fi
         if command -v aswap >/dev/null 2>&1; then
             exec aswap "$@"
         else
