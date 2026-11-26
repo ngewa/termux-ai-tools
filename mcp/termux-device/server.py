@@ -10,13 +10,86 @@ Allows AI Coding Agents (OpenCode, Antigravity CLI) to interact natively with An
 - termux_open_url: Open a web URL in the Android default browser
 """
 
-import sys
 import json
-import subprocess
+import os
 import shutil
+import signal
+import subprocess
+import sys
+import time
 
 SERVER_NAME = "termux-device"
-SERVER_VERSION = "1.0.0"
+SERVER_VERSION = "1.1.0"
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BRIDGE_JAR = os.path.join(BASE_DIR, "termux-device-bridge.jar")
+
+_API_APP_CACHE = {"checked_at": 0.0, "installed": False}
+
+
+def has_termux_api_app():
+    now = time.monotonic()
+    if now - _API_APP_CACHE["checked_at"] < 30.0:
+        return _API_APP_CACHE["installed"]
+    installed = False
+    if os.path.exists("/system/bin/pm"):
+        rc, out, _ = run_cmd_safe(["/system/bin/pm", "path", "com.termux.api"], timeout=2.0)
+        installed = rc == 0 and "package:" in out
+    _API_APP_CACHE["checked_at"] = now
+    _API_APP_CACHE["installed"] = installed
+    return installed
+
+
+def run_cmd_safe(cmd, timeout=4.0, input_text=None, env_override=None):
+    """Run a command isolated from MCP stdio pipes and kill the whole process group on timeout."""
+    env = os.environ.copy()
+    if env_override is not None:
+        env.update(env_override)
+
+    stdin_cfg = subprocess.PIPE if input_text is not None else subprocess.DEVNULL
+    proc = subprocess.Popen(
+        cmd,
+        stdin=stdin_cfg,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+        start_new_session=True,
+    )
+    try:
+        out, err = proc.communicate(input=input_text, timeout=timeout)
+        return proc.returncode, out or "", err or ""
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except OSError:
+            proc.kill()
+        proc.communicate()
+        raise
+
+
+def run_native_bridge(subcommand, *args, timeout=4.0):
+    if not os.path.isfile(BRIDGE_JAR):
+        raise FileNotFoundError(f"Bridge DEX tidak ditemukan: {BRIDGE_JAR}")
+    if os.access(BRIDGE_JAR, os.W_OK):
+        try:
+            os.chmod(BRIDGE_JAR, 0o400)
+        except OSError:
+            pass
+    env = os.environ.copy()
+    env.pop("LD_LIBRARY_PATH", None)
+    env.pop("LD_PRELOAD", None)
+    env["CLASSPATH"] = BRIDGE_JAR
+    cmd = [
+        "/system/bin/app_process",
+        "-Xnoimage-dex2oat",
+        "/",
+        "com.termux.devicebridge.Bridge",
+        subcommand,
+        *[str(a) for a in args],
+    ]
+    return run_cmd_safe(cmd, timeout=timeout, env_override=env)
+
 
 TOOLS = [
     {
@@ -93,92 +166,134 @@ TOOLS = [
     }
 ]
 
+
 def handle_battery():
-    if shutil.which("termux-battery-status"):
+    if has_termux_api_app() and shutil.which("termux-battery-status"):
         try:
-            res = subprocess.run(["termux-battery-status"], capture_output=True, text=True, timeout=5)
-            if res.returncode == 0:
-                return res.stdout.strip()
+            rc, out, _ = run_cmd_safe(["termux-battery-status"], timeout=3.5)
+            if rc == 0 and out.strip():
+                return out.strip()
         except Exception:
             pass
-    # Fallback to sysfs
     try:
         cap = open("/sys/class/power_supply/battery/capacity").read().strip()
         stat = open("/sys/class/power_supply/battery/status").read().strip()
-        return json.dumps({"percentage": int(cap), "status": stat, "source": "sysfs"})
+        info = {"percentage": int(cap), "status": stat, "source": "sysfs"}
+        try:
+            temp_raw = int(open("/sys/class/power_supply/battery/temp").read().strip())
+            info["temperature"] = round(temp_raw / 10.0, 1)
+        except Exception:
+            pass
+        return json.dumps(info)
     except Exception:
-        return json.dumps({"status": "unknown", "note": "Install 'pkg install termux-api' untuk info baterai lengkap."})
+        return json.dumps({"status": "unknown", "note": "Gagal membaca status baterai."})
+
 
 def handle_clipboard(action, text=""):
     if action == "get":
-        if shutil.which("termux-clipboard-get"):
+        if has_termux_api_app() and shutil.which("termux-clipboard-get"):
             try:
-                res = subprocess.run(["termux-clipboard-get"], capture_output=True, text=True, timeout=3)
-                return res.stdout
-            except Exception as e:
-                return f"Error: {e}"
-        return "Install 'pkg install termux-api' untuk membaca clipboard."
+                rc, out, _ = run_cmd_safe(["termux-clipboard-get"], timeout=3.0)
+                if rc == 0:
+                    return out
+            except Exception:
+                pass
+        try:
+            rc, out, err = run_native_bridge("clipboard-get", timeout=3.0)
+            if rc == 0:
+                return out
+            return f"Error: {err.strip()}"
+        except Exception as e:
+            return f"Error: {e}"
     elif action == "set":
-        if shutil.which("termux-clipboard-set"):
+        if has_termux_api_app() and shutil.which("termux-clipboard-set"):
             try:
-                subprocess.run(["termux-clipboard-set"], input=text, text=True, timeout=3)
+                rc, _, _ = run_cmd_safe(["termux-clipboard-set"], timeout=3.0, input_text=text)
+                if rc == 0:
+                    return f"Berhasil menyalin {len(text)} karakter ke clipboard."
+            except Exception:
+                pass
+        try:
+            rc, _, err = run_native_bridge("clipboard-set", text, timeout=3.0)
+            if rc == 0:
                 return f"Berhasil menyalin {len(text)} karakter ke clipboard."
-            except Exception as e:
-                return f"Error: {e}"
-        return "Install 'pkg install termux-api' untuk menulis clipboard."
+            return f"Error: {err.strip()}"
+        except Exception as e:
+            return f"Error: {e}"
     return "Action tidak valid."
 
+
 def handle_notify(title, content, sound=True):
-    if shutil.which("termux-notification"):
+    if has_termux_api_app() and shutil.which("termux-notification"):
         try:
             cmd = ["termux-notification", "--title", title, "--content", content]
             if sound:
                 cmd.append("--sound")
-            subprocess.run(cmd, timeout=8)
-            return "Notifikasi terkirim ke status bar Android."
-        except Exception as e:
-            return f"Error: {e}"
-    # Fallback to toast
-    if shutil.which("termux-toast"):
-        try:
-            subprocess.run(["termux-toast", f"{title}: {content}"], timeout=8)
-            return "Notifikasi ditampilkan sebagai toast."
+            rc, _, _ = run_cmd_safe(cmd, timeout=4.0)
+            if rc == 0:
+                return "Notifikasi terkirim ke status bar Android."
         except Exception:
             pass
-    return f"[NOTIFY] {title}: {content}"
+
+    try:
+        rc, _, err = run_native_bridge(
+            "notify", title, content, "true" if sound else "false", "13370", timeout=4.0
+        )
+        if rc == 0:
+            return "Notifikasi terkirim ke status bar Android."
+        return f"Error: {err.strip()}"
+    except Exception as e:
+        return f"Error: {e}"
+
 
 def handle_toast(message):
-    if shutil.which("termux-toast"):
+    if has_termux_api_app() and shutil.which("termux-toast"):
         try:
-            subprocess.run(["termux-toast", message], timeout=8)
+            rc, _, _ = run_cmd_safe(["termux-toast", message], timeout=3.5)
+            if rc == 0:
+                return "Toast ditampilkan di layar."
+        except Exception:
+            pass
+    try:
+        rc, _, err = run_native_bridge("toast", message, timeout=3.5)
+        if rc == 0:
             return "Toast ditampilkan di layar."
-        except Exception as e:
-            return f"Error: {e}"
-    return f"[TOAST] {message}"
+        return f"Error: {err.strip()}"
+    except Exception as e:
+        return f"Error: {e}"
+
 
 def handle_vibrate(duration_ms=500):
-    if shutil.which("termux-vibrate"):
+    duration_ms = max(1, min(int(duration_ms), 10000))
+    timeout_sec = max(3.5, (duration_ms / 1000.0) + 2.5)
+    if has_termux_api_app() and shutil.which("termux-vibrate"):
         try:
-            subprocess.run(["termux-vibrate", "-d", str(duration_ms)], timeout=8)
+            rc, _, _ = run_cmd_safe(["termux-vibrate", "-d", str(duration_ms)], timeout=timeout_sec)
+            if rc == 0:
+                return f"Perangkat bergetar selama {duration_ms}ms."
+        except Exception:
+            pass
+    try:
+        rc, _, err = run_native_bridge("vibrate", str(duration_ms), timeout=timeout_sec)
+        if rc == 0:
             return f"Perangkat bergetar selama {duration_ms}ms."
-        except Exception as e:
-            return f"Error: {e}"
-    return "Perintah termux-vibrate tidak tersedia (instal via: pkg install termux-api)."
+        return f"Error: {err.strip()}"
+    except Exception as e:
+        return f"Error: {e}"
+
 
 def handle_open_url(url):
-    if shutil.which("termux-open-url"):
-        try:
-            subprocess.run(["termux-open-url", url], timeout=3)
-            return f"Membuka URL di browser: {url}"
-        except Exception as e:
-            return f"Error: {e}"
-    elif shutil.which("termux-open"):
-        try:
-            subprocess.run(["termux-open", url], timeout=3)
-            return f"Membuka URL: {url}"
-        except Exception as e:
-            return f"Error: {e}"
+    for tool in ("termux-open-url", "termux-open"):
+        if shutil.which(tool):
+            try:
+                rc, _, err = run_cmd_safe([tool, url], timeout=3.5)
+                if rc == 0:
+                    return f"Membuka URL di browser: {url}"
+                return f"Error: {err.strip()}"
+            except Exception as e:
+                return f"Error: {e}"
     return "Tidak dapat menemukan handler termux-open-url."
+
 
 def process_message(msg):
     method = msg.get("method")
@@ -260,6 +375,7 @@ def process_message(msg):
             }
         return None
 
+
 def main():
     for line in sys.stdin:
         line = line.strip()
@@ -282,6 +398,7 @@ def main():
             }
             sys.stdout.write(json.dumps(err_resp) + "\n")
             sys.stdout.flush()
+
 
 if __name__ == "__main__":
     main()
