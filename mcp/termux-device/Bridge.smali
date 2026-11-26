@@ -217,12 +217,13 @@
     invoke-virtual {v0, v2}, Landroid/app/Notification$Builder;->setContentText(Ljava/lang/CharSequence;)Landroid/app/Notification$Builder;
     const/4 v7, 0x1
     invoke-virtual {v0, v7}, Landroid/app/Notification$Builder;->setAutoCancel(Z)Landroid/app/Notification$Builder;
-    invoke-static {v0}, Lcom/termux/devicebridge/Bridge;->applyTimestamp(Landroid/app/Notification$Builder;)V
 
     new-instance v10, Landroid/app/Notification$BigTextStyle;
     invoke-direct {v10}, Landroid/app/Notification$BigTextStyle;-><init>()V
     invoke-virtual {v10, v2}, Landroid/app/Notification$BigTextStyle;->bigText(Ljava/lang/CharSequence;)Landroid/app/Notification$BigTextStyle;
     invoke-virtual {v0, v10}, Landroid/app/Notification$Builder;->setStyle(Landroid/app/Notification$Style;)Landroid/app/Notification$Builder;
+
+    invoke-static {v0, p0}, Lcom/termux/devicebridge/Bridge;->applyMetadata(Landroid/app/Notification$Builder;[Ljava/lang/String;)V
 
     invoke-virtual {v0}, Landroid/app/Notification$Builder;->build()Landroid/app/Notification;
     move-result-object v13
@@ -236,8 +237,8 @@
     return-void
 .end method
 
-.method private static applyTimestamp(Landroid/app/Notification$Builder;)V
-    .registers 7
+.method private static applyMetadata(Landroid/app/Notification$Builder;[Ljava/lang/String;)V
+    .registers 9
 
     invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
     move-result-wide v0
@@ -246,18 +247,46 @@
     const/4 v2, 0x1
     invoke-virtual {p0, v2}, Landroid/app/Notification$Builder;->setShowWhen(Z)Landroid/app/Notification$Builder;
 
-    new-instance v3, Ljava/text/SimpleDateFormat;
-    const-string v4, "HH:mm:ss"
-    invoke-static {}, Ljava/util/Locale;->getDefault()Ljava/util/Locale;
-    move-result-object v5
-    invoke-direct {v3, v4, v5}, Ljava/text/SimpleDateFormat;-><init>(Ljava/lang/String;Ljava/util/Locale;)V
+    const/4 v3, 0x0
+    array-length v2, p1
+    const/4 v4, 0x0
+    const/4 v5, 0x0
 
-    new-instance v4, Ljava/util/Date;
-    invoke-direct {v4, v0, v1}, Ljava/util/Date;-><init>(J)V
-    invoke-virtual {v3, v4}, Ljava/text/SimpleDateFormat;->format(Ljava/util/Date;)Ljava/lang/String;
+    const/4 v2, 0x5
+    array-length v6, p1
+    if-le v6, v2, :default_subtext
+    aget-object v3, p1, v2
+    if-eqz v3, :default_subtext
+    invoke-virtual {v3}, Ljava/lang/String;->length()I
+    move-result v2
+    if-lez v2, :default_subtext
+    goto :set_subtext
+
+    :default_subtext
+    new-instance v4, Ljava/text/SimpleDateFormat;
+    const-string v5, "HH:mm:ss"
+    invoke-static {}, Ljava/util/Locale;->getDefault()Ljava/util/Locale;
+    move-result-object v6
+    invoke-direct {v4, v5, v6}, Ljava/text/SimpleDateFormat;-><init>(Ljava/lang/String;Ljava/util/Locale;)V
+    new-instance v5, Ljava/util/Date;
+    invoke-direct {v5, v0, v1}, Ljava/util/Date;-><init>(J)V
+    invoke-virtual {v4, v5}, Ljava/text/SimpleDateFormat;->format(Ljava/util/Date;)Ljava/lang/String;
     move-result-object v3
 
+    :set_subtext
     invoke-virtual {p0, v3}, Landroid/app/Notification$Builder;->setSubText(Ljava/lang/CharSequence;)Landroid/app/Notification$Builder;
+
+    array-length v2, p1
+    const/4 v6, 0x6
+    if-le v2, v6, :done
+    aget-object v4, p1, v6
+    if-eqz v4, :done
+    invoke-virtual {v4}, Ljava/lang/String;->length()I
+    move-result v2
+    if-lez v2, :done
+    invoke-virtual {p0, v4}, Landroid/app/Notification$Builder;->setContentText(Ljava/lang/CharSequence;)Landroid/app/Notification$Builder;
+
+    :done
     return-void
 .end method
 
