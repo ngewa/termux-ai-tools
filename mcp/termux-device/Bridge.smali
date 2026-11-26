@@ -217,6 +217,7 @@
     invoke-virtual {v0, v2}, Landroid/app/Notification$Builder;->setContentText(Ljava/lang/CharSequence;)Landroid/app/Notification$Builder;
     const/4 v7, 0x1
     invoke-virtual {v0, v7}, Landroid/app/Notification$Builder;->setAutoCancel(Z)Landroid/app/Notification$Builder;
+    invoke-static {v0}, Lcom/termux/devicebridge/Bridge;->applyTimestamp(Landroid/app/Notification$Builder;)V
 
     new-instance v10, Landroid/app/Notification$BigTextStyle;
     invoke-direct {v10}, Landroid/app/Notification$BigTextStyle;-><init>()V
@@ -232,6 +233,31 @@
     div-int v14, v6, v7
 
     invoke-interface/range {v8 .. v14}, Landroid/app/INotificationManager;->enqueueNotificationWithTag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILandroid/app/Notification;I)V
+    return-void
+.end method
+
+.method private static applyTimestamp(Landroid/app/Notification$Builder;)V
+    .registers 7
+
+    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
+    move-result-wide v0
+
+    invoke-virtual {p0, v0, v1}, Landroid/app/Notification$Builder;->setWhen(J)Landroid/app/Notification$Builder;
+    const/4 v2, 0x1
+    invoke-virtual {p0, v2}, Landroid/app/Notification$Builder;->setShowWhen(Z)Landroid/app/Notification$Builder;
+
+    new-instance v3, Ljava/text/SimpleDateFormat;
+    const-string v4, "HH:mm:ss"
+    invoke-static {}, Ljava/util/Locale;->getDefault()Ljava/util/Locale;
+    move-result-object v5
+    invoke-direct {v3, v4, v5}, Ljava/text/SimpleDateFormat;-><init>(Ljava/lang/String;Ljava/util/Locale;)V
+
+    new-instance v4, Ljava/util/Date;
+    invoke-direct {v4, v0, v1}, Ljava/util/Date;-><init>(J)V
+    invoke-virtual {v3, v4}, Ljava/text/SimpleDateFormat;->format(Ljava/util/Date;)Ljava/lang/String;
+    move-result-object v3
+
+    invoke-virtual {p0, v3}, Landroid/app/Notification$Builder;->setSubText(Ljava/lang/CharSequence;)Landroid/app/Notification$Builder;
     return-void
 .end method
 
